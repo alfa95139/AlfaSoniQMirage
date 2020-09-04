@@ -85,53 +85,6 @@
 #define enablefd    0xF4C6
 #define disablefd   0xF4D6
 
-////////////////////////////////////////////////////////////////////
-// 6809 DEFINITIONS
-////////////////////////////////////////////////////////////////////
-// MEMORY
-//
-// WAV Memory: 32K (x 4 banks, eventually: 128K total)
-// bit   VIA 6522 Port B
-// 0     bank 0/1
-// 1     upper/lower
-//
-// b b
-// i i     Pages
-// t t
-// 0 0   1st Page
-// 0 1   2nd Page
-// 1 0   3rd Page
-// 1 1   4th Page
-#define WAV_START   0x0000
-#define WAV_END     0x7FFF
-byte    WAV_RAM_0[WAV_END - WAV_START+1];
-//byte    WAV_RAM_1[WAV_END - WAV_START+1];
-//byte    WAV_RAM_2[WAV_END - WAV_START+1];
-//byte    WAV_RAM_3[WAV_END - WAV_START+1];
-
-// PROGRAM MEMORY: 16K
-#define RAM_START  0x8000
-#define RAM_END   0xBFFF
-byte    PRG_RAM[RAM_END - RAM_START+1];
-
-// Expansion Cartridge: 8K
-#define CART_START  0xC000
-#define CART_END    0xDFFF
-
-// Devices
-#define DEVICES_START   0xE000
-#define DEVICES_END     0xEFFF
-#define UART6850cs      0xE100 // Control/Status
-#define UART6850_d      0xE101 // Data
-#define VIA6522         0xE200 // to 0xE20F
-#define VCF3328         0xE400 //   0xE408 to 0xE40F: Filter cut-off Freq. 0xE410 to 0xE417:  Filter Resonance.E418-E41F  Multiplexer address pre-set (no output) 
-#define FDC1770         0xE800 // to 0xE803
-#define DOC5503         0xEC00 // to 0xECEF
-
-// BOOTSTRAP ROM: 4K  - contains disk I/O, pitch and controller parameter tables and DOC5503 drivers
-#define ROM_START   0xF000
-#define ROM_END     0xFFFF
-
 int page = 0;
 
 
@@ -175,9 +128,8 @@ uint8_t readRAM8(uint16_t address) {
   if ((ROM_START <= address) && (address <= ROM_END)) {
     out = ROM [ (address - ROM_START) ];
 
-  } else  {
+  } else if ((RAM_START <= address) && (address <= RAM_END)) {
     // RAM?
-    if ((RAM_START <= address) && (address <= RAM_END)) {
     if (address == loadopsys) Serial.printf("***   LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM   *** \n");
     if (address == osentry)   Serial.printf("***  OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY  ***\n");
     if (address == irqentry)  Serial.printf("***  IRQ INTERRUPT ROUTINE ENTRY POINT ***  IRQ INTERRUPT ROUTINE ENTRY POINT ***   IRQ INTERRUPT ROUTINE ENTRY POINT  ***\n");
@@ -221,7 +173,6 @@ uint8_t readRAM8(uint16_t address) {
     if (address == osvec)  Serial.printf("****  OS VEC ***  OS VEC ***  OS VEC ***  OS VEC ***  OS VEC %04x = %02x %02x\n", address, PRG_RAM[address - RAM_START+1], PRG_RAM[address - RAM_START +2] );
     //if (address == irqvec) Serial.printf("**** IRQ VEC *** IRQ VEC *** IRQ VEC *** IRQ VEC *** IRQ VEC %04x = %04x\n", address, PRG_RAM[address - RAM_START]);
     out = PRG_RAM[address - RAM_START];
-
   } else if ((WAV_START <= address) && (address <= WAV_END)) {
     // WAVE RAM? NOTE: VIA 6522 PORT B contains info about the page, when we will be ready to manage 4 banks
     out = WAV_RAM_0[address - WAV_START];

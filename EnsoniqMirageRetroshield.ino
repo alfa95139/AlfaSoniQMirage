@@ -170,21 +170,21 @@ void loop()
     via_run();
     
     viairq = (via_irq() == 1) ? LOW : HIGH;
-    digitalWrite(uP_IRQ_N, viairq);
-    if ( (viairq == LOW) && (old_viairq == HIGH) ) Serial.printf("  +++++++++      VIA IRQ FIRED, address %04x\n", uP_ADDR);
-    if ( (viairq == HIGH) && (old_viairq == LOW) ) Serial.printf("  +++++++++      VIA IRQ de-asserted, address %04x\n", uP_ADDR);
+    //digitalWrite(uP_IRQ_N, viairq);
+    //if ( (viairq == LOW) && (old_viairq == HIGH) ) Serial.printf("  +++++++++      VIA IRQ FIRED, address %04x\n", uP_ADDR);
+    //if ( (viairq == HIGH) && (old_viairq == LOW) ) Serial.printf("  +++++++++      VIA IRQ de-asserted, address %04x\n", uP_ADDR);
     old_viairq = viairq;
     
     fdc_run();
     
     fdcirq = (fdc_drq()   == 1) ? LOW : HIGH;
-    digitalWrite(uP_IRQ_N,fdcirq);
+    //digitalWrite(uP_IRQ_N,fdcirq);
     //if ( (fdcirq == LOW) && (old_fdcirq == HIGH) ) Serial.printf("  +++++++++      FDC IRQ FIRED, address %04x\n", uP_ADDR);
     //if ( (fdcirq == HIGH) && (old_fdcirq == LOW) ) Serial.printf("  +++++++++      FDC IRQ de-asserted, address %04x\n", uP_ADDR);
     //old_fdcirq = fdcirq;
     
     fdcintrq = (fdc_intrq() == 1) ? LOW : HIGH;
-    digitalWrite(uP_NMI_N, fdcintrq);
+    //digitalWrite(uP_NMI_N, fdcintrq);
     //if ( (fdcintrq == LOW) &&  (old_fdcintrq == HIGH) ) Serial.printf("  +++++++++     FDC NMI FIRED, address %04x\n", uP_ADDR);
     //if ( (fdcintrq == HIGH) && (old_fdcintrq == LOW) ) Serial.printf("  +++++++++      FDC NMI de-asserted, address %04x\n", uP_ADDR);
     //old_fdcintrq = fdcintrq;
