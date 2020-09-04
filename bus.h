@@ -50,6 +50,8 @@
 #define ROM_START   0xF000
 #define ROM_END     0xFFFF
 
+const char* address_name(uint16_t address);
+
 class CPU6809: virtual public mc6809
 {
   private:

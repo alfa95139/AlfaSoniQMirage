@@ -110,6 +110,7 @@ void FTDI_Write(byte x)
 */
 
 CPU6809* cpu;
+bool emergency = false;
 
 ////////////////////////////////////////////////////////////////////
 // Setup
@@ -169,27 +170,45 @@ void loop()
   
   // Loop forever
   //  
-  while(1)
+  while(!emergency)
   {
     //serialEvent0();
     cpu->tick();
     via_run();
     
-    viairq = (via_irq() == 1) ? LOW : HIGH;
+    if (via_irq()) {
+      bool accepted = cpu->irq();
+      if (accepted) {
+        Serial.printf(" +++  VIA IRQ FIRED; pc=%04x %s\n", cpu->pc, address_name(cpu->pc));
+      }
+    }
     //digitalWrite(uP_IRQ_N, viairq);
     //if ( (viairq == LOW) && (old_viairq == HIGH) ) Serial.printf("  +++++++++      VIA IRQ FIRED, address %04x\n", uP_ADDR);
     //if ( (viairq == HIGH) && (old_viairq == LOW) ) Serial.printf("  +++++++++      VIA IRQ de-asserted, address %04x\n", uP_ADDR);
-    old_viairq = viairq;
+    //old_viairq = viairq;
     
     fdc_run();
-    
-    fdcirq = (fdc_drq()   == 1) ? LOW : HIGH;
+
+    if (fdc_drq()) {
+      bool accepted = cpu->irq();
+      if (accepted) {
+        Serial.printf(" +++  FDC IRQ FIRED; pc=%04x %s\n", cpu->pc, address_name(cpu->pc));
+      }
+    }
     //digitalWrite(uP_IRQ_N,fdcirq);
     //if ( (fdcirq == LOW) && (old_fdcirq == HIGH) ) Serial.printf("  +++++++++      FDC IRQ FIRED, address %04x\n", uP_ADDR);
     //if ( (fdcirq == HIGH) && (old_fdcirq == LOW) ) Serial.printf("  +++++++++      FDC IRQ de-asserted, address %04x\n", uP_ADDR);
     //old_fdcirq = fdcirq;
     
-    fdcintrq = (fdc_intrq() == 1) ? LOW : HIGH;
+    if (fdcintrq = fdc_intrq()) {
+      if (old_fdcintrq != fdcintrq) {
+        bool accepted = cpu->nmi();
+        if (accepted) {
+          Serial.printf(" +++  FDC NMI FIRED; pc=%04x %s\n", cpu->pc, address_name(cpu->pc));
+        }
+      }
+    }
+    old_fdcintrq = fdcintrq;
     //digitalWrite(uP_NMI_N, fdcintrq);
     //if ( (fdcintrq == LOW) &&  (old_fdcintrq == HIGH) ) Serial.printf("  +++++++++     FDC NMI FIRED, address %04x\n", uP_ADDR);
     //if ( (fdcintrq == HIGH) && (old_fdcintrq == LOW) ) Serial.printf("  +++++++++      FDC NMI de-asserted, address %04x\n", uP_ADDR);

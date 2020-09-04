@@ -89,6 +89,57 @@ uint8_t WAV_RAM_0[WAV_END - WAV_START+1];
 uint8_t PRG_RAM[RAM_END - RAM_START+1];
 int page = 0;
 
+const char* address_name(uint16_t address) {
+  if (address == loadopsys)           return "LOAD OS IN PRG RAM";
+  if (address == osentry)             return "OS ENTRY";
+  if (address == irqentry)            return "IRQ INTERRUPT ROUTINE ENTRY POINT";
+  if (address == firqentry)           return "FIRQ INTERRUPT ROUTINE ENTRY POINT";
+  if (address == firqvec)             return "firqvec";
+  //if (address == irqvec)              return "irqvec";
+  if (address == osvec)               return "osvec"; 
+  if (address == fdcreadsector)       return "fdcreadsector"; 
+  if (address == fdcskipsector)       return "fdcskipsector"; 
+  if (address == fdcwritesector)      return "fdcwritesector"; 
+  if (address == fdcfillsector)       return "fdcfillsector"; 
+  if (address == fdcreadtrack)        return "fdcreadtrack"; 
+  if (address == fdcwritetrack)       return "fdcwritetrack"; 
+  if (address == fdcrestore)          return "fdcrestore"; 
+  if (address == fdcseektrack)        return "fdcseektrack"; 
+  if (address == fdcseekin)           return "fdcseekin"; 
+  if (address == fdcseekout)          return "fdcseekout"; 
+  if (address == fdcforceinterrupt)   return "fdcforceinterrupt"; 
+  if (address == countdown)           return "countdown"; 
+  if (address == nmivec)              return "nmivec"; 
+  if (address == coldstart)           return "coldstart"; 
+  if (address == runopsys)            return "runopsys"; 
+  if (address == hwsetup)             return "hwsetup"; 
+  if (address == qchipsetup)          return "qchipsetup"; 
+  if (address == clearram)            return "clearram"; 
+  if (address == readsysparams)       return "readysysparams"; 
+  if (address == checkos)             return "checkos"; 
+  if (address == showerrcode)         return "showerrorcode"; 
+  if (address == preparefd)           return "preparefd"; 
+  if (address == loadossector)        return "loadossector"; 
+  if (address == gototrack)           return "gototrack";
+  if (address == seterrcode)          return "seterrcode"; 
+  if (address == saveparams)          return "saveparams"; 
+  if (address == restoreparams)       return "restoreparams"; 
+  if (address == readsector)          return "readsector"; 
+  if (address == writesector)         return "writesector"; 
+  if (address == gototrack2)          return "gototrack2"; 
+  if (address == enablefd)            return "enablefd";
+  if (address == disablefd)           return "disablefd"; 
+  if (address == osvec)               return "OS VEC";
+
+  if ((WAV_START <= address) && (address <= WAV_END)) return "wav data section";
+
+  if ((address & 0xFF00) == VIA6522) return "VIA6522";
+  if ((address & 0xFF00) == FDC1770) return "FDC1770";
+  if ((address & 0xFF00) == DOC5503) return "DOC5503";
+  if ((address & 0xFF00) == 0xE100)  return "ACIA";
+
+  return "?";
+}
 
 void CPU6809::write(uint16_t address, uint8_t data) {
   // RAM?
@@ -132,46 +183,11 @@ uint8_t CPU6809::read(uint16_t address) {
 
   } else if ((RAM_START <= address) && (address <= RAM_END)) {
     // RAM?
-    if (address == loadopsys) Serial.printf("***   LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM   *** \n");
-    if (address == osentry)   Serial.printf("***  OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY  ***\n");
-    if (address == irqentry)  Serial.printf("***  IRQ INTERRUPT ROUTINE ENTRY POINT ***  IRQ INTERRUPT ROUTINE ENTRY POINT ***   IRQ INTERRUPT ROUTINE ENTRY POINT  ***\n");
-    if (address == firqentry) Serial.printf("*** FIRQ INTERRUPT ROUTINE ENTRY POINT *** FIRQ INTERRUPT ROUTINE ENTRY POINT ***  FIRQ INTERRUPT ROUTINE ENTRY POINT  ***\n");
-    
-    
-    if (address == firqvec)      Serial.printf("**** firqvec     ****\n");
-    if (address == osvec)       Serial.printf("**** osvec       ****\n"); 
-    if (address == fdcreadsector)     Serial.printf("**** fdcreadsector   ****\n"); 
-    if (address == fdcskipsector)     Serial.printf("**** fdcskipsector   ****\n"); 
-    if (address == fdcwritesector)    Serial.printf("**** fdcwritesector  ****\n"); 
-    if (address == fdcfillsector)     Serial.printf("**** fdcfillsector   ****\n"); 
-    if (address == fdcreadtrack)    Serial.printf("**** fdcreadtrack  ****\n"); 
-    if (address == fdcwritetrack)     Serial.printf("**** fdcwritetrack   ****\n"); 
-    if (address == fdcrestore)    Serial.printf("**** fdcrestore    ****\n"); 
-    if (address == fdcseektrack)    Serial.printf("**** fdcseektrack  ****\n"); 
-    if (address == fdcseekin)     Serial.printf("**** fdcseekin     ****\n"); 
-    if (address == fdcseekout)    Serial.printf("**** fdcseekout    ****\n"); 
-    if (address == fdcforceinterrupt)   Serial.printf("**** fdcforceinterrupt   ****\n"); 
-    if (address == countdown)     Serial.printf("**** countdown     ****\n"); 
-    if (address == nmivec)      Serial.printf("**** nmivec    ****\n"); 
-    if (address == coldstart)     Serial.printf("**** coldstart     ****\n"); 
-    if (address == runopsys)    Serial.printf("**** runopsys    ****\n"); 
-    if (address == hwsetup)     Serial.printf("**** hwsetup     ****\n"); 
-    if (address == qchipsetup)    Serial.printf("**** qchipsetup    ****\n"); 
-    if (address == clearram)    Serial.printf("**** clearram    ****\n"); 
-    if (address == readsysparams)     Serial.printf("**** readysysparams  ****\n"); 
-    if (address == checkos)     Serial.printf("**** checkos     ****\n"); 
-    if (address == showerrcode)     Serial.printf("**** showerrorcode   ****\n"); 
-    if (address == preparefd)     Serial.printf("**** preparefd     ****\n"); 
-    if (address == loadossector)    Serial.printf("**** loadossector  ****\n"); 
-    if (address == gototrack)     Serial.printf("**** gototrack     ****\n");
-    if (address == seterrcode)    Serial.printf("**** seterrcode    ****\n"); 
-    if (address == saveparams)    Serial.printf("**** saveparams    ****\n"); 
-    if (address == restoreparams)     Serial.printf("**** restoreparams   ****\n"); 
-    if (address == readsector)    Serial.printf("**** readsector    ****\n"); 
-    if (address == writesector)     Serial.printf("**** writesector     ****\n"); 
-    if (address == gototrack2)    Serial.printf("**** gototrack2    ****\n"); 
-    if (address == enablefd)    Serial.printf("**** enablefd    ****\n");
-    if (address == disablefd)     Serial.printf("**** disablefd     ****\n"); 
+
+    const char* adrname = address_name(address);
+    if (adrname[0] != '?')
+      Serial.printf("  *** %04x : %s ***  \n", address, adrname);
+
     if (address == osvec)  Serial.printf("****  OS VEC ***  OS VEC ***  OS VEC ***  OS VEC ***  OS VEC %04x = %02x %02x\n", address, PRG_RAM[address - RAM_START+1], PRG_RAM[address - RAM_START +2] );
     //if (address == irqvec) Serial.printf("**** IRQ VEC *** IRQ VEC *** IRQ VEC *** IRQ VEC *** IRQ VEC %04x = %04x\n", address, PRG_RAM[address - RAM_START]);
     out = PRG_RAM[address - RAM_START];
@@ -219,13 +235,44 @@ void CPU6809::tick()
   clock_cycle_count++;
 }
 
+extern bool emergency;
+
 void CPU6809::invalid(const char* message) {
   Serial.print("CPU error detected: ");
   if (message)
     Serial.println(message);
   else
     Serial.println("No message specified");
+  Serial.println("EMERGENCY.  Register dump:");
+  Serial.printf("IR %04x (%s)\n", ir, address_name(ir));
+  Serial.printf("PC %04x (%s)\n", pc, address_name(pc));
+  Serial.printf("U  %04x (%s)\n", u, address_name(u));
+  Serial.printf("S  %04x (%s)\n", s, address_name(s));
+  Serial.printf("X  %04x (%s)\n", x, address_name(x));
+  Serial.printf("Y  %04x (%s)\n", y, address_name(y));
+  Serial.printf("DP %02x\n", dp);
+  Serial.printf("A  %02x\n", a);
+  Serial.printf("B  %02x\n", b);
+  Serial.printf("CC %02x\n", cc.all);
+  Serial.println();
+
+  // stack trace
+  Serial.printf("Stack:\n%04x:", s);
+  for (uint16_t i = 0; i < 16; i++)
+    Serial.printf(" %02x", read(s + i));
+  Serial.println();
+
+  // look for addresses in the stack
+  for (uint16_t i = 0; i < 16; i++) {
+    uint16_t entry = read_word(s + i);
+    const char* entry_name = address_name(entry);
+    if (entry_name[0] != '?')
+      Serial.printf("[%04x] = %04x ~ %s\n", s + i, entry, entry_name);
+  }
+  
   Serial.flush();
+
+  emergency = true;
 }
 
 ////////////////////////////////////////////////////////////////////
