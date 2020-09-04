@@ -206,7 +206,7 @@ ReadSectorDone = true;
  // open the file.
   disk = SD.open("A1.img"); // TO DO: CHOOSE FROM AVAIL IMGs IN SD ROOT DIRECTORY
     if (disk) 
-      Serial.println("Found Mirage image disk: disk.img");
+      Serial.println("Found Mirage image disk: A1.img");
       else 
        {
         Serial.println("Error: Mirage image disk not found!!!");

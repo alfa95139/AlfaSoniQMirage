@@ -109,7 +109,7 @@ void FTDI_Write(byte x)
 
 */
 
-CPU6809 cpu;
+CPU6809* cpu;
 
 ////////////////////////////////////////////////////////////////////
 // Setup
@@ -118,6 +118,7 @@ CPU6809 cpu;
 void setup() 
 {
   Serial.begin(115200);
+
   while (!Serial);
 
   Serial.println("\n");
@@ -126,22 +127,28 @@ void setup()
   Serial.println("= Ensoniq Mirage Memory Configuration: =");
   Serial.println("========================================");
   Serial.print("SRAM Size:  "); Serial.print(RAM_END - RAM_START + 1, DEC); Serial.println(" Bytes");
-  Serial.print("SRAM_START: 0x"); Serial.println(RAM_START, HEX); 
-  Serial.print("SRAM_END:   0x"); Serial.println(RAM_END, HEX); 
+  Serial.print("SRAM_START: 0x"); Serial.println(RAM_START, HEX);
+  Serial.print("SRAM_END:   0x"); Serial.println(RAM_END, HEX);
   Serial.print("WAV RAM Size:  "); Serial.print(WAV_END - WAV_START + 1, DEC); Serial.println(" Bytes");
-  Serial.print("WAV RAM START: 0x"); Serial.println(WAV_START, HEX); 
-  Serial.print("WAV RAM END:   0x"); Serial.println(WAV_END, HEX); 
+  Serial.print("WAV RAM START: 0x"); Serial.println(WAV_START, HEX);
+  Serial.print("WAV RAM END:   0x"); Serial.println(WAV_END, HEX);
   Serial.print("ROM Size:  "); Serial.print(ROM_END - ROM_START + 1, DEC); Serial.println(" Bytes");
-  Serial.print("ROM_START: 0x"); Serial.println(ROM_START, HEX); 
-  Serial.print("ROM_END:   0x"); Serial.println(ROM_END, HEX); 
+  Serial.print("ROM_START: 0x"); Serial.println(ROM_START, HEX);
+  Serial.print("ROM_END:   0x"); Serial.println(ROM_END, HEX);
+  Serial.flush();
 
   via_init();
   fdc_init();
- // doc_init();
+  // doc_init();
 
+  Serial.println("Initializing processor...");
+  Serial.flush();
+  // Create & Reset processor
+  cpu = new CPU6809();
+  cpu->reset();
 
-  // Reset processor
-  cpu.reset();
+  Serial.println("Initialized processor");
+  Serial.flush();
 
   Serial.println("\n");
 }
@@ -165,7 +172,7 @@ void loop()
   while(1)
   {
     //serialEvent0();
-    cpu.tick();
+    cpu->tick();
     via_run();
     
     viairq = (via_irq() == 1) ? LOW : HIGH;
@@ -199,5 +206,5 @@ void loop()
 }
 
 uint64_t get_cpu_cycle_count() {
-  return cpu.get_cycle_count();
+  return cpu->get_cycle_count();
 }

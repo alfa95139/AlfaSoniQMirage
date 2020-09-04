@@ -225,6 +225,7 @@ void CPU6809::invalid(const char* message) {
     Serial.println(message);
   else
     Serial.println("No message specified");
+  Serial.flush();
 }
 
 ////////////////////////////////////////////////////////////////////

@@ -50,16 +50,17 @@
 #define ROM_START   0xF000
 #define ROM_END     0xFFFF
 
-class CPU6809: public mc6809
+class CPU6809: virtual public mc6809
 {
   private:
     unsigned long clock_cycle_count;
+  protected:
+    virtual uint8_t read(uint16_t offset);
+    virtual void    write(uint16_t offset, Byte val);
   public:
     CPU6809();
     void tick();
-    virtual uint8_t read(uint16_t offset);
-    virtual void    write(uint16_t offset, Byte val);
-    virtual void invalid(const char * = 0);
+    void    invalid(const char * = 0);
     unsigned long get_cycle_count() { return clock_cycle_count; }
 };
 
