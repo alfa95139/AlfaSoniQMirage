@@ -1,30 +1,5 @@
 
-void writeRAM8(uint16_t address, uint8_t data) {
-  
-}
-
-void writeRAM16(uint16_t address, uint16_t data) {
-  
-}
-
-uint8_t readRAM8(uint16_t address) {
-  
-}
-
-uint16_t readRAM16(uint16_t address) {
-  
-}
-
-void writeIO8(uint16_t address, uint8_t data) {
-  
-}
-
-uint8_t readIO8(uint16_t address) {
-  
-}
-
-
-#include "cpu.h"
+#include "bus.h"
 
 #include "via.h"
 #include "fdc.h"
@@ -32,65 +7,14 @@ uint8_t readIO8(uint16_t address) {
 #include <Arduino.h>
 
 ////////////////////////////////////////////////////////////////////
-// 6809 Processor Control
+// Monitor Code
 ////////////////////////////////////////////////////////////////////
-//
-// #define GPIO?_PDOR    (*(volatile uint32_t *)0x400FF0C0) // Port Data Output Register
-// #define GPIO?_PSOR    (*(volatile uint32_t *)0x400FF0C4) // Port Set Output Register
-// #define GPIO?_PCOR    (*(volatile uint32_t *)0x400FF0C8) // Port Clear Output Register
-// #define GPIO?_PTOR    (*(volatile uint32_t *)0x400FF0CC) // Port Toggle Output Register
-// #define GPIO?_PDIR    (*(volatile uint32_t *)0x400FF0D0) // Port Data Input Register
-// #define GPIO?_PDDR    (*(volatile uint32_t *)0x400FF0D4) // Port Data Direction Register
+#include "EnsoniqRom.h"
+#include "CartridgeROM.h"
 
-/* Digital Pin Assignments */
-#define SET_DATA_OUT(D) (GPIOD_PDOR = (GPIOD_PDOR & 0xFFFFFF00) | (D))
-
-#define xDATA_IN        ((uint8_t) (GPIOD_PDIR & 0xFF))
-#define ADDR_H          ((uint16_t) (GPIOA_PDIR & 0b1111000000100000))
-#define ADDR_L          ((uint16_t) (GPIOC_PDIR & 0b0000111111011111))
-#define ADDR            ((uint16_t) (ADDR_H | ADDR_L))
-
-// Teensy has an LED on its digital pin13 (PTC5). which interferes w/
-// level shifters.  So we instead pick-up A5 from PTA5 port and use
-// PTC5 for PG0 purposes.
-//
-
-#define MEGA_PD7  (24)
-#define MEGA_PG0  (13)
-#define MEGA_PG1  (16)
-#define MEGA_PG2  (17)
-#define MEGA_PB0  (28)
-#define MEGA_PB1  (39)
-#define MEGA_PB2  (29)
-#define MEGA_PB3  (30)
-
-#define uP_RESET_N  MEGA_PD7
-#define uP_RW_N     MEGA_PG1
-#define uP_FIRQ_N   MEGA_PG0
-#define uP_GPIO     MEGA_PG2
-#define uP_IRQ_N    MEGA_PB3
-#define uP_NMI_N    MEGA_PB2
-#define uP_E        MEGA_PB1
-#define uP_Q        MEGA_PB0
-
-// Fast routines to drive signals high/low; faster than digitalWrite
-//
-#define CLK_E_HIGH          (GPIOA_PSOR = 0x20000)
-#define CLK_E_LOW           (GPIOA_PCOR = 0x20000)
-#define CLK_Q_HIGH          (GPIOA_PSOR = 0x10000)
-#define CLK_Q_LOW           (GPIOA_PCOR = 0x10000)
-#define STATE_RW_N          ((uint8_t) (GPIOB_PDIR & 0x01) )
-
-#define xDATA_DIR_IN()      (GPIOD_PDDR = (GPIOD_PDDR & 0xFFFFFF00))
-#define xDATA_DIR_OUT()     (GPIOD_PDDR = (GPIOD_PDDR | 0x000000FF))
-
-
-
-uint16_t      uP_ADDR;
-uint8_t          uP_DATA;
-
-int page;
-
+////////////////////////////////////////////////////////////////////
+// Debug Vectors
+////////////////////////////////////////////////////////////////////
 #define fdccmd   0x8000
 #define fdcrtry  0x8001
 #define fdctrk   0x8002
@@ -161,6 +85,175 @@ int page;
 #define enablefd    0xF4C6
 #define disablefd   0xF4D6
 
+////////////////////////////////////////////////////////////////////
+// 6809 DEFINITIONS
+////////////////////////////////////////////////////////////////////
+// MEMORY
+//
+// WAV Memory: 32K (x 4 banks, eventually: 128K total)
+// bit   VIA 6522 Port B
+// 0     bank 0/1
+// 1     upper/lower
+//
+// b b
+// i i     Pages
+// t t
+// 0 0   1st Page
+// 0 1   2nd Page
+// 1 0   3rd Page
+// 1 1   4th Page
+#define WAV_START   0x0000
+#define WAV_END     0x7FFF
+byte    WAV_RAM_0[WAV_END - WAV_START+1];
+//byte    WAV_RAM_1[WAV_END - WAV_START+1];
+//byte    WAV_RAM_2[WAV_END - WAV_START+1];
+//byte    WAV_RAM_3[WAV_END - WAV_START+1];
+
+// PROGRAM MEMORY: 16K
+#define RAM_START  0x8000
+#define RAM_END   0xBFFF
+byte    PRG_RAM[RAM_END - RAM_START+1];
+
+// Expansion Cartridge: 8K
+#define CART_START  0xC000
+#define CART_END    0xDFFF
+
+// Devices
+#define DEVICES_START   0xE000
+#define DEVICES_END     0xEFFF
+#define UART6850cs      0xE100 // Control/Status
+#define UART6850_d      0xE101 // Data
+#define VIA6522         0xE200 // to 0xE20F
+#define VCF3328         0xE400 //   0xE408 to 0xE40F: Filter cut-off Freq. 0xE410 to 0xE417:  Filter Resonance.E418-E41F  Multiplexer address pre-set (no output) 
+#define FDC1770         0xE800 // to 0xE803
+#define DOC5503         0xEC00 // to 0xECEF
+
+// BOOTSTRAP ROM: 4K  - contains disk I/O, pitch and controller parameter tables and DOC5503 drivers
+#define ROM_START   0xF000
+#define ROM_END     0xFFFF
+
+int page = 0;
+
+
+void writeRAM8(uint16_t address, uint8_t data) {
+  // RAM?
+  if ((RAM_START <= address) && (address <= RAM_END)) {
+    PRG_RAM[address - RAM_START] = data;
+    //Serial.printf("Writing to PRG_RAM, address = %04x : DATA = %02x\n", address, data);
+    if(address == 0x800F) Serial.printf("************* WRITING OS ENTRY JMP 0x800F = %02X *********************\n", data);
+    if(address == 0x8010) Serial.printf("*************                      0x8010 = %02X *********************\n", data);
+    if(address == 0xBDEB) Serial.printf("************* WRITING TO 0xBDEB = %02X *********************\n", data);
+
+  } else if ( (WAV_START <= address) && (address <= WAV_END) ) {
+    // WAV RAM
+    page = via_rreg(0) & 0b0011;
+    WAV_RAM_0[address - WAV_START] = data;
+    //Serial.printf("Writing to WAV RAM: PAGE %x address = %X, DATA = %0X\n", page, address, data);
+
+  } else if ( (address & 0xFF00) == VIA6522) {
+    Serial.printf("Writing to VIA 6522 %04x %02x\n", address, data);
+    via_wreg(address & 0xFF, data);
+
+  } else if ( (address & 0xFF00) == FDC1770) {
+    Serial.printf("Writing to FDC 1770 %04x %02x\n", address, data);
+    fdc_wreg(address & 0xFF, data);
+
+  } else if ((address & 0xFF00) == DOC5503) {
+    Serial.printf("Writing to DOC: Register %02X\n", address & 0x00FF);
+
+  } else if ((address & 0xFF00) == 0xE100) {
+    // FTDI?
+    Serial.printf("Writing to ACIA (not implemented) %c\n", data);
+    //Serial.write(data);
+  }
+}
+
+uint8_t readRAM8(uint16_t address) {
+  uint8_t out;
+
+  // ROM?
+  if ((ROM_START <= address) && (address <= ROM_END)) {
+    out = ROM [ (address - ROM_START) ];
+
+  } else  {
+    // RAM?
+    if ((RAM_START <= address) && (address <= RAM_END)) {
+    if (address == loadopsys) Serial.printf("***   LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM   *** \n");
+    if (address == osentry)   Serial.printf("***  OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY  ***\n");
+    if (address == irqentry)  Serial.printf("***  IRQ INTERRUPT ROUTINE ENTRY POINT ***  IRQ INTERRUPT ROUTINE ENTRY POINT ***   IRQ INTERRUPT ROUTINE ENTRY POINT  ***\n");
+    if (address == firqentry) Serial.printf("*** FIRQ INTERRUPT ROUTINE ENTRY POINT *** FIRQ INTERRUPT ROUTINE ENTRY POINT ***  FIRQ INTERRUPT ROUTINE ENTRY POINT  ***\n");
+    
+    
+    if (address == firqvec)      Serial.printf("**** firqvec     ****\n");
+    if (address == osvec)       Serial.printf("**** osvec       ****\n"); 
+    if (address == fdcreadsector)     Serial.printf("**** fdcreadsector   ****\n"); 
+    if (address == fdcskipsector)     Serial.printf("**** fdcskipsector   ****\n"); 
+    if (address == fdcwritesector)    Serial.printf("**** fdcwritesector  ****\n"); 
+    if (address == fdcfillsector)     Serial.printf("**** fdcfillsector   ****\n"); 
+    if (address == fdcreadtrack)    Serial.printf("**** fdcreadtrack  ****\n"); 
+    if (address == fdcwritetrack)     Serial.printf("**** fdcwritetrack   ****\n"); 
+    if (address == fdcrestore)    Serial.printf("**** fdcrestore    ****\n"); 
+    if (address == fdcseektrack)    Serial.printf("**** fdcseektrack  ****\n"); 
+    if (address == fdcseekin)     Serial.printf("**** fdcseekin     ****\n"); 
+    if (address == fdcseekout)    Serial.printf("**** fdcseekout    ****\n"); 
+    if (address == fdcforceinterrupt)   Serial.printf("**** fdcforceinterrupt   ****\n"); 
+    if (address == countdown)     Serial.printf("**** countdown     ****\n"); 
+    if (address == nmivec)      Serial.printf("**** nmivec    ****\n"); 
+    if (address == coldstart)     Serial.printf("**** coldstart     ****\n"); 
+    if (address == runopsys)    Serial.printf("**** runopsys    ****\n"); 
+    if (address == hwsetup)     Serial.printf("**** hwsetup     ****\n"); 
+    if (address == qchipsetup)    Serial.printf("**** qchipsetup    ****\n"); 
+    if (address == clearram)    Serial.printf("**** clearram    ****\n"); 
+    if (address == readsysparams)     Serial.printf("**** readysysparams  ****\n"); 
+    if (address == checkos)     Serial.printf("**** checkos     ****\n"); 
+    if (address == showerrcode)     Serial.printf("**** showerrorcode   ****\n"); 
+    if (address == preparefd)     Serial.printf("**** preparefd     ****\n"); 
+    if (address == loadossector)    Serial.printf("**** loadossector  ****\n"); 
+    if (address == gototrack)     Serial.printf("**** gototrack     ****\n");
+    if (address == seterrcode)    Serial.printf("**** seterrcode    ****\n"); 
+    if (address == saveparams)    Serial.printf("**** saveparams    ****\n"); 
+    if (address == restoreparams)     Serial.printf("**** restoreparams   ****\n"); 
+    if (address == readsector)    Serial.printf("**** readsector    ****\n"); 
+    if (address == writesector)     Serial.printf("**** writesector     ****\n"); 
+    if (address == gototrack2)    Serial.printf("**** gototrack2    ****\n"); 
+    if (address == enablefd)    Serial.printf("**** enablefd    ****\n");
+    if (address == disablefd)     Serial.printf("**** disablefd     ****\n"); 
+    if (address == osvec)  Serial.printf("****  OS VEC ***  OS VEC ***  OS VEC ***  OS VEC ***  OS VEC %04x = %02x %02x\n", address, PRG_RAM[address - RAM_START+1], PRG_RAM[address - RAM_START +2] );
+    //if (address == irqvec) Serial.printf("**** IRQ VEC *** IRQ VEC *** IRQ VEC *** IRQ VEC *** IRQ VEC %04x = %04x\n", address, PRG_RAM[address - RAM_START]);
+    out = PRG_RAM[address - RAM_START];
+
+  } else if ((WAV_START <= address) && (address <= WAV_END)) {
+    // WAVE RAM? NOTE: VIA 6522 PORT B contains info about the page, when we will be ready to manage 4 banks
+    out = WAV_RAM_0[address - WAV_START];
+    //Serial.printf("Reading from WAV RAM: address = %X, DATA = FF\n", address, out);
+
+  } else if ((CART_START <= address) && (address <= CART_END)) {
+    //out = CartROM[ (address - CART_START) ];
+    out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
+    Serial.printf("Reading from Expansion Port: address = %X, DATA = FF\n", address, out);
+
+  } else if ( (address & 0xFF00) == VIA6522) {
+    // FTDI?
+    //if ( (address & 0xFF00) == 0xE100) 
+    //      out = FTDI_Read();
+    //else
+    Serial.printf("Reading from VIA 6522\n");
+    out = via_rreg(address & 0xFF);
+
+  } else if ( (address & 0xFF00) == FDC1770) {
+    out = fdc_rreg(address & 0xFF); 
+    //Serial.printf("**** Reading from FDC 1770. Value ====> out = %02x\n", out);
+
+  } else if (( address & 0xFF00) == DOC5503 ) {
+    Serial.printf("Reading from DOC 5503: Register %02X\n", address & 0x00FF);
+    out = 0xFF;
+
+  } else
+    out = 0xFF;
+
+  return out;
+}
+
 CPU6809::CPU6809()
 {
   reset();
@@ -177,195 +270,9 @@ void CPU6809::reset()
 // Processor Control Loop
 ////////////////////////////////////////////////////////////////////
 
-volatile uint8_t DATA_OUT;
-volatile uint8_t DATA_IN;
-
 #if outputDEBUG
 #define DELAY_FACTOR() delayMicroseconds(1000)
 #else
 #define DELAY_FACTOR_H() asm volatile("nop\nnop\nnop\nnop\n");
 #define DELAY_FACTOR_L() asm volatile("nop\nnop\nnop\nnop\n");
 #endif
-
-inline __attribute__((always_inline))
-void cpu_tick()
-{    
-
-  //////////////////////////////////////////////////////////////
-  CLK_Q_HIGH;           // digitalWrite(uP_Q, HIGH);   // CLK_Q_HIGH;  // PORTB = PORTB | 0x01;     // Set Q = high
-  DELAY_FACTOR_H();
-  CLK_E_HIGH;           // digitalWrite(uP_E, HIGH);    // PORTB = PORTB | 0x02;     // Set E = high
-  // DELAY_FACTOR_H();
-  
-  uP_ADDR = ADDR;
-
- 
-
-  CLK_Q_LOW;            // digitalWrite(uP_Q, LOW);    // CLK_Q_LOW; // PORTB = PORTB & 0xFE;     // Set Q = low
-  // DELAY_FACTOR_L();
-
-  if (STATE_RW_N)      // Check R/W
-  //////////////////////////////////////////////////////////////
-  // R/W = high = READ?
-  {
-    // DATA_DIR = DIR_OUT;
-    xDATA_DIR_OUT();
-
-    
-    // ROM?
-    if ( (ROM_START <= uP_ADDR) && (uP_ADDR <= ROM_END) )
-      DATA_OUT = ROM [ (uP_ADDR - ROM_START) ];
-    else 
-    // RAM?
-    if ( (RAM_START <= uP_ADDR) && (uP_ADDR <= RAM_END) ) {
-           if (uP_ADDR == loadopsys) Serial.printf("***   LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM   *** \n");
-  if (uP_ADDR == osentry)   Serial.printf("***  OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY  ***\n");
-  if (uP_ADDR == irqentry)  Serial.printf("***  IRQ INTERRUPT ROUTINE ENTRY POINT ***  IRQ INTERRUPT ROUTINE ENTRY POINT ***   IRQ INTERRUPT ROUTINE ENTRY POINT  ***\n");
-  if (uP_ADDR == firqentry) Serial.printf("*** FIRQ INTERRUPT ROUTINE ENTRY POINT *** FIRQ INTERRUPT ROUTINE ENTRY POINT ***  FIRQ INTERRUPT ROUTINE ENTRY POINT  ***\n");
-
-
-if (uP_ADDR == firqvec)      Serial.printf("**** firqvec     ****\n");
-if (uP_ADDR == osvec)       Serial.printf("**** osvec       ****\n"); 
-if (uP_ADDR == fdcreadsector)     Serial.printf("**** fdcreadsector   ****\n"); 
-if (uP_ADDR == fdcskipsector)     Serial.printf("**** fdcskipsector   ****\n"); 
-if (uP_ADDR == fdcwritesector)    Serial.printf("**** fdcwritesector  ****\n"); 
-if (uP_ADDR == fdcfillsector)     Serial.printf("**** fdcfillsector   ****\n"); 
-if (uP_ADDR == fdcreadtrack)    Serial.printf("**** fdcreadtrack  ****\n"); 
-if (uP_ADDR == fdcwritetrack)     Serial.printf("**** fdcwritetrack   ****\n"); 
-if (uP_ADDR == fdcrestore)    Serial.printf("**** fdcrestore    ****\n"); 
-if (uP_ADDR == fdcseektrack)    Serial.printf("**** fdcseektrack  ****\n"); 
-if (uP_ADDR == fdcseekin)     Serial.printf("**** fdcseekin     ****\n"); 
-if (uP_ADDR == fdcseekout)    Serial.printf("**** fdcseekout    ****\n"); 
-if (uP_ADDR == fdcforceinterrupt)   Serial.printf("**** fdcforceinterrupt   ****\n"); 
-if (uP_ADDR == countdown)     Serial.printf("**** countdown     ****\n"); 
-if (uP_ADDR == nmivec)      Serial.printf("**** nmivec    ****\n"); 
-if (uP_ADDR == coldstart)     Serial.printf("**** coldstart     ****\n"); 
-if (uP_ADDR == runopsys)    Serial.printf("**** runopsys    ****\n"); 
-if (uP_ADDR == hwsetup)     Serial.printf("**** hwsetup     ****\n"); 
-if (uP_ADDR == qchipsetup)    Serial.printf("**** qchipsetup    ****\n"); 
-if (uP_ADDR == clearram)    Serial.printf("**** clearram    ****\n"); 
-if (uP_ADDR == readsysparams)     Serial.printf("**** readysysparams  ****\n"); 
-if (uP_ADDR == checkos)     Serial.printf("**** checkos     ****\n"); 
-if (uP_ADDR == showerrcode)     Serial.printf("**** showerrorcode   ****\n"); 
-if (uP_ADDR == preparefd)     Serial.printf("**** preparefd     ****\n"); 
-if (uP_ADDR == loadossector)    Serial.printf("**** loadossector  ****\n"); 
-if (uP_ADDR == gototrack)     Serial.printf("**** gototrack     ****\n");
-if (uP_ADDR == seterrcode)    Serial.printf("**** seterrcode    ****\n"); 
-if (uP_ADDR == saveparams)    Serial.printf("**** saveparams    ****\n"); 
-if (uP_ADDR == restoreparams)     Serial.printf("**** restoreparams   ****\n"); 
-if (uP_ADDR == readsector)    Serial.printf("**** readsector    ****\n"); 
-if (uP_ADDR == writesector)     Serial.printf("**** writesector     ****\n"); 
-if (uP_ADDR == gototrack2)    Serial.printf("**** gototrack2    ****\n"); 
-if (uP_ADDR == enablefd)    Serial.printf("**** enablefd    ****\n");
-if (uP_ADDR == disablefd)     Serial.printf("**** disablefd     ****\n"); 
-          if (uP_ADDR == osvec)  Serial.printf("****  OS VEC ***  OS VEC ***  OS VEC ***  OS VEC ***  OS VEC %04x = %02x %02x\n", uP_ADDR, PRG_RAM[uP_ADDR - RAM_START+1], PRG_RAM[uP_ADDR - RAM_START +2] );
-          //if (uP_ADDR == irqvec) Serial.printf("**** IRQ VEC *** IRQ VEC *** IRQ VEC *** IRQ VEC *** IRQ VEC %04x = %04x\n", uP_ADDR, PRG_RAM[uP_ADDR - RAM_START]);
-          DATA_OUT = PRG_RAM[uP_ADDR - RAM_START];
-          }
-    else  // WAVE RAM? NOTE: VIA 6522 PORT B contains info about the page, when we will be ready to manage 4 banks
-    if ( (WAV_START <= uP_ADDR) && (uP_ADDR <= WAV_END) ) {
-      DATA_OUT = WAV_RAM_0[uP_ADDR - WAV_START];
-      //Serial.printf("Reading from WAV RAM: uP_ADDR = %X, DATA = FF\n", uP_ADDR, DATA_OUT);
-      }
-    else
-    if (( CART_START <= uP_ADDR) && (uP_ADDR <= CART_END) ) {
-       //DATA_OUT = CartROM[ (uP_ADDR - CART_START) ];
-        DATA_OUT = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
-        Serial.printf("Reading from Expansion Port: uP_ADDR = %X, DATA = FF\n", uP_ADDR, DATA_OUT);
-    }
-    else
-    // FTDI?
-    //if ( (uP_ADDR & 0xFF00) == 0xE100) 
-    //      DATA_OUT = FTDI_Read();
-    //else
-    if ( (uP_ADDR & 0xFF00) == VIA6522) {
-                Serial.printf("Reading from VIA 6522\n");
-                DATA_OUT = via_rreg(uP_ADDR & 0xFF);  
-            }                   
-   
-    else
-    if ( (uP_ADDR & 0xFF00) == FDC1770) {
-           DATA_OUT = fdc_rreg(uP_ADDR & 0xFF); 
-           //Serial.printf("**** Reading from FDC 1770. Value ====> DATA_OUT = %02x\n", DATA_OUT);
-        }
-   
-    else 
-    if (( uP_ADDR & 0xFF00) == DOC5503 ) {
-        Serial.printf("Reading from DOC 5503: Register %02X\n", uP_ADDR & 0x00FF);
-        DATA_OUT = 0xFF;
-        }
-    
-    else
-      DATA_OUT = 0xFF;
-
-    // Start driving the databus out
-    SET_DATA_OUT( DATA_OUT );
-    
-#if outputDEBUG
-    char tmp[40];
-    sprintf(tmp, "-- A=%0.4X D=%0.2X\n", uP_ADDR, DATA_OUT);
-    Serial.write(tmp);
-#endif
-
-  } 
-  else 
-  //////////////////////////////////////////////////////////////
-  // R/W = low = WRITE?
-  {
-    DATA_IN = xDATA_IN;
-    
-    // RAM?
-    if ( (RAM_START <= uP_ADDR) && (uP_ADDR <= RAM_END) ) {
-          PRG_RAM[uP_ADDR - RAM_START] = DATA_IN;
-          //Serial.printf("Writing to PRG_RAM, uP_ADDR = %04x : DATA = %02x\n", uP_ADDR, DATA_IN);
-          if(uP_ADDR == 0x800F) Serial.printf("************* WRITING OS ENTRY JMP 0x800F = %02X *********************\n", DATA_IN);
-          if(uP_ADDR == 0x8010) Serial.printf("*************                      0x8010 = %02X *********************\n", DATA_IN);
-          if(uP_ADDR == 0xBDEB) Serial.printf("************* WRITING TO 0xBDEB = %02X *********************\n", DATA_IN);
-
-          }
-    else // WAV RAM
-    if ( (WAV_START <= uP_ADDR) && (uP_ADDR <= WAV_END) ) {
-       page = via_rreg(0) & 0b0011;
-       WAV_RAM_0[uP_ADDR - WAV_START] = DATA_IN;
-       //Serial.printf("Writing to WAV RAM: PAGE %x uP_ADDR = %X, DATA = %0X\n", page, uP_ADDR, DATA_IN);
-    }
-     else
-    if ( (uP_ADDR & 0xFF00) == VIA6522) {
-          Serial.printf("Writing to VIA 6522 %04x %02x\n", uP_ADDR, DATA_IN);
-          via_wreg(uP_ADDR & 0xFF, DATA_IN);     
-          }
-    else
-    if ( (uP_ADDR & 0xFF00) == FDC1770) {
-          Serial.printf("Writing to FDC 1770 %04x %02x\n", uP_ADDR, DATA_IN);
-          fdc_wreg(uP_ADDR & 0xFF, DATA_IN);
-         }
-    else 
-      if ( (uP_ADDR & 0xFF00) == DOC5503 ) Serial.printf("Writing to DOC: Register %02X\n", uP_ADDR & 0x00FF);
-  else
-    // FTDI?
-    if ( (uP_ADDR & 0xFF00) == 0xE100) {
-          Serial.printf("Writing to ACIA (not implemented) %c\n", DATA_IN);
-          //Serial.write(DATA_IN);
-          }
-
-#if outputDEBUG
-    char tmp[40];
-    sprintf(tmp, "WR A=%0.4X D=%0.2X\n", uP_ADDR, DATA_IN);
-    Serial.write(tmp);
-#endif
-  }
-
-  //////////////////////////////////////////////////////////////
-  // cycle complete
-  
-  CLK_E_LOW;    // digitalWrite(uP_E, LOW);      // CLK_E_LOW; // PORTB = PORTB & 0xFC;     // Set E = low
-  
-  // natural delay for data hold
-  xDATA_DIR_IN();
-
-  // DELAY_FACTOR_L();
-
-//#if (outputDEBUG)  
-  clock_cycle_count ++;
-//#endif
-}
