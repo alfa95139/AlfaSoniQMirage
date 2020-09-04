@@ -128,7 +128,7 @@ bit   Port A               Port B
 7     keypad row 2         (not used, clock to ACIA)
 
 */
-extern unsigned long clock_cycle_count;
+extern unsigned long get_cpu_cycle_count();
 unsigned long via_cycles, via_t2=0;
 
 void via_init() {
@@ -152,7 +152,7 @@ uint8_t via_irq() {
  // I NEED TO IMPLEMENT THIS: NEED TO USE IER AS WELL
  //if((via.ifr & 0x80) == 0x80) {
  //           Serial.printf("VIA 6522: IRQ Fired");
- //           Serial.printf(" clock_cycle_count = %ld\n", clock_cycle_count);
+ //           Serial.printf(" get_cpu_cycle_count() = %ld\n", get_cpu_cycle_count());
  //           }
   return((via.ifr & 0x80) == 0x80);  // mask 1000_0000 for bit 7, IRQ 
 }
@@ -160,7 +160,7 @@ uint8_t via_irq() {
 
 uint8_t via_run() {
   
-  if (clock_cycle_count < via_cycles) return(0); // not ready yet
+  if (get_cpu_cycle_count() < via_cycles) return(0); // not ready yet
 
   
 // via_cycles is set by timer2
@@ -171,7 +171,7 @@ uint8_t via_run() {
                         // at this point the IRQ has been set. The portion of the model that clears timer 2 will also need to clear IRQ
     //  return (1);  // fire interrupt
   }
-  via_cycles = clock_cycle_count + (via_t2>>2);  // half, because the clock frequency is 2MHz
+  via_cycles = get_cpu_cycle_count() + (via_t2>>2);  // half, because the clock frequency is 2MHz
   return(0);
 }
 
@@ -335,7 +335,7 @@ void via_wreg(int reg, uint8_t val) {
     case 8: // T2 Low-Order Latches FOLLOWING CODE IS SUSPICIOUS: 0x08 register is for latches, not counter
       via.t2l = val;
       via_t2 = via.t2l | (via.t2h<<8);
-      via_cycles = clock_cycle_count + (via_t2>>2);  // half, because the clock frequency is 2MHz
+      via_cycles = get_cpu_cycle_count() + (via_t2>>2);  // half, because the clock frequency is 2MHz
 #if VIA6522_DEBUG  
       Serial.printf("*** VIA6522 REG #8 WRITE: t2 = %04x\n", (int) via_t2);
 #endif
@@ -343,7 +343,7 @@ void via_wreg(int reg, uint8_t val) {
     case 9: // T2 High-Order Counter
       via.t2h = val;
       via_t2 = via.t2l | (via.t2h<<8);
-      via_cycles = clock_cycle_count + (via_t2>>2);  // half, because the clock frequency is 2MHz
+      via_cycles = get_cpu_cycle_count() + (via_t2>>2);  // half, because the clock frequency is 2MHz
 #if VIA6522_DEBUG  
       Serial.printf("*** VIA6522 REG #9 WRITE: t2 = %04x\n", (int) via_t2);
 #endif

@@ -120,7 +120,6 @@ void setup()
   Serial.begin(115200);
   while (!Serial);
 
-
   Serial.println("\n");
   Serial.print("Retroshield Debug:   --> "); Serial.println(outputDEBUG, HEX);
   Serial.println("========================================");
@@ -197,4 +196,8 @@ void loop()
       j = 500;
     }
   }
+}
+
+uint64_t get_cpu_cycle_count() {
+  return cpu.get_cycle_count();
 }

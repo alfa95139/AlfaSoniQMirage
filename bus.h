@@ -24,7 +24,6 @@
 // 1 1   4th Page
 #define WAV_START   0x0000
 #define WAV_END     0x7FFF
-uint8_t WAV_RAM_0[WAV_END - WAV_START+1];
 //byte    WAV_RAM_1[WAV_END - WAV_START+1];
 //byte    WAV_RAM_2[WAV_END - WAV_START+1];
 //byte    WAV_RAM_3[WAV_END - WAV_START+1];
@@ -32,7 +31,6 @@ uint8_t WAV_RAM_0[WAV_END - WAV_START+1];
 // PROGRAM MEMORY: 16K
 #define RAM_START  0x8000
 #define RAM_END   0xBFFF
-uint8_t PRG_RAM[RAM_END - RAM_START+1];
 
 // Expansion Cartridge: 8K
 #define CART_START  0xC000
@@ -58,18 +56,11 @@ class CPU6809: public mc6809
     unsigned long clock_cycle_count;
   public:
     CPU6809();
-    void reset();
     void tick();
+    virtual uint8_t read(uint16_t offset);
+    virtual void    write(uint16_t offset, Byte val);
     virtual void invalid(const char * = 0);
     unsigned long get_cycle_count() { return clock_cycle_count; }
 };
-
-// Define these elsewhere
-void writeRAM8(uint16_t address, uint8_t data);
-void writeRAM16(uint16_t address, uint16_t data);
-uint8_t readRAM8(uint16_t address);
-uint16_t readRAM16(uint16_t address);
-void writeIO8(uint16_t address, uint8_t data);
-uint8_t readIO8(uint16_t address);
 
 #endif

@@ -85,10 +85,12 @@
 #define enablefd    0xF4C6
 #define disablefd   0xF4D6
 
+uint8_t WAV_RAM_0[WAV_END - WAV_START+1];
+uint8_t PRG_RAM[RAM_END - RAM_START+1];
 int page = 0;
 
 
-void writeRAM8(uint16_t address, uint8_t data) {
+void CPU6809::write(uint16_t address, uint8_t data) {
   // RAM?
   if ((RAM_START <= address) && (address <= RAM_END)) {
     PRG_RAM[address - RAM_START] = data;
@@ -121,7 +123,7 @@ void writeRAM8(uint16_t address, uint8_t data) {
   }
 }
 
-uint8_t readRAM8(uint16_t address) {
+uint8_t CPU6809::read(uint16_t address) {
   uint8_t out;
 
   // ROM?
@@ -208,13 +210,21 @@ uint8_t readRAM8(uint16_t address) {
 CPU6809::CPU6809()
 {
   reset();
-
   clock_cycle_count = 0;
 }
-  
-void CPU6809::reset()
+
+void CPU6809::tick()
 {
-  // Not sure what to do here quite yet
+  step();
+  clock_cycle_count++;
+}
+
+void CPU6809::invalid(const char* message) {
+  Serial.print("CPU error detected: ");
+  if (message)
+    Serial.println(message);
+  else
+    Serial.println("No message specified");
 }
 
 ////////////////////////////////////////////////////////////////////

@@ -171,12 +171,12 @@ static bool ReadSectorDone;
 
 int a;
 
-extern unsigned long clock_cycle_count;
+extern unsigned long get_cpu_cycle_count();
 
 uint8_t fdc_intrq() {
  // if(fdc.intrq == 1) {
  //             Serial.printf("FDC WD1772: INTRQ Fired");
- //             Serial.printf(" clock_cycle_count = %ld\n", clock_cycle_count);
+ //             Serial.printf(" get_cpu_cycle_count() = %ld\n", get_cpu_cycle_count());
  //             }
   return(fdc.intrq);
 }
@@ -184,7 +184,7 @@ uint8_t fdc_intrq() {
 uint8_t fdc_drq() {
 //  if ( (fdc.sr & 0x02) == 0x02 ) {
 //               Serial.printf("FDC WD1172: DRQ Fired");
-//               Serial.printf(" clock_cycle_count = %ld\n", clock_cycle_count);
+//               Serial.printf(" get_cpu_cycle_count() = %ld\n", get_cpu_cycle_count());
 //                }
   return( (fdc.sr & 0x02) == 0x02); //DRQ bit
 }
@@ -226,9 +226,9 @@ void fdc_run() {
  //Serial.printf("Entering I: FDC_RUN\n");
  // Serial.printf("fdc.sr & 0x01 = %02x\n",fdc.sr & 0x01);
  // Serial.printf("fdc.cr & 0xf0 = %02x\n", fdc.cr & 0xf0);
- // Serial.printf(" %ld < %ld? \n", clock_cycle_count, fdc_cycles);
+ // Serial.printf(" %ld < %ld? \n", get_cpu_cycle_count(), fdc_cycles);
 
-	if (clock_cycle_count < fdc_cycles) return; // not ready yet
+	if (get_cpu_cycle_count() < fdc_cycles) return; // not ready yet
  // if (fdc_drq() | fdc_intrq()) return; // nothing to do while interrupts are active
 
  // Serial.printf("Entering II: FDC_RUN\n");
@@ -240,7 +240,7 @@ void fdc_run() {
 			fdc.trk_r = 0;  // Track 0
 			fdc.sr = 0x04;  // We are emulating TR00 HIGH from the FDC (track at 0), clear BUSY and DRQ INTERRUPT
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
-      //fdc_cycles = clock_cycle_count + 32; // new
+      //fdc_cycles = get_cpu_cycle_count() + 32; // new
       fdc.intrq = 1; // Assert INTRQ interrupt at the end of command
 			return;
       break;
@@ -250,19 +250,19 @@ void fdc_run() {
 			fdc.sr = 0; // Clear BUSY and DRQ INTERRUPT
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 			if (fdc.trk_r == 0) fdc.sr |= 0x04;  // track at 0, emulates TR00 HIGH for Type 1 command
-      //fdc_cycles = clock_cycle_count + 32; // new
+      //fdc_cycles = get_cpu_cycle_count() + 32; // new
 		  fdc.intrq = 1; // Assert INTRQ interrupt at the end of command
 			return;
       break;
     case 0x50:  // Step In
       Serial.printf("***** fdc_run(): Step In\n");
-      //fdc_cycles = clock_cycle_count + 32; // new
+      //fdc_cycles = get_cpu_cycle_count() + 32; // new
       fdc.intrq = 1; // Assert INTRQ interrupt at the end of command
       return;
       break;
     case 0x60:  // Step Out
       Serial.printf("***** fdc_run(): Step Out\n");
-      //fdc_cycles = clock_cycle_count + 32; // new
+      //fdc_cycles = get_cpu_cycle_count() + 32; // new
       fdc.intrq = 1; // Assert INTRQ interrupt at the end of command
       return;
       break;
@@ -294,7 +294,7 @@ void fdc_run() {
       //Serial.printf("*** fdc_run(): s_byte=%04x trk=%d sec=%d disk addr = %04x data=%02x\n",s_byte, fdc.trk_r, fdc.sec_r, a, fdc.data_r);
 			fdc.sr |= 0x02;  // Assert IRQ_, Data is ready!
 			s_byte++;
-			fdc_cycles = clock_cycle_count + 32; // original 32
+			fdc_cycles = get_cpu_cycle_count() + 32; // original 32
       
 			if (s_byte > (fdc.sec_r == 5 ? 512 : 1024) ) {
 				        fdc.sr &= 0xfe; // Clear the Busy Bit, we will disregard the last value read anyway, this is needed to keep irq and nmi in sync
@@ -378,24 +378,24 @@ void fdc_wreg(uint8_t reg, uint8_t val) {
 			switch(cmd) {
 				     case 0x0: // Restore
 					            Serial.printf("FDC_WREG cmd %02x: restore\n",  val);
-					            fdc_cycles = clock_cycle_count + 1000; //1000000;   // remove (or minimize) tbis
+					            fdc_cycles = get_cpu_cycle_count() + 1000; //1000000;   // remove (or minimize) tbis
 					            fdc.sr = 0x01; // busy
 					            break;
 				     case 0x1: // Seek
 					            Serial.printf("FDC_WREG cmd %02x: seek to %d\n", val, fdc.data_r);
-					            fdc_cycles = clock_cycle_count + 1000; //1000000;   // remove (or minimize) tbis
+					            fdc_cycles = get_cpu_cycle_count() + 1000; //1000000;   // remove (or minimize) tbis
 					            fdc.sr = 0x01;  // busy
 					            break;
 				     case 0x5: // Step In
                       Serial.printf("FDC_WREG cmd %02x: Step in %d\n", val, fdc.trk_r++);
-					            fdc_cycles = clock_cycle_count + 100; //100000;    // remove (or minimize) tbis
+					            fdc_cycles = get_cpu_cycle_count() + 100; //100000;    // remove (or minimize) tbis
 					            fdc.trk_r++;
                       fdc.sr = 0x01;  // busy
 					            ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 				              break;
 				     case 0x6: // Step Out
 					            Serial.printf("FDC_WREG cmd %02x: Step out (w/o Update) %d\n", val, fdc.trk_r--);
-					            fdc_cycles = clock_cycle_count + 100; //100000;    // remove (or minimize) tbis
+					            fdc_cycles = get_cpu_cycle_count() + 100; //100000;    // remove (or minimize) tbis
 					            fdc.trk_r--;
                       fdc.sr = 0x01;  // busy
 					            ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
@@ -405,7 +405,7 @@ void fdc_wreg(uint8_t reg, uint8_t val) {
                       break;
 				     case 0x8: // Read Single Sector
 					            Serial.printf("FDC_WREG cmd %02x: read sector\n", val);
-					            fdc_cycles = clock_cycle_count + 10; //1000;    // remove (or minimize) tbis
+					            fdc_cycles = get_cpu_cycle_count() + 10; //1000;    // remove (or minimize) tbis
 					            s_byte = 0;
 					            fdc.sr = 0x01; // busy
                       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
