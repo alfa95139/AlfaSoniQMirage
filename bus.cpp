@@ -275,6 +275,40 @@ void CPU6809::invalid(const char* message) {
   emergency = true;
 }
 
+
+void CPU6809::on_branch(char* opcode, uint16_t src, uint16_t dst) {
+  if (debug) {
+    const char* name = address_name(dst);
+    Serial.printf("branch with opcode %s from %04x to %04x\n", opcode, src, dst, name);
+  }
+}
+void CPU6809::on_branch_subroutine(char* opcode, uint16_t src, uint16_t dst) {
+  if (debug) {
+    const char* name = address_name(dst);
+    Serial.printf("call with opcode %s from %04x to %04x\n", opcode, src, dst, name);
+  }
+}
+
+void CPU6809::on_nmi(uint16_t src, uint16_t dst) {
+  if (debug) {
+    const char* name = address_name(dst);
+    Serial.printf("NMI from %04x to %04x (%s)\n", src, dst, name);
+  }
+}
+
+void CPU6809::on_irq(uint16_t src, uint16_t dst) {
+  if (debug) {
+    const char* name = address_name(dst);
+    Serial.printf("IRQ from %04x to %04x (%s)\n", src, dst, name);
+  }
+}
+void CPU6809::on_firq(uint16_t src, uint16_t dst) {
+  if (debug) {
+    const char* name = address_name(dst);
+    Serial.printf("FIRQ from %04x to %04x (%s)\n", src, dst, name);
+  }
+}
+
 ////////////////////////////////////////////////////////////////////
 // Processor Control Loop
 ////////////////////////////////////////////////////////////////////
