@@ -111,6 +111,7 @@ void FTDI_Write(byte x)
 
 CPU6809* cpu;
 bool emergency = false;
+bool debug_mode = true;
 
 ////////////////////////////////////////////////////////////////////
 // Setup
@@ -152,6 +153,10 @@ void setup()
   Serial.flush();
 
   Serial.println("\n");
+
+  if (debug_mode)
+    Serial.println("Debug mode enabled.");
+  cpu->set_debug(debug_mode);
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -167,12 +172,35 @@ void loop()
   uint8_t old_fdcirq = HIGH;
   uint8_t fdcintrq = HIGH;
   uint8_t old_fdcintrq = HIGH;
+
+  bool do_continue = true;
   
   // Loop forever
   //  
   while(!emergency)
   {
     //serialEvent0();
+    char* s = address_name(cpu->pc);
+    if (s[0] != '?' && strcmp(s, "countdown")) {
+      Serial.printf("BREAKPOINT %04x : %s\n", cpu->pc, s);
+      do_continue = false;
+    }
+    while (!do_continue && !emergency) {
+      while (Serial.available()) Serial.read();
+      Serial.write("> ");
+      while (!Serial.available());
+
+      char c = Serial.read();
+      Serial.println(c);
+      if (c == 's') {
+        cpu->tick();
+        Serial.printf("PC = %04x : %s\n", cpu->pc, address_name(cpu->pc));
+      } else if (c == 'c') {
+        do_continue = true;
+      } else if (c == 'r') {
+        cpu->printRegs();
+      }
+    }
     cpu->tick();
     via_run();
     
@@ -202,7 +230,7 @@ void loop()
     
     if (fdcintrq = fdc_intrq()) {
       if (old_fdcintrq != fdcintrq) {
-        bool accepted = cpu->nmi();
+        bool accepted = cpu->nmi(true);
         if (accepted) {
           Serial.printf(" +++  FDC NMI FIRED; pc=%04x %s\n", cpu->pc, address_name(cpu->pc));
         }

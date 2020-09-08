@@ -243,18 +243,8 @@ void CPU6809::invalid(const char* message) {
     Serial.println(message);
   else
     Serial.println("No message specified");
-  Serial.println("EMERGENCY.  Register dump:");
-  Serial.printf("IR %04x (%s)\n", ir, address_name(ir));
-  Serial.printf("PC %04x (%s)\n", pc, address_name(pc));
-  Serial.printf("U  %04x (%s)\n", u, address_name(u));
-  Serial.printf("S  %04x (%s)\n", s, address_name(s));
-  Serial.printf("X  %04x (%s)\n", x, address_name(x));
-  Serial.printf("Y  %04x (%s)\n", y, address_name(y));
-  Serial.printf("DP %02x\n", dp);
-  Serial.printf("A  %02x\n", a);
-  Serial.printf("B  %02x\n", b);
-  Serial.printf("CC %02x\n", cc.all);
-  Serial.println();
+  Serial.println("EMERGENCY.");
+  printRegs();
 
   // stack trace
   Serial.printf("Stack:\n%04x:", s);
@@ -273,6 +263,21 @@ void CPU6809::invalid(const char* message) {
   Serial.flush();
 
   emergency = true;
+}
+
+void CPU6809::printRegs() {
+  Serial.println("Register dump:");
+  Serial.printf("IR %04x (%s)\n", ir, address_name(ir));
+  Serial.printf("PC %04x (%s)\n", pc, address_name(pc));
+  Serial.printf("U  %04x (%s)\n", u, address_name(u));
+  Serial.printf("S  %04x (%s)\n", s, address_name(s));
+  Serial.printf("X  %04x (%s)\n", x, address_name(x));
+  Serial.printf("Y  %04x (%s)\n", y, address_name(y));
+  Serial.printf("DP %02x\n", dp);
+  Serial.printf("A  %02x\n", a);
+  Serial.printf("B  %02x\n", b);
+  Serial.printf("CC %02x\n", cc.all);
+  Serial.println();
 }
 
 
