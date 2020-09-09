@@ -94,7 +94,7 @@ byte FTDI_Read()
   byte x = Serial.read();
   // If no more characters left, deassert FIRQ to the processor.
   if (Serial.available() == 0)
-      digitalWrite(uP_FIRQ_N, HIGH);
+      digitalWrite(uP_FIRQ_N, false);
   return x;
 }
 
@@ -112,6 +112,7 @@ void FTDI_Write(byte x)
 CPU6809* cpu;
 bool emergency = false;
 bool debug_mode = true;
+bool do_continue = true;
 
 ////////////////////////////////////////////////////////////////////
 // Setup
@@ -166,50 +167,69 @@ void setup()
 void loop()
 {
   word j = 0;
-  uint8_t viairq = HIGH;
-  uint8_t old_viairq = HIGH;
-  uint8_t fdcirq = HIGH;
-  uint8_t old_fdcirq = HIGH;
-  uint8_t fdcintrq = HIGH;
-  uint8_t old_fdcintrq = HIGH;
-
-  bool do_continue = true;
+  bool viairq = false;
+  bool old_viairq = false;
+  bool fdcirq = false;
+  bool old_fdcirq = false;
+  bool fdcintrq = false;
+  bool old_fdcintrq = false;
   
   // Loop forever
   //  
   while(!emergency)
   {
     //serialEvent0();
-    char* s = address_name(cpu->pc);
-    if (s[0] != '?' && strcmp(s, "countdown")) {
-      Serial.printf("BREAKPOINT %04x : %s\n", cpu->pc, s);
-      do_continue = false;
-    }
-    while (!do_continue && !emergency) {
-      while (Serial.available()) Serial.read();
-      Serial.write("> ");
-      while (!Serial.available());
+    if (debug_mode) {
+      const char* s = address_name(cpu->pc);
+      if (s[0] != '?' && strcmp(s, "countdown")) {
+        Serial.printf("BREAKPOINT %04x : %s\n", cpu->pc, s);
+        do_continue = false;
+      }
+      while (!do_continue && !emergency) {
+        while (Serial.available()) Serial.read();
+        Serial.write("> ");
+        while (!Serial.available());
+  
+        char c = Serial.read();
+        Serial.println(c);
+        if (c == 's') {
+          // Step single CPU instruction
+          cpu->tick();
+          Serial.printf("PC = %04x : %s\n", cpu->pc, address_name(cpu->pc));
 
-      char c = Serial.read();
-      Serial.println(c);
-      if (c == 's') {
-        cpu->tick();
-        Serial.printf("PC = %04x : %s\n", cpu->pc, address_name(cpu->pc));
-      } else if (c == 'c') {
-        do_continue = true;
-      } else if (c == 'r') {
-        cpu->printRegs();
+        } else if (c == 'c') {
+          // Continue to next breakpoint
+          // breakpoints are hard-coded for now
+          do_continue = true;
+
+        } else if (c == 'r') {
+          // print CPU registers
+          cpu->printRegs();
+
+        } else if (c == 'e') {
+          // exit debug mode and tell CPU to stop printing
+          debug_mode = false;
+          cpu->set_debug(false);
+          break;
+
+        } else if (c == 'E') {
+          // exit debug mode but keep CPU printing
+          debug_mode = false;
+          cpu->set_debug(false);
+          break;
+        }
       }
     }
     cpu->tick();
     via_run();
     
-    if (via_irq()) {
+    if ((viairq = via_irq()) && !old_viairq) {
       bool accepted = cpu->irq();
       if (accepted) {
         Serial.printf(" +++  VIA IRQ FIRED; pc=%04x %s\n", cpu->pc, address_name(cpu->pc));
       }
     }
+    old_viairq = viairq;
     //digitalWrite(uP_IRQ_N, viairq);
     //if ( (viairq == LOW) && (old_viairq == HIGH) ) Serial.printf("  +++++++++      VIA IRQ FIRED, address %04x\n", uP_ADDR);
     //if ( (viairq == HIGH) && (old_viairq == LOW) ) Serial.printf("  +++++++++      VIA IRQ de-asserted, address %04x\n", uP_ADDR);
@@ -217,18 +237,19 @@ void loop()
     
     fdc_run();
 
-    if (fdc_drq()) {
+    if ((fdcirq = fdc_drq()) && !old_fdcirq) {
       bool accepted = cpu->irq();
       if (accepted) {
         Serial.printf(" +++  FDC IRQ FIRED; pc=%04x %s\n", cpu->pc, address_name(cpu->pc));
       }
     }
+    old_fdcirq = fdcirq;
     //digitalWrite(uP_IRQ_N,fdcirq);
     //if ( (fdcirq == LOW) && (old_fdcirq == HIGH) ) Serial.printf("  +++++++++      FDC IRQ FIRED, address %04x\n", uP_ADDR);
     //if ( (fdcirq == HIGH) && (old_fdcirq == LOW) ) Serial.printf("  +++++++++      FDC IRQ de-asserted, address %04x\n", uP_ADDR);
     //old_fdcirq = fdcirq;
     
-    if (fdcintrq = fdc_intrq()) {
+    if ((fdcintrq = fdc_intrq()) && !old_fdcintrq) {
       if (old_fdcintrq != fdcintrq) {
         bool accepted = cpu->nmi(true);
         if (accepted) {

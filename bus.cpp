@@ -129,7 +129,8 @@ const char* address_name(uint16_t address) {
   if (address == gototrack2)          return "gototrack2"; 
   if (address == enablefd)            return "enablefd";
   if (address == disablefd)           return "disablefd"; 
-  if (address == osvec)               return "OS VEC";
+  if (address == osvec)               return "OS VEC"; 
+  if (address & 0xFF00 == 0x7f00)               return "cpucrash*";
 
   if ((WAV_START <= address) && (address <= WAV_END)) return "wav data section";
 
@@ -141,7 +142,16 @@ const char* address_name(uint16_t address) {
   return "?";
 }
 
+extern bool debug_mode;
+extern bool do_continue;
+
 void CPU6809::write(uint16_t address, uint8_t data) {
+  /*if (data == 0x7f && address > WAV_END && address < DEVICES_START) {
+    Serial.printf("Wrote 0x%02x to %04x.\n", data, address);
+    do_continue = false;
+    debug_mode = true;
+    set_debug(true);
+  }*/
   // RAM?
   if ((RAM_START <= address) && (address <= RAM_END)) {
     PRG_RAM[address - RAM_START] = data;
