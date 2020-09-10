@@ -22,6 +22,7 @@ June 2020:  fdc.cpp -- ported emulation to work with SD card in Teensy 3.5/3.6
             by Alessandro Fasan
    
    */
+#define FDC1772_DEBUG 0
 
 #include "Arduino.h"
 #include <stdio.h>
@@ -326,18 +327,24 @@ uint8_t fdc_rreg(uint8_t reg) {
 		case FDC_SR:
 			      val = fdc.sr;
             fdc.intrq = 0; //INTRQ is de-asserted (NMI_ goes HIGH) after reading the STATUS REGISTER
+#if FDC1772_DEBUG
             Serial.printf("FDC_RREG FDC: SR ");
             Serial.printf(" val => %02x (FDC)\n",val);
+#endif
 			      break;
 		case FDC_TRACK:
 			      val = fdc.trk_r;
+#if FDC1772_DEBUG
             Serial.printf("FDC_RREG FDC_TRACK: ");
             Serial.printf(" val => %02x (FDC)\n",val);
+#endif
 			      break;
 		case FDC_SECTOR: 
 			      val =  fdc.sec_r;
+#if FDC1772_DEBUG
             Serial.printf("FDC_RREG FDC_SECTOR: ");
             Serial.printf(" val => %02x (FDC)\n",val);
+#endif
 			      break;
 		case FDC_DATA:
            // Serial.printf("FDC_RREG DATA, I clear the IRQ bit. DATA "); Serial.printf(" val => %02x (FDC)\n",val);
@@ -365,37 +372,53 @@ void fdc_wreg(uint8_t reg, uint8_t val) {
 	switch (reg & 0x03) {
 		case FDC_CR: // 0
             fdc.intrq = 0; //INTRQ is de-asserted (NMI_ goes HIGH) after loading the Command Register with new command
+#if FDC1772_DEBUG
             Serial.printf("FDC_WREG COMMAND fdc.cr = %02x\n", val);
+#endif
 			if ((val & 0xf0) == 0xd0) { // mask is 1111_0000, comparig with 1101_0000 force interrupt
+#if FDC1772_DEBUG
 				      Serial.printf("FDC_WREG cmd %02x: force interrupt\n", val);
+#endif
 				      fdc.sr &= 0xfe; // mask is 1111_1110,  we are clearing the busy bit
 				      return;
 			        }
+#if FDC1772_DEBUG
             Serial.printf("FDC_WREG FDRC fdc.sr & 0x01 shows %s BUSY\n", fdc.sr & 0x01 ? "" : "NOT" );
+#endif
 			if (fdc.sr & 0x01) return; // Just return if BUSY
+#if FDC1772_DEBUG
             Serial.printf("FDC_WREG FDRC: cmd %02x val = %02x\n", cmd, val);
+#endif
 			fdc.cr = val;
 			switch(cmd) {
 				     case 0x0: // Restore
+#if FDC1772_DEBUG
 					            Serial.printf("FDC_WREG cmd %02x: restore\n",  val);
-					            fdc_cycles = get_cpu_cycle_count() + 1000; //1000000;   // remove (or minimize) tbis
+#endif
+					            fdc_cycles = get_cpu_cycle_count() + 1000; //1000000;   // remove (or minimize) this
 					            fdc.sr = 0x01; // busy
 					            break;
 				     case 0x1: // Seek
+#if FDC1772_DEBUG
 					            Serial.printf("FDC_WREG cmd %02x: seek to %d\n", val, fdc.data_r);
-					            fdc_cycles = get_cpu_cycle_count() + 1000; //1000000;   // remove (or minimize) tbis
+#endif
+					            fdc_cycles = get_cpu_cycle_count() + 1000; //1000000;   // remove (or minimize) this
 					            fdc.sr = 0x01;  // busy
 					            break;
 				     case 0x5: // Step In
+#if FDC1772_DEBUG
                       Serial.printf("FDC_WREG cmd %02x: Step in %d\n", val, fdc.trk_r++);
-					            fdc_cycles = get_cpu_cycle_count() + 100; //100000;    // remove (or minimize) tbis
+#endif
+					            fdc_cycles = get_cpu_cycle_count() + 100; //100000;    // remove (or minimize) this
 					            fdc.trk_r++;
                       fdc.sr = 0x01;  // busy
 					            ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 				              break;
 				     case 0x6: // Step Out
+#if FDC1772_DEBUG
 					            Serial.printf("FDC_WREG cmd %02x: Step out (w/o Update) %d\n", val, fdc.trk_r--);
-					            fdc_cycles = get_cpu_cycle_count() + 100; //100000;    // remove (or minimize) tbis
+#endif
+					            fdc_cycles = get_cpu_cycle_count() + 100; //100000;    // remove (or minimize) this
 					            fdc.trk_r--;
                       fdc.sr = 0x01;  // busy
 					            ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
@@ -404,8 +427,10 @@ void fdc_wreg(uint8_t reg, uint8_t val) {
                       Serial.printf("*** FDC WRITING COMMAND: Step Out (w Update (%02x) CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
                       break;
 				     case 0x8: // Read Single Sector
+#if FDC1772_DEBUG
 					            Serial.printf("FDC_WREG cmd %02x: read sector\n", val);
-					            fdc_cycles = get_cpu_cycle_count() + 10; //1000;    // remove (or minimize) tbis
+#endif
+					            fdc_cycles = get_cpu_cycle_count() + 10; //1000;    // remove (or minimize) this
 					            s_byte = 0;
 					            fdc.sr = 0x01; // busy
                       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
@@ -427,17 +452,23 @@ void fdc_wreg(uint8_t reg, uint8_t val) {
 			        }
 			break;
 		case FDC_TRACK:
+#if FDC1772_DEBUG
 			Serial.printf("FDC_WREG *TRACK* = %d\n",  val);
+#endif
 			fdc.trk_r = val; 
 			ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 			break;
 		case FDC_SECTOR:
+#if FDC1772_DEBUG
 			Serial.printf("FDC_WREG *SECTOR* = %d\n", val);
+#endif
 			fdc.sec_r = val;
 			ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 			break;
 		case FDC_DATA:
+#if FDC1772_DEBUG
     	Serial.printf("FDC_WREG *DATA* = %d\n", val);
+#endif
 			fdc.data_r = val;
 			break;
     default:

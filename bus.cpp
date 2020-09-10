@@ -164,7 +164,7 @@ void CPU6809::write(uint16_t address, uint8_t data) {
     // WAV RAM
     page = via_rreg(0) & 0b0011;
     WAV_RAM[page][address - WAV_START] = data;
-    //Serial.printf("Writing to WAV RAM: PAGE %x address = %X, DATA = %0X\n", page, address, data);
+    //Serial.printf("Writing to WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, data);
 
   } else if ( (address & 0xFF00) == VIA6522) {
     Serial.printf("Writing to VIA 6522 %04x %02x\n", address, data);
@@ -181,6 +181,8 @@ void CPU6809::write(uint16_t address, uint8_t data) {
     // FTDI?
     Serial.printf("Writing to ACIA (not implemented) %c\n", data);
     //Serial.write(data);
+  } else if ((address & 0xFF00) == 0xE400) {
+    Serial.printf("=====>> FILTERS: %04x, %02x\n", address, data);
   }
 }
 
@@ -210,7 +212,7 @@ uint8_t CPU6809::read(uint16_t address) {
     out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
     Serial.printf("Reading from Expansion Port: address = %X, DATA = FF\n", address, out);
 
-  } else if ( (address & 0xFF00) == VIA6522) {
+  } else if ((address & 0xFF00) == VIA6522) {
     // FTDI?
     //if ( (address & 0xFF00) == 0xE100) 
     //      out = FTDI_Read();
@@ -218,14 +220,19 @@ uint8_t CPU6809::read(uint16_t address) {
     Serial.printf("Reading from VIA 6522\n");
     out = via_rreg(address & 0xFF);
 
-  } else if ( (address & 0xFF00) == FDC1770) {
+  } else if ((address & 0xFF00) == FDC1770) {
     out = fdc_rreg(address & 0xFF); 
     //Serial.printf("**** Reading from FDC 1770. Value ====> out = %02x\n", out);
 
-  } else if (( address & 0xFF00) == DOC5503 ) {
+  } else if ((address & 0xFF00) == DOC5503 ) {
     Serial.printf("Reading from DOC 5503: Register %02X\n", address & 0x00FF);
     out = 0xFF;
-
+  } else if ((address & 0xFF00) == 0xE400) {
+    Serial.printf("Reading from Filters addresses 0xE400 to 0xE41F (which is WRONG) ADDRESS = %04x\n", address);
+  } else if ((CART_START <= address) && (address <= CART_END) ) {
+    //DATA_OUT = CartROM[ (uP_ADDR - CART_START) ];
+    out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
+    Serial.printf("Reading from Expansion Port: uP_ADDR = %X, DATA = FF\n", address, out);
   } else
     out = 0xFF;
 

@@ -41,15 +41,15 @@
 ////////////////////////////////////////////////////////////////////
 #define outputDEBUG     0
 
-//////////////////////
+///////////////////////
 //
 /////////////////////
 //extern "C++" {
 
   void via_init();
-  uint8_t via_run();
-  uint8_t via_rreg(int reg);
-  void via_wreg(int reg, uint8_t val);
+  void via_run();
+  uint8_t via_rreg(uint8_t reg);
+  void via_wreg(uint8_t reg, uint8_t val);
   uint8_t via_irq();
   void fdc_init();
   void fdc_run(); 
@@ -57,10 +57,10 @@
   void fdc_wreg(uint8_t reg, uint8_t val);
   uint8_t fdc_intrq();
   uint8_t fdc_drq();
-//  void doc_init();
-//  uint8_t doc_run();
-//  uint8_t doc_rreg(int reg);
-//  void doc_wreg(int reg, uint8_t val);
+  void doc_init();
+  uint8_t doc_run();
+  uint8_t doc_rreg(uint8_t reg);
+  void doc_wreg(uint8_t reg, uint8_t val);
 //}
 
 #include "bus.h"
@@ -142,7 +142,7 @@ void setup()
 
   via_init();
   fdc_init();
-  // doc_init();
+  doc_init();
 
   Serial.println("Initializing processor...");
   Serial.flush();
