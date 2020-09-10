@@ -41,15 +41,15 @@
 ////////////////////////////////////////////////////////////////////
 #define outputDEBUG     0
 
-//////////////////////
+///////////////////////
 //
 /////////////////////
 //extern "C++" {
 
   void via_init();
-  uint8_t via_run();
-  uint8_t via_rreg(int reg);
-  void via_wreg(int reg, uint8_t val);
+  void via_run();
+  uint8_t via_rreg(uint8_t reg);
+  void via_wreg(uint8_t reg, uint8_t val);
   uint8_t via_irq();
   void fdc_init();
   void fdc_run(); 
@@ -57,10 +57,10 @@
   void fdc_wreg(uint8_t reg, uint8_t val);
   uint8_t fdc_intrq();
   uint8_t fdc_drq();
-//  void doc_init();
-//  uint8_t doc_run();
-//  uint8_t doc_rreg(int reg);
-//  void doc_wreg(int reg, uint8_t val);
+  void doc_init();
+  uint8_t doc_run();
+  uint8_t doc_rreg(uint8_t reg);
+  void doc_wreg(uint8_t reg, uint8_t val);
 //}
 
 ////////////////////////////////////////////////////////////////////
@@ -100,7 +100,7 @@ byte    PRG_RAM[RAM_END - RAM_START+1];
 #define UART6850cs      0xE100 // Control/Status
 #define UART6850_d      0xE101 // Data
 #define	VIA6522		      0xE200 // to 0xE20F
-#define VCF3328         0xE400 //   0xE408 to 0xE40F: Filter cut-off Freq. 0xE410 to 0xE417:  Filter Resonance.E418-E41F  Multiplexer address pre-set (no output) 
+#define VCF3328         0xE400 //   0xE410 to 0xE417: Filter cut-off Freq. Filter Resonance.E408-E40F.  Multiplexer address pre-set (no output) E418: OFF
 #define FDC1770		      0xE800 // to 0xE803
 #define	DOC5503     	  0xEC00 // to 0xECEF
 
@@ -244,6 +244,8 @@ int page;
 #define enablefd  	0xF4C6
 #define disablefd  	0xF4D6
 
+bool displayAddress;
+
 void uP_init()
 {
   // Set directions for ADDR & DATA Bus.
@@ -272,6 +274,7 @@ void uP_init()
   digitalWrite(uP_Q, LOW);
 
   clock_cycle_count = 0;
+  displayAddress = false;
 }
   
 void uP_assert_reset()
@@ -315,10 +318,11 @@ void cpu_tick()
   // DELAY_FACTOR_H();
   
   uP_ADDR = ADDR;
+ // if(displayAddress) Serial.printf("Address: %04X ", uP_ADDR);
 
  
 
-  CLK_Q_LOW;            // digitalWrite(uP_Q, LOW);    // CLK_Q_LOW; // PORTB = PORTB & 0xFE;     // Set Q = low
+  CLK_Q_LOW;          // digitalWrite(uP_Q, LOW);    // CLK_Q_LOW; // PORTB = PORTB & 0xFE;     // Set Q = low
   // DELAY_FACTOR_L();
 
   if (STATE_RW_N)      // Check R/W
@@ -336,23 +340,26 @@ void cpu_tick()
     // RAM?
     if ( (RAM_START <= uP_ADDR) && (uP_ADDR <= RAM_END) ) {
            if (uP_ADDR == loadopsys) Serial.printf("***   LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM *** LOAD OS IN PRG RAM   *** \n");
-  if (uP_ADDR == osentry)   Serial.printf("***  OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY  ***\n");
+  if (uP_ADDR == osentry)   {
+          Serial.printf("***  OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY *** OS ENTRY  ***\n");
+          displayAddress = true;
+          }
   if (uP_ADDR == irqentry)  Serial.printf("***  IRQ INTERRUPT ROUTINE ENTRY POINT ***  IRQ INTERRUPT ROUTINE ENTRY POINT ***   IRQ INTERRUPT ROUTINE ENTRY POINT  ***\n");
   if (uP_ADDR == firqentry) Serial.printf("*** FIRQ INTERRUPT ROUTINE ENTRY POINT *** FIRQ INTERRUPT ROUTINE ENTRY POINT ***  FIRQ INTERRUPT ROUTINE ENTRY POINT  ***\n");
 
 
-if (uP_ADDR == firqvec)      Serial.printf("**** firqvec     ****\n");
-if (uP_ADDR == osvec)       Serial.printf("**** osvec       ****\n"); 
+if (uP_ADDR == firqvec)           Serial.printf("**** firqvec     ****\n");
+if (uP_ADDR == osvec)             Serial.printf("**** osvec       ****\n"); 
 if (uP_ADDR == fdcreadsector)     Serial.printf("**** fdcreadsector   ****\n"); 
 if (uP_ADDR == fdcskipsector)     Serial.printf("**** fdcskipsector   ****\n"); 
 if (uP_ADDR == fdcwritesector)    Serial.printf("**** fdcwritesector  ****\n"); 
 if (uP_ADDR == fdcfillsector)     Serial.printf("**** fdcfillsector   ****\n"); 
-if (uP_ADDR == fdcreadtrack)    Serial.printf("**** fdcreadtrack  ****\n"); 
+if (uP_ADDR == fdcreadtrack)      Serial.printf("**** fdcreadtrack  ****\n"); 
 if (uP_ADDR == fdcwritetrack)     Serial.printf("**** fdcwritetrack   ****\n"); 
-if (uP_ADDR == fdcrestore)    Serial.printf("**** fdcrestore    ****\n"); 
-if (uP_ADDR == fdcseektrack)    Serial.printf("**** fdcseektrack  ****\n"); 
-if (uP_ADDR == fdcseekin)     Serial.printf("**** fdcseekin     ****\n"); 
-if (uP_ADDR == fdcseekout)    Serial.printf("**** fdcseekout    ****\n"); 
+if (uP_ADDR == fdcrestore)        Serial.printf("**** fdcrestore    ****\n"); 
+if (uP_ADDR == fdcseektrack)      Serial.printf("**** fdcseektrack  ****\n"); 
+if (uP_ADDR == fdcseekin)         Serial.printf("**** fdcseekin     ****\n"); 
+if (uP_ADDR == fdcseekout)        Serial.printf("**** fdcseekout    ****\n"); 
 if (uP_ADDR == fdcforceinterrupt)   Serial.printf("**** fdcforceinterrupt   ****\n"); 
 if (uP_ADDR == countdown)     Serial.printf("**** countdown     ****\n"); 
 if (uP_ADDR == nmivec)      Serial.printf("**** nmivec    ****\n"); 
@@ -396,8 +403,9 @@ if (uP_ADDR == disablefd)     Serial.printf("**** disablefd     ****\n");
     //      DATA_OUT = FTDI_Read();
     //else
     if ( (uP_ADDR & 0xFF00) == VIA6522) {
-                Serial.printf("Reading from VIA 6522\n");
                 DATA_OUT = via_rreg(uP_ADDR & 0xFF);  
+                Serial.printf("Reading from VIA 6522 register %02x %02x\n", uP_ADDR & 0x00FF, DATA_OUT);
+
             }                   
    
     else
@@ -408,15 +416,19 @@ if (uP_ADDR == disablefd)     Serial.printf("**** disablefd     ****\n");
    
     else 
     if (( uP_ADDR & 0xFF00) == DOC5503 ) {
-	      Serial.printf("Reading from DOC 5503: Register %02X\n", uP_ADDR & 0x00FF);
-        DATA_OUT = 0xFF;
+        DATA_OUT = doc_rreg(uP_ADDR &0x00FF);
+	      //Serial.printf("Reading from DOC 5503: Register %02x, value = %02X\n", uP_ADDR &0x00FF, DATA_OUT);
         }
-    
+    else
+    if (( uP_ADDR & 0xFF00) == 0xE400) {
+       Serial.printf("Reading from Filters addresses 0xE400 to 0xE41F (which is WRONG) ADDRESS = %04x\n",uP_ADDR);
+    }
     else
       DATA_OUT = 0xFF;
 
     // Start driving the databus out
     SET_DATA_OUT( DATA_OUT );
+   // if(displayAddress) Serial.printf("DATA: %02X \n", DATA_OUT);
     
 #if outputDEBUG
     char tmp[40];
@@ -430,7 +442,9 @@ if (uP_ADDR == disablefd)     Serial.printf("**** disablefd     ****\n");
   // R/W = low = WRITE?
   {
     DATA_IN = xDATA_IN;
-    
+
+    //if(displayAddress) Serial.printf("DATA: %02X \n", DATA_IN);
+
     // RAM?
     if ( (RAM_START <= uP_ADDR) && (uP_ADDR <= RAM_END) ) {
           PRG_RAM[uP_ADDR - RAM_START] = DATA_IN;
@@ -448,22 +462,29 @@ if (uP_ADDR == disablefd)     Serial.printf("**** disablefd     ****\n");
     }
      else
     if ( (uP_ADDR & 0xFF00) == VIA6522) {
-          Serial.printf("Writing to VIA 6522 %04x %02x\n", uP_ADDR, DATA_IN);
+          Serial.printf("Writing to VIA 6522 register %04x %02x\n", uP_ADDR & 0x00FF, DATA_IN);
           via_wreg(uP_ADDR & 0xFF, DATA_IN);     
           }
     else
     if ( (uP_ADDR & 0xFF00) == FDC1770) {
-          Serial.printf("Writing to FDC 1770 %04x %02x\n", uP_ADDR, DATA_IN);
+          Serial.printf("Writing to FDC 1770 register %02x %02x\n", uP_ADDR & 0x00FF, DATA_IN);
           fdc_wreg(uP_ADDR & 0xFF, DATA_IN);
          }
     else 
-      if ( (uP_ADDR & 0xFF00) == DOC5503 ) Serial.printf("Writing to DOC: Register %02X\n", uP_ADDR & 0x00FF);
+      if ( (uP_ADDR & 0xFF00) == DOC5503 ) {
+          Serial.printf("Writing to DOC: Register %02X %02x\n", uP_ADDR & 0x00FF, DATA_IN);
+          doc_wreg(uP_ADDR & 0xFF, DATA_IN);
+      }
   else
     // FTDI?
     if ( (uP_ADDR & 0xFF00) == 0xE100) {
           Serial.printf("Writing to ACIA (not implemented) %c\n", DATA_IN);
           //Serial.write(DATA_IN);
           }
+   else
+        if (( uP_ADDR & 0xFF00) == 0xE400) {
+       Serial.printf("=====>> FILTERS: %04x, %02x\n", uP_ADDR, DATA_IN);
+    }
 
 #if outputDEBUG
     char tmp[40];
@@ -559,7 +580,8 @@ void setup()
   uP_init();
   via_init();
   fdc_init();
- // doc_init();
+  doc_init();
+
 
 
   // Reset processor
