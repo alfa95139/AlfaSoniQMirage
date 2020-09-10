@@ -20,9 +20,9 @@
 #define __VIA_H
 
 #include <stdint.h>
-uint8_t via_rreg(int reg);
-void via_wreg(int reg, uint8_t val);
-uint8_t via_run();
+uint8_t via_rreg(uint8_t reg);
+void via_wreg(uint8_t reg, uint8_t val);
+void via_run();
 void via_init();
 uint8_t via_irq();
 
@@ -34,6 +34,7 @@ struct {
   uint8_t t1l, t1h;   // t1 Counter (Low and High)
 	uint8_t t2l, t2h;   // t2 Counter (Low and High)
 	uint8_t ier, ifr;
+  uint8_t acr;
 	uint8_t pcr;
 
 } via;
