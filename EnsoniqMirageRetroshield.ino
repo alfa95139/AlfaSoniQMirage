@@ -215,7 +215,6 @@ void loop()
         } else if (c == 'E') {
           // exit debug mode but keep CPU printing
           debug_mode = false;
-          cpu->set_debug(false);
           break;
         }
       }
