@@ -181,7 +181,7 @@ void loop()
     //serialEvent0();
     if (debug_mode) {
       const char* s = address_name(cpu->pc);
-      if (s[0] != '?' && strcmp(s, "countdown")) {
+      if (s[0] == '*') { // && strcmp(s, "countdown")) {
         Serial.printf("BREAKPOINT %04x : %s\n", cpu->pc, s);
         do_continue = false;
       }
@@ -215,7 +215,6 @@ void loop()
         } else if (c == 'E') {
           // exit debug mode but keep CPU printing
           debug_mode = false;
-          cpu->set_debug(false);
           break;
         }
       }

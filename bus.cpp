@@ -91,12 +91,12 @@ int page = 0;
 
 const char* address_name(uint16_t address) {
   if (address == loadopsys)           return "LOAD OS IN PRG RAM";
-  if (address == osentry)             return "OS ENTRY";
+  if (address == osentry)             return "*OS ENTRY";
   if (address == irqentry)            return "IRQ INTERRUPT ROUTINE ENTRY POINT";
   if (address == firqentry)           return "FIRQ INTERRUPT ROUTINE ENTRY POINT";
   if (address == firqvec)             return "firqvec";
   //if (address == irqvec)              return "irqvec";
-  if (address == osvec)               return "osvec"; 
+  if (address == osvec)               return "*osvec"; 
   if (address == fdcreadsector)       return "fdcreadsector"; 
   if (address == fdcskipsector)       return "fdcskipsector"; 
   if (address == fdcwritesector)      return "fdcwritesector"; 
@@ -111,7 +111,7 @@ const char* address_name(uint16_t address) {
   if (address == countdown)           return "countdown"; 
   if (address == nmivec)              return "nmivec"; 
   if (address == coldstart)           return "coldstart"; 
-  if (address == runopsys)            return "runopsys"; 
+  if (address == runopsys)            return "*runopsys"; 
   if (address == hwsetup)             return "hwsetup"; 
   if (address == qchipsetup)          return "qchipsetup"; 
   if (address == clearram)            return "clearram"; 
@@ -128,9 +128,8 @@ const char* address_name(uint16_t address) {
   if (address == writesector)         return "writesector"; 
   if (address == gototrack2)          return "gototrack2"; 
   if (address == enablefd)            return "enablefd";
-  if (address == disablefd)           return "disablefd"; 
-  if (address == osvec)               return "OS VEC"; 
-  if (address & 0xFF00 == 0x7f00)               return "cpucrash*";
+  if (address == disablefd)           return "disablefd";
+  if (address & 0xFF00 == 0x7f00)     return "*cpucrash";
 
   if ((WAV_START <= address) && (address <= WAV_END)) return "wav data section";
 
