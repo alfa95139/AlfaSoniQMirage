@@ -85,7 +85,8 @@
 #define enablefd    0xF4C6
 #define disablefd   0xF4D6
 
-uint8_t WAV_RAM_0[WAV_END - WAV_START+1];
+uint8_t WAV_RAM[4][WAV_END - WAV_START+1];
+
 uint8_t PRG_RAM[RAM_END - RAM_START+1];
 int page = 0;
 
@@ -163,7 +164,7 @@ void CPU6809::write(uint16_t address, uint8_t data) {
   } else if ( (WAV_START <= address) && (address <= WAV_END) ) {
     // WAV RAM
     page = via_rreg(0) & 0b0011;
-    WAV_RAM_0[address - WAV_START] = data;
+    WAV_RAM[page][address - WAV_START] = data;
     //Serial.printf("Writing to WAV RAM: PAGE %x address = %X, DATA = %0X\n", page, address, data);
 
   } else if ( (address & 0xFF00) == VIA6522) {
@@ -203,9 +204,8 @@ uint8_t CPU6809::read(uint16_t address) {
     out = PRG_RAM[address - RAM_START];
   } else if ((WAV_START <= address) && (address <= WAV_END)) {
     // WAVE RAM? NOTE: VIA 6522 PORT B contains info about the page, when we will be ready to manage 4 banks
-    out = WAV_RAM_0[address - WAV_START];
-    //Serial.printf("Reading from WAV RAM: address = %X, DATA = FF\n", address, out);
-
+    page = via_rreg(0) & 0b0011;
+    out = WAV_RAM[page][address - WAV_START];
   } else if ((CART_START <= address) && (address <= CART_END)) {
     //out = CartROM[ (address - CART_START) ];
     out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
