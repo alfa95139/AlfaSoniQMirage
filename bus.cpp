@@ -300,13 +300,13 @@ void CPU6809::printRegs() {
 void CPU6809::on_branch(char* opcode, uint16_t src, uint16_t dst) {
   if (debug) {
     const char* name = address_name(dst);
-    Serial.printf("branch with opcode %s from %04x to %04x\n", opcode, src, dst, name);
+    Serial.printf("branch with opcode %s from %04x to %04x (%s)\n", opcode, src, dst, name);
   }
 }
 void CPU6809::on_branch_subroutine(char* opcode, uint16_t src, uint16_t dst) {
   if (debug) {
     const char* name = address_name(dst);
-    Serial.printf("call with opcode %s from %04x to %04x\n", opcode, src, dst, name);
+    Serial.printf("call with opcode %s from %04x to %04x (%s)\n", opcode, src, dst, name);
   }
 }
 

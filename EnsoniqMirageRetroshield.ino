@@ -226,6 +226,9 @@ void loop()
       bool accepted = cpu->irq();
       if (accepted) {
         Serial.printf(" +++  VIA IRQ FIRED; pc=%04x %s\n", cpu->pc, address_name(cpu->pc));
+      } else {
+        Serial.println(" VIA IRQ NOT ACCEPTED!");
+        cpu->printRegs();
       }
     }
     old_viairq = viairq;
@@ -240,6 +243,9 @@ void loop()
       bool accepted = cpu->irq();
       if (accepted) {
         Serial.printf(" +++  FDC IRQ FIRED; pc=%04x %s\n", cpu->pc, address_name(cpu->pc));
+      } else {
+        Serial.println(" FDC IRQ NOT ACCEPTED!");
+        cpu->printRegs();
       }
     }
     old_fdcirq = fdcirq;
