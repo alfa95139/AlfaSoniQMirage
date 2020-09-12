@@ -149,6 +149,7 @@ void setup()
   // Create & Reset processor
   cpu = new CPU6809();
   cpu->reset();
+  cpu->set_stack_overflow(0x8000);
 
   Serial.println("Initialized processor");
   Serial.flush();
@@ -176,8 +177,14 @@ void loop()
   
   // Loop forever
   //  
-  while(!emergency)
+  while(true)
   {
+    if (emergency) {
+      do_continue = false;
+      debug_mode = true;
+      cpu->set_debug(true);
+      emergency = false;
+    }
     //serialEvent0();
     if (debug_mode) {
       const char* s = address_name(cpu->pc);
