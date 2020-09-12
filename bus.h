@@ -62,8 +62,8 @@ class CPU6809: virtual public mc6809 {
     virtual uint8_t read(uint16_t offset);
     virtual void    write(uint16_t offset, Byte val);
     
-    virtual void    on_branch(char* opcode, uint16_t src, uint16_t dst);
-    virtual void    on_branch_subroutine(char* opcode, uint16_t src, uint16_t dst);
+    virtual void    on_branch(const char* opcode, uint16_t src, uint16_t dst);
+    virtual void    on_branch_subroutine(const char* opcode, uint16_t src, uint16_t dst);
     virtual void    on_nmi(uint16_t src, uint16_t dst);
     virtual void    on_irq(uint16_t src, uint16_t dst);
     virtual void    on_firq(uint16_t src, uint16_t dst);
@@ -75,6 +75,7 @@ class CPU6809: virtual public mc6809 {
     void printRegs();
     unsigned long get_cycle_count() { return clock_cycle_count; }
     void set_debug(bool dbg) { debug = dbg; }
+    void printLastInstructions();
 
 };
 

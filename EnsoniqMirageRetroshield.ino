@@ -184,6 +184,7 @@ void loop()
       debug_mode = true;
       cpu->set_debug(true);
       emergency = false;
+      cpu->printLastInstructions();
     }
     //serialEvent0();
     if (debug_mode) {
@@ -223,6 +224,9 @@ void loop()
           // exit debug mode but keep CPU printing
           debug_mode = false;
           break;
+        } else if (c == 'p') {
+          // print last instructions executed
+          cpu->printLastInstructions();
         }
       }
     }

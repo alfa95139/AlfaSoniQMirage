@@ -130,7 +130,7 @@ const char* address_name(uint16_t address) {
   if (address == gototrack2)          return "gototrack2"; 
   if (address == enablefd)            return "enablefd";
   if (address == disablefd)           return "disablefd";
-  if (address & 0xFF00 == 0x7f00)     return "*cpucrash";
+  if ((address & 0xFF00) == 0x7f00)     return "*cpucrash";
 
   if ((WAV_START <= address) && (address <= WAV_END)) return "wav data section";
 
@@ -296,14 +296,41 @@ void CPU6809::printRegs() {
   Serial.println();
 }
 
+void CPU6809::printLastInstructions() {
+  char buffer[64];
 
-void CPU6809::on_branch(char* opcode, uint16_t src, uint16_t dst) {
+  for (int i = 0; i < INSTRUCTION_RECORD_SIZE; i++) {
+    Instruction instruction = last_instructions[(instruction_loc + i) % INSTRUCTION_RECORD_SIZE];
+
+    // Print instruction location and s
+    const char* adrname = address_name(instruction.address);
+    if (adrname[0] != '?' && strcmp(adrname, "wav data section"))
+      Serial.printf("%s:\n", adrname);
+    Serial.printf("%04x (S = %04x): ", instruction.address, instruction.s);
+
+    // Print bytes
+    int j;
+    for (j = 0; j < instruction.byte_length; j++) {
+      Serial.printf("%02x ", instruction.bytes[j]);
+    }
+
+    // Add spacing so the text all lines up
+    for (; j < 4; j++) {
+      Serial.printf("   ");
+    }
+
+    instruction.decode(buffer);
+    Serial.println(buffer);
+  }
+}
+
+void CPU6809::on_branch(const char* opcode, uint16_t src, uint16_t dst) {
   if (debug) {
     const char* name = address_name(dst);
     Serial.printf("branch with opcode %s from %04x to %04x (%s)\n", opcode, src, dst, name);
   }
 }
-void CPU6809::on_branch_subroutine(char* opcode, uint16_t src, uint16_t dst) {
+void CPU6809::on_branch_subroutine(const char* opcode, uint16_t src, uint16_t dst) {
   if (debug) {
     const char* name = address_name(dst);
     Serial.printf("call with opcode %s from %04x to %04x (%s)\n", opcode, src, dst, name);
