@@ -360,6 +360,7 @@ void CPU6809::on_firq(uint16_t src, uint16_t dst) {
 void CPU6809::print_memory(int address, int lines) {
   address &= 0xFFF0;
   Serial.println("ADDR | 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F");
+  Serial.println("-----|------------------------------------------------");
   for (int line = 0; line < lines; line++) {
     Serial.printf("%04x |", address);
     for (int i = 0; i < 16; i++)

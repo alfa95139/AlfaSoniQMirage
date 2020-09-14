@@ -199,47 +199,84 @@ void loop()
         while (!Serial.available());
   
         char c = Serial.read();
-        Serial.println(c);
+        Serial.print(c);
         if (c == 's') {
           // Step single CPU instruction
+          Serial.println();
           cpu->tick();
           Serial.printf("PC = %04x : %s\n", cpu->pc, address_name(cpu->pc));
 
         } else if (c == 'c') {
           // Continue to next breakpoint
           // breakpoints are hard-coded for now
+          Serial.println();
           do_continue = true;
 
         } else if (c == 'r') {
           // print CPU registers
+          Serial.println();
           cpu->printRegs();
 
         } else if (c == 'e') {
           // exit debug mode and tell CPU to stop printing
+          Serial.println();
           debug_mode = false;
           cpu->set_debug(false);
           break;
 
         } else if (c == 'E') {
           // exit debug mode but keep CPU printing
+          Serial.println();
           debug_mode = false;
           break;
         } else if (c == 'p') {
           // print last instructions executed
+          Serial.println();
           cpu->printLastInstructions();
         } else if (c == 'm') {
-          // print memory at hex location
+          // print memory at location
+          /* location can be any 16-bit unsigned integer literal...
+           *    EX: 0xb920 (hex), 1024 (decimal), 0b1101 (binary)
+           * ... or a 16-bit register name
+           *    EX: s, u, pc, x, y (use lowercase)
+          */
           char s[8];
           int i = 0;
           while (Serial.available()) {
             char c = Serial.read();
+            if (c == ' ') {
+              if (i == 0) {
+                continue;
+                Serial.write(' ');
+              } else {
+                s[i] = 0;
+                break;
+              }
+            }
             if (c == '\n' || c == '\r' || i == 7) {
               s[i] = 0;
               break;
             }
             s[i++] = c;
           }
-          int location = strtol(s, NULL, 0);
+          Serial.println(s);
+
+          // Decode location
+          int location;
+          if (!strcmp(s, "pc"))
+            location = cpu->pc;
+          else if (!strcmp(s, "s"))
+            location = cpu->s;
+          else if (!strcmp(s, "u"))
+            location = cpu->u;
+          else if (!strcmp(s, "x"))
+            location = cpu->x;
+          else if (!strcmp(s, "y"))
+            location = cpu->y;
+          else
+            location = strtol(s, NULL, 0);
+          Serial.printf("%s = %04x\n", s, location);
+
           cpu->print_memory(location);
         }
       }
