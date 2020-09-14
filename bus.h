@@ -76,7 +76,7 @@ class CPU6809: virtual public mc6809 {
     unsigned long get_cycle_count() { return clock_cycle_count; }
     void set_debug(bool dbg) { debug = dbg; }
     void printLastInstructions();
-
+    void print_memory(int address, int lines = 8);
 };
 
 #endif

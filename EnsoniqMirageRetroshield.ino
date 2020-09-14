@@ -227,6 +227,20 @@ void loop()
         } else if (c == 'p') {
           // print last instructions executed
           cpu->printLastInstructions();
+        } else if (c == 'm') {
+          // print memory at hex location
+          char s[8];
+          int i = 0;
+          while (Serial.available()) {
+            char c = Serial.read();
+            if (c == '\n' || c == '\r' || i == 7) {
+              s[i] = 0;
+              break;
+            }
+            s[i++] = c;
+          }
+          int location = strtol(s, NULL, 0);
+          cpu->print_memory(location);
         }
       }
     }
