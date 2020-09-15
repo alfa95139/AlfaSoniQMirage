@@ -35,35 +35,10 @@
 // 2020/06/14   Porting GordonJCP implementation of VIA6522 emulation     Alessandro
 // 2020/06/14   Porting GordonJCP implementation of FDC emulation         Alessandro
 
-////////////////////////////////////////////////////////////////////
-// Options
-//   outputDEBUG: Print memory access debugging messages.
-////////////////////////////////////////////////////////////////////
-#define outputDEBUG     0
-
-///////////////////////
-//
-/////////////////////
-//extern "C++" {
-
-  void via_init();
-  void via_run();
-  uint8_t via_rreg(uint8_t reg);
-  void via_wreg(uint8_t reg, uint8_t val);
-  uint8_t via_irq();
-  void fdc_init();
-  void fdc_run(); 
-  uint8_t fdc_rreg(uint8_t reg);
-  void fdc_wreg(uint8_t reg, uint8_t val);
-  uint8_t fdc_intrq();
-  uint8_t fdc_drq();
-  void doc_init();
-  uint8_t doc_run();
-  uint8_t doc_rreg(uint8_t reg);
-  void doc_wreg(uint8_t reg, uint8_t val);
-//}
-
 #include "bus.h"
+#include "via.h"
+#include "fdc.h"
+#include "doc5503.h"
 
 ////////////////////////////////////////////////////////////////////
 // Serial Functions
@@ -125,7 +100,6 @@ void setup()
   while (!Serial);
 
   Serial.println("\n");
-  Serial.print("Retroshield Debug:   --> "); Serial.println(outputDEBUG, HEX);
   Serial.println("========================================");
   Serial.println("= Ensoniq Mirage Memory Configuration: =");
   Serial.println("========================================");
@@ -168,12 +142,6 @@ void setup()
 void loop()
 {
   word j = 0;
-  bool viairq = false;
-  bool old_viairq = false;
-  bool fdcirq = false;
-  bool old_fdcirq = false;
-  bool fdcintrq = false;
-  bool old_fdcintrq = false;
   
   // Loop forever
   //  
@@ -282,55 +250,10 @@ void loop()
       }
     }
     cpu->tick();
-    via_run();
-    
-    if ((viairq = via_irq()) && !old_viairq) {
-      bool accepted = cpu->irq();
-      if (accepted) {
-        Serial.printf(" +++  VIA IRQ FIRED; pc=%04x %s\n", cpu->pc, address_name(cpu->pc));
-      } else {
-        Serial.println(" VIA IRQ NOT ACCEPTED!");
-        cpu->printRegs();
-      }
-    }
-    old_viairq = viairq;
-    //digitalWrite(uP_IRQ_N, viairq);
-    //if ( (viairq == LOW) && (old_viairq == HIGH) ) Serial.printf("  +++++++++      VIA IRQ FIRED, address %04x\n", uP_ADDR);
-    //if ( (viairq == HIGH) && (old_viairq == LOW) ) Serial.printf("  +++++++++      VIA IRQ de-asserted, address %04x\n", uP_ADDR);
-    //old_viairq = viairq;
-    
-    fdc_run();
 
-    if ((fdcirq = fdc_drq()) && !old_fdcirq) {
-      bool accepted = cpu->irq();
-      if (accepted) {
-        Serial.printf(" +++  FDC IRQ FIRED; pc=%04x %s\n", cpu->pc, address_name(cpu->pc));
-      } else {
-        Serial.println(" FDC IRQ NOT ACCEPTED!");
-        cpu->printRegs();
-      }
-    }
-    old_fdcirq = fdcirq;
-    //digitalWrite(uP_IRQ_N,fdcirq);
-    //if ( (fdcirq == LOW) && (old_fdcirq == HIGH) ) Serial.printf("  +++++++++      FDC IRQ FIRED, address %04x\n", uP_ADDR);
-    //if ( (fdcirq == HIGH) && (old_fdcirq == LOW) ) Serial.printf("  +++++++++      FDC IRQ de-asserted, address %04x\n", uP_ADDR);
-    //old_fdcirq = fdcirq;
-    
-    if ((fdcintrq = fdc_intrq()) && !old_fdcintrq) {
-      if (old_fdcintrq != fdcintrq) {
-        bool accepted = cpu->nmi(true);
-        if (accepted) {
-          Serial.printf(" +++  FDC NMI FIRED; pc=%04x %s\n", cpu->pc, address_name(cpu->pc));
-        }
-      }
-    }
-    old_fdcintrq = fdcintrq;
-    //digitalWrite(uP_NMI_N, fdcintrq);
-    //if ( (fdcintrq == LOW) &&  (old_fdcintrq == HIGH) ) Serial.printf("  +++++++++     FDC NMI FIRED, address %04x\n", uP_ADDR);
-    //if ( (fdcintrq == HIGH) && (old_fdcintrq == LOW) ) Serial.printf("  +++++++++      FDC NMI de-asserted, address %04x\n", uP_ADDR);
-    //old_fdcintrq = fdcintrq;
-
-    //doc5503_run();
+    via_run(cpu);
+    fdc_run(cpu);
+    //doc5503_run(cpu);
     
     if (j-- == 0)
     {

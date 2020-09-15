@@ -142,8 +142,22 @@ in a regular fashion
 
 #define VIA6522_DEBUG 1
 
+#include "bus.h"
 #include "via.h"
 #include "Arduino.h"
+
+struct {
+  uint8_t orb, irb;
+  uint8_t ora, ira;
+  uint8_t ddrb, ddra;
+  uint8_t t1LL, t1HL; // t1 Latches (Low and High) 
+  uint8_t t1l, t1h;   // t1 Counter (Low and High)
+  uint8_t t2l, t2h;   // t2 Counter (Low and High)
+  uint8_t ier, ifr;
+  uint8_t acr;
+  uint8_t pcr;
+
+} via;
 
 /*
 VIA is clocked at 2MHz
@@ -216,7 +230,7 @@ uint8_t via_irq() {
 //************************************************************************
 // * Purpose of via_run is to generate the irq when T2 finishes counting *
 //************************************************************************
-void via_run() {
+void via_run(CPU6809* cpu) {
 
   
   if (get_cpu_cycle_count() < via_cycles) return; // not ready yet

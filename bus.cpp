@@ -98,7 +98,7 @@ const char* address_name(uint16_t address) {
   if (address == firqvec)             return "firqvec";
   //if (address == irqvec)              return "irqvec";
   if (address == osvec)               return "*osvec"; 
-  if (address == fdcreadsector)       return "fdcreadsector"; 
+  if (address == fdcreadsector)       return "*fdcreadsector"; 
   if (address == fdcskipsector)       return "fdcskipsector"; 
   if (address == fdcwritesector)      return "fdcwritesector"; 
   if (address == fdcfillsector)       return "fdcfillsector"; 

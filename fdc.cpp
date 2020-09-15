@@ -31,6 +31,7 @@ June 2020:  fdc.cpp -- ported emulation to work with SD card in Teensy 3.5/3.6
 
 
 #include "fdc.h"
+#include "bus.h"
 
 #include <SD.h>
 #include <SPI.h>
@@ -164,6 +165,21 @@ The OS loads from 8000 to  BFFF, which is 16Kbytes
  
 */
 
+
+ //UNCOMMENT THESE TWO LINES FOR TEENSY AUDIO BOARD:
+ //SPI.setMOSI(7);  // Audio shield has MOSI on pin 7
+ //SPI.setSCK(14);  // Audio shield has SCK on pin 14
+
+
+
+struct {
+  uint8_t sr;       // STATUS REGISTER
+  uint8_t cr;       // COMMAND REGISTER
+  uint8_t trk_r;    // TRACK REGISTER
+  uint8_t sec_r;    // SECTOR REGISTER
+  uint8_t data_r;   // DATA REGISTER: holds the data during Read and Write operations
+} fdc;
+
 static File disk;
 static uint8_t diskTrackdata[1024];
 static unsigned long fdc_cycles;
@@ -174,65 +190,48 @@ int a;
 
 extern unsigned long get_cpu_cycle_count();
 
-uint8_t fdc_intrq() {
- // if(fdc.intrq == 1) {
- //             Serial.printf("FDC WD1772: INTRQ Fired");
- //             Serial.printf(" get_cpu_cycle_count() = %ld\n", get_cpu_cycle_count());
- //             }
-  return(fdc.intrq);
-}
-
-uint8_t fdc_drq() {
-//  if ( (fdc.sr & 0x02) == 0x02 ) {
-//               Serial.printf("FDC WD1172: DRQ Fired");
-//               Serial.printf(" get_cpu_cycle_count() = %ld\n", get_cpu_cycle_count());
-//                }
-  return( (fdc.sr & 0x02) == 0x02); //DRQ bit
-}
-
 int fdc_init() {
-//char mybuffer[100000];
-//int z, k;
+  //char mybuffer[100000];
+  //int z, k;
+  
+  ReadSectorDone = true;
 
-ReadSectorDone = true;
+  Serial.print("Initializing SD card...");
 
- Serial.print("Initializing SD card...");
-
- if (!SD.begin(chipSelect)) {
+  if (!SD.begin(chipSelect)) {
     Serial.println("initialization failed!");
     return(-2);
   }
   Serial.println("SD CARD Initialization: Completed.");
 
- // open the file.
+  // open the file.
   disk = SD.open("A1.img"); // TO DO: CHOOSE FROM AVAIL IMGs IN SD ROOT DIRECTORY
-    if (disk) 
-      Serial.println("Found Mirage image disk: A1.img");
-      else 
-       {
-        Serial.println("Error: Mirage image disk not found!!!");
-        return(-1);
-        }
+  if (disk) 
+    Serial.println("Found Mirage image disk: A1.img");
+  else {
+    Serial.println("Error: Mirage image disk not found!!!");
+    return(-1);
+  }
 
 	return(0);
 }
 
 
-void fdc_run() {
- // int i, z;
+void fdc_run(CPU6809* cpu) {
+  // int i, z;
 
 	// called every cycle
 	if ((fdc.sr & 0x01) == 0) return;   // nothing to do if the FDC is NOT BUSY
 
- //Serial.printf("Entering I: FDC_RUN\n");
- // Serial.printf("fdc.sr & 0x01 = %02x\n",fdc.sr & 0x01);
- // Serial.printf("fdc.cr & 0xf0 = %02x\n", fdc.cr & 0xf0);
- // Serial.printf(" %ld < %ld? \n", get_cpu_cycle_count(), fdc_cycles);
+  //Serial.printf("Entering I: FDC_RUN\n");
+  // Serial.printf("fdc.sr & 0x01 = %02x\n",fdc.sr & 0x01);
+  // Serial.printf("fdc.cr & 0xf0 = %02x\n", fdc.cr & 0xf0);
+  // Serial.printf(" %ld < %ld? \n", get_cpu_cycle_count(), fdc_cycles);
 
 	if (get_cpu_cycle_count() < fdc_cycles) return; // not ready yet
- // if (fdc_drq() | fdc_intrq()) return; // nothing to do while interrupts are active
+  // if (fdc_drq() | fdc_intrq()) return; // nothing to do while interrupts are active
 
- // Serial.printf("Entering II: FDC_RUN\n");
+  // Serial.printf("Entering II: FDC_RUN\n");
   //Serial.printf("fdc.cr & 0xf0 = %02x\n", fdc.cr & 0xf0);
   
 	switch (fdc.cr & 0xf0) {
@@ -242,7 +241,7 @@ void fdc_run() {
 			fdc.sr = 0x04;  // We are emulating TR00 HIGH from the FDC (track at 0), clear BUSY and DRQ INTERRUPT
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
       //fdc_cycles = get_cpu_cycle_count() + 32; // new
-      fdc.intrq = 1; // Assert INTRQ interrupt at the end of command
+      cpu->nmi(true);
 			return;
       break;
 		case 0x10:  // Seek
@@ -252,19 +251,19 @@ void fdc_run() {
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 			if (fdc.trk_r == 0) fdc.sr |= 0x04;  // track at 0, emulates TR00 HIGH for Type 1 command
       //fdc_cycles = get_cpu_cycle_count() + 32; // new
-		  fdc.intrq = 1; // Assert INTRQ interrupt at the end of command
+		  cpu->nmi(true);
 			return;
       break;
     case 0x50:  // Step In
       Serial.printf("***** fdc_run(): Step In\n");
       //fdc_cycles = get_cpu_cycle_count() + 32; // new
-      fdc.intrq = 1; // Assert INTRQ interrupt at the end of command
+      cpu->nmi(true);
       return;
       break;
     case 0x60:  // Step Out
       Serial.printf("***** fdc_run(): Step Out\n");
       //fdc_cycles = get_cpu_cycle_count() + 32; // new
-      fdc.intrq = 1; // Assert INTRQ interrupt at the end of command
+      cpu->nmi(true);
       return;
       break;
 		case 0x80:  // Read Sector
@@ -284,27 +283,27 @@ void fdc_run() {
 			//Serial.printf("**** fdc_run(): read sector %d\n", fdc.sec_r);
      
       if (ReadSectorDone) {
-                Serial.printf("FDC RUN: Performing Seek @ %d;  ", (1024*fdc.sec_r)+(5632*fdc.trk_r));
-                Serial.printf("s_byte = %d\n", s_byte);
-                disk.seek((1024*fdc.sec_r)+(5632*fdc.trk_r));
-                disk.read(diskTrackdata, 1024);
-                }
+        Serial.printf("FDC RUN: Performing Seek @ %d;  ", (1024*fdc.sec_r)+(5632*fdc.trk_r));
+        Serial.printf("s_byte = %d\n", s_byte);
+        disk.seek((1024*fdc.sec_r)+(5632*fdc.trk_r));
+        disk.read(diskTrackdata, 1024);
+      }
       a = s_byte;
       if(s_byte > 1024) Serial.printf("**************SOMETHING IS WRONG*************"); // remove this after debug
 			fdc.data_r = diskTrackdata[a];
       //Serial.printf("*** fdc_run(): s_byte=%04x trk=%d sec=%d disk addr = %04x data=%02x\n",s_byte, fdc.trk_r, fdc.sec_r, a, fdc.data_r);
-			fdc.sr |= 0x02;  // Assert IRQ_, Data is ready!
+      cpu->irq();
+
 			s_byte++;
 			fdc_cycles = get_cpu_cycle_count() + 32; // original 32
       
 			if (s_byte > (fdc.sec_r == 5 ? 512 : 1024) ) {
-				        fdc.sr &= 0xfe; // Clear the Busy Bit, we will disregard the last value read anyway, this is needed to keep irq and nmi in sync
-                ReadSectorDone = true; // NEXT TIME: This will force reading a new sector of 1024 bytes from the SD card
-				        Serial.printf("SDFDC: Done reading sector %x\n", fdc.sec_r);
-				        fdc.intrq = 1; // NMI_ Interrupt at the end of READ SECTOR command
-			          }
-                else 
-                  ReadSectorDone = false;
+        fdc.sr &= 0xfe; // Clear the Busy Bit, we will disregard the last value read anyway, this is needed to keep irq and nmi in sync
+        ReadSectorDone = true; // NEXT TIME: This will force reading a new sector of 1024 bytes from the SD card
+        Serial.printf("SDFDC: Done reading sector %x\n", fdc.sec_r);
+        cpu->nmi(true);
+      } else
+        ReadSectorDone = false;
 			return;
       break;
 		default: // Others
@@ -313,9 +312,9 @@ void fdc_run() {
       return;
 			break;
 	}
-    // Should we ever get here?
+  // Should we ever get here?
 	fdc.sr &= 0xfe;	// stop, clear BUSY bit
-    Serial.printf("***** FDC EMULATION RUN: <fdc.sr &= 0xfe;  // stop> where fdc.sr =%02x ", fdc.sr);
+  Serial.printf("***** FDC EMULATION RUN: <fdc.sr &= 0xfe;  // stop> where fdc.sr =%02x ", fdc.sr);
 }
 
 uint8_t fdc_rreg(uint8_t reg) {
@@ -326,7 +325,6 @@ uint8_t fdc_rreg(uint8_t reg) {
 	switch (reg & 0x03) {
 		case FDC_SR:
 			      val = fdc.sr;
-            fdc.intrq = 0; //INTRQ is de-asserted (NMI_ goes HIGH) after reading the STATUS REGISTER
 #if FDC1772_DEBUG
             Serial.printf("FDC_RREG FDC: SR ");
             Serial.printf(" val => %02x (FDC)\n",val);
@@ -371,7 +369,6 @@ void fdc_wreg(uint8_t reg, uint8_t val) {
 
 	switch (reg & 0x03) {
 		case FDC_CR: // 0
-            fdc.intrq = 0; //INTRQ is de-asserted (NMI_ goes HIGH) after loading the Command Register with new command
 #if FDC1772_DEBUG
             Serial.printf("FDC_WREG COMMAND fdc.cr = %02x\n", val);
 #endif

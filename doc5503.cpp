@@ -156,6 +156,17 @@ Loop End
 #include "Arduino.h"
 #include "doc5503.h"
 
+DOC5503Osc oscillators[32];
+
+uint8_t  oscsenabled;      // # of oscillators enabled
+uint8_t     regE0, regE1, regE2;            // contents of register 0xe0
+
+uint8_t m_channel_strobe;
+
+int output_channels;
+uint32_t output_rate;
+
+uint8_t doc_irq;
 
 // useful constants
 static constexpr uint16_t wavesizes[8] = { 256, 512, 1024, 2048, 4096, 8192, 16384, 32768 }; // T2, T1, T0
