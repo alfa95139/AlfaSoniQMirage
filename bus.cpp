@@ -156,10 +156,10 @@ void CPU6809::write(uint16_t address, uint8_t data) {
   if ((RAM_START <= address) && (address <= RAM_END)) {
     PRG_RAM[address - RAM_START] = data;
     //Serial.printf("Writing to PRG_RAM, address = %04x : DATA = %02x\n", address, data);
-    if(address == 0x800F) Serial.printf("************* WRITING OS ENTRY JMP 0x800F = %02X *********************\n", data);
+    /*if(address == 0x800F) Serial.printf("************* WRITING OS ENTRY JMP 0x800F = %02X *********************\n", data);
     if(address == 0x8010) Serial.printf("*************                      0x8010 = %02X *********************\n", data);
     if(address == 0xBDEB) Serial.printf("************* WRITING TO 0xBDEB = %02X *********************\n", data);
-
+*/
   } else if ( (WAV_START <= address) && (address <= WAV_END) ) {
     // WAV RAM
     page = via_rreg(0) & 0b0011;
@@ -175,11 +175,11 @@ void CPU6809::write(uint16_t address, uint8_t data) {
     fdc_wreg(address & 0xFF, data);
 
   } else if ((address & 0xFF00) == DOC5503) {
-    Serial.printf("Writing to DOC: Register %02X\n", address & 0x00FF);
+    Serial.printf("Writing to DOC %04x %02x\n", address, data);
 
   } else if ((address & 0xFF00) == 0xE100) {
     // FTDI?
-    Serial.printf("Writing to ACIA (not implemented) %c\n", data);
+    Serial.printf("Writing to ACIA (not implemented) %04x %02x\n", address, data););
     //Serial.write(data);
   } else if ((address & 0xFF00) == 0xE400) {
     Serial.printf("=====>> FILTERS: %04x, %02x\n", address, data);
@@ -358,14 +358,26 @@ void CPU6809::on_firq(uint16_t src, uint16_t dst) {
 }
 
 void CPU6809::print_memory(int address, int lines) {
+  char s[17];
+
+  s[16] = 0;
+
   address &= 0xFFF0;
-  Serial.println("ADDR | 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F");
-  Serial.println("-----|------------------------------------------------");
+  Serial.println("ADDR | 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F | 0123456789ABCDEF |");
+  Serial.println("-----|------------------------------------------------ | ---------------- |");
   for (int line = 0; line < lines; line++) {
     Serial.printf("%04x |", address);
-    for (int i = 0; i < 16; i++)
-      Serial.printf(" %02x", read(address | i));
-    Serial.println();
+    for (int i = 0; i < 16; i++) {
+      char c = read(address | i);
+      Serial.printf(" %02x", c);
+
+      if (c > 126 || c < 32)
+        c = '.';
+      s[i] = c;
+    }
+    Serial.print(" | ");
+    Serial.print(s);
+    Serial.println(" |");
     address += 16;
   }
 }
