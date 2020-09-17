@@ -179,7 +179,7 @@ void CPU6809::write(uint16_t address, uint8_t data) {
 
   } else if ((address & 0xFF00) == 0xE100) {
     // FTDI?
-    Serial.printf("Writing to ACIA (not implemented) %04x %02x\n", address, data););
+    Serial.printf("Writing to ACIA (not implemented) %04x %02x\n", address, data);
     //Serial.write(data);
   } else if ((address & 0xFF00) == 0xE400) {
     Serial.printf("=====>> FILTERS: %04x, %02x\n", address, data);
@@ -196,12 +196,10 @@ uint8_t CPU6809::read(uint16_t address) {
   } else if ((RAM_START <= address) && (address <= RAM_END)) {
     // RAM?
 
-    const char* adrname = address_name(address);
-    if (adrname[0] != '?')
-      Serial.printf("  *** %04x : %s ***  \n", address, adrname);
+    //const char* adrname = address_name(address);
+    //if (adrname[0] == '*')
+    //  Serial.printf("  *** %04x : %s ***  \n", address, adrname);
 
-    if (address == osvec)  Serial.printf("****  OS VEC ***  OS VEC ***  OS VEC ***  OS VEC ***  OS VEC %04x = %02x %02x\n", address, PRG_RAM[address - RAM_START+1], PRG_RAM[address - RAM_START +2] );
-    //if (address == irqvec) Serial.printf("**** IRQ VEC *** IRQ VEC *** IRQ VEC *** IRQ VEC *** IRQ VEC %04x = %04x\n", address, PRG_RAM[address - RAM_START]);
     out = PRG_RAM[address - RAM_START];
   } else if ((WAV_START <= address) && (address <= WAV_END)) {
     // WAVE RAM? NOTE: VIA 6522 PORT B contains info about the page, when we will be ready to manage 4 banks

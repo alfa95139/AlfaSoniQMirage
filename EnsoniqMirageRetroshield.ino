@@ -39,6 +39,7 @@
 #include "via.h"
 #include "fdc.h"
 #include "doc5503.h"
+#include "debug.h"
 
 ////////////////////////////////////////////////////////////////////
 // Serial Functions
@@ -112,27 +113,44 @@ void setup()
   Serial.print("ROM Size:  "); Serial.print(ROM_END - ROM_START + 1, DEC); Serial.println(" Bytes");
   Serial.print("ROM_START: 0x"); Serial.println(ROM_START, HEX);
   Serial.print("ROM_END:   0x"); Serial.println(ROM_END, HEX);
+  Serial.println();
+  Serial.println();
   Serial.flush();
 
+  if (debug_mode)
+    log_info("Debug mode enabled.");
+  set_debug_enable(debug_mode);
+
+  set_log("via");
   via_init();
+  set_log("fdc");
   fdc_init();
+  set_log("doc");
   doc_init();
 
-  Serial.println("Initializing processor...");
-  Serial.flush();
+  set_log("setup()");
+  log_info("Initializing processor...");
+
+  set_log("cpu");
   // Create & Reset processor
   cpu = new CPU6809();
   cpu->reset();
   cpu->set_stack_overflow(0x8000);
 
-  Serial.println("Initialized processor");
-  Serial.flush();
-
-  Serial.println("\n");
-
-  if (debug_mode)
-    Serial.println("Debug mode enabled.");
+  log_info("Initialized processor");
   cpu->set_debug(debug_mode);
+}
+
+void tick_system() {
+  set_log("cpu");
+  cpu->tick();
+
+  set_log("via");
+  via_run(cpu);
+  set_log("fdc");
+  fdc_run(cpu);
+  set_log("doc5503");
+  //doc5503_run(cpu);
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -151,6 +169,7 @@ void loop()
       do_continue = false;
       debug_mode = true;
       cpu->set_debug(true);
+      set_debug_enable(true);
       emergency = false;
       cpu->printLastInstructions();
     }
@@ -171,7 +190,7 @@ void loop()
         if (c == 's') {
           // Step single CPU instruction
           Serial.println();
-          cpu->tick();
+          tick_system();
           Serial.printf("PC = %04x : %s\n", cpu->pc, address_name(cpu->pc));
 
         } else if (c == 'c') {
@@ -190,6 +209,7 @@ void loop()
           Serial.println();
           debug_mode = false;
           cpu->set_debug(false);
+          set_debug_enable(false);
           break;
 
         } else if (c == 'E') {
@@ -249,11 +269,8 @@ void loop()
         }
       }
     }
-    cpu->tick();
 
-    via_run(cpu);
-    fdc_run(cpu);
-    //doc5503_run(cpu);
+    tick_system();
     
     if (j-- == 0)
     {
