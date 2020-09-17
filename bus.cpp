@@ -214,7 +214,7 @@ uint8_t CPU6809::read(uint16_t address) {
   } else if ((address & 0xFF00) == DOC5503 ) {
     out = 0xFF;
   } else if ((address & 0xFF00) == 0xE400) {
-    log_debug("read filters     [%04x] -> %02x\n", address, out);
+    log_debug("read  filters    [%04x] -> %02x\n", address, out);
   } else if ((CART_START <= address) && (address <= CART_END) ) {
     //DATA_OUT = CartROM[ (uP_ADDR - CART_START) ];
     out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
