@@ -3,6 +3,7 @@
 
 #include "via.h"
 #include "fdc.h"
+#include "log.h"
 #include <stdint.h>
 #include <Arduino.h>
 
@@ -147,7 +148,7 @@ extern bool do_continue;
 
 void CPU6809::write(uint16_t address, uint8_t data) {
   /*if (data == 0x7f && address > WAV_END && address < DEVICES_START) {
-    Serial.printf("Wrote 0x%02x to %04x.\n", data, address);
+    log_debug("Wrote 0x%02x to %04x.\n", data, address);
     do_continue = false;
     debug_mode = true;
     set_debug(true);
@@ -155,34 +156,34 @@ void CPU6809::write(uint16_t address, uint8_t data) {
   // RAM?
   if ((RAM_START <= address) && (address <= RAM_END)) {
     PRG_RAM[address - RAM_START] = data;
-    //Serial.printf("Writing to PRG_RAM, address = %04x : DATA = %02x\n", address, data);
-    /*if(address == 0x800F) Serial.printf("************* WRITING OS ENTRY JMP 0x800F = %02X *********************\n", data);
-    if(address == 0x8010) Serial.printf("*************                      0x8010 = %02X *********************\n", data);
-    if(address == 0xBDEB) Serial.printf("************* WRITING TO 0xBDEB = %02X *********************\n", data);
+    //log_debug("Writing to PRG_RAM, address = %04x : DATA = %02x\n", address, data);
+    /*if(address == 0x800F) log_debug("************* WRITING OS ENTRY JMP 0x800F = %02X *********************\n", data);
+    if(address == 0x8010) log_debug("*************                      0x8010 = %02X *********************\n", data);
+    if(address == 0xBDEB) log_debug("************* WRITING TO 0xBDEB = %02X *********************\n", data);
 */
   } else if ( (WAV_START <= address) && (address <= WAV_END) ) {
     // WAV RAM
     page = via_rreg(0) & 0b0011;
     WAV_RAM[page][address - WAV_START] = data;
-    //Serial.printf("Writing to WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, data);
+    //log_debug("Writing to WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, data);
 
   } else if ( (address & 0xFF00) == VIA6522) {
-    Serial.printf("Writing to VIA 6522 %04x %02x\n", address, data);
+    log_debug("write VIA 6522   [%04x] <- %02x\n", address, data);
     via_wreg(address & 0xFF, data);
 
   } else if ( (address & 0xFF00) == FDC1770) {
-    Serial.printf("Writing to FDC 1770 %04x %02x\n", address, data);
+    log_debug("write FDC 1770   [%04x] <- %02x\n", address, data);
     fdc_wreg(address & 0xFF, data);
 
   } else if ((address & 0xFF00) == DOC5503) {
-    Serial.printf("Writing to DOC %04x %02x\n", address, data);
+    //log_debug("write to DOC 5503   [%04x] <- %02x\n", address, data);
 
   } else if ((address & 0xFF00) == 0xE100) {
     // FTDI?
-    Serial.printf("Writing to ACIA (not implemented) %04x %02x\n", address, data);
+    log_debug("write ACIA (wip) [%04x] <- %02x\n", address, data);
     //Serial.write(data);
   } else if ((address & 0xFF00) == 0xE400) {
-    Serial.printf("=====>> FILTERS: %04x, %02x\n", address, data);
+    log_debug("write filters    [%04x] <- %02x\n", address, data);
   }
 }
 
@@ -198,7 +199,7 @@ uint8_t CPU6809::read(uint16_t address) {
 
     //const char* adrname = address_name(address);
     //if (adrname[0] == '*')
-    //  Serial.printf("  *** %04x : %s ***  \n", address, adrname);
+    //  log_debug("  *** %04x : %s ***  \n", address, adrname);
 
     out = PRG_RAM[address - RAM_START];
   } else if ((WAV_START <= address) && (address <= WAV_END)) {
@@ -208,29 +209,25 @@ uint8_t CPU6809::read(uint16_t address) {
   } else if ((CART_START <= address) && (address <= CART_END)) {
     //out = CartROM[ (address - CART_START) ];
     out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
-    Serial.printf("Reading from Expansion Port: address = %X, DATA = FF\n", address, out);
 
   } else if ((address & 0xFF00) == VIA6522) {
-    // FTDI?
-    //if ( (address & 0xFF00) == 0xE100) 
-    //      out = FTDI_Read();
-    //else
-    Serial.printf("Reading from VIA 6522\n");
     out = via_rreg(address & 0xFF);
+    log_debug("read VIA 6522    [%04x] -> %02x\n", address, out);
 
   } else if ((address & 0xFF00) == FDC1770) {
-    out = fdc_rreg(address & 0xFF); 
-    //Serial.printf("**** Reading from FDC 1770. Value ====> out = %02x\n", out);
+    out = fdc_rreg(address & 0xFF);
+    log_debug("read FDC 1770    [%04x] -> %02x\n", address, out);
+    //log_debug("**** Reading from FDC 1770. Value ====> out = %02x\n", out);
 
   } else if ((address & 0xFF00) == DOC5503 ) {
-    Serial.printf("Reading from DOC 5503: Register %02X\n", address & 0x00FF);
+    //log_debug("Reading from DOC 5503: Register %02X\n", address & 0x00FF);
     out = 0xFF;
   } else if ((address & 0xFF00) == 0xE400) {
-    Serial.printf("Reading from Filters addresses 0xE400 to 0xE41F (which is WRONG) ADDRESS = %04x\n", address);
+    log_debug("read filters     [%04x] -> %02x\n", address, out);
   } else if ((CART_START <= address) && (address <= CART_END) ) {
     //DATA_OUT = CartROM[ (uP_ADDR - CART_START) ];
     out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
-    Serial.printf("Reading from Expansion Port: uP_ADDR = %X, DATA = FF\n", address, out);
+    log_debug("Reading from Expansion Port: uP_ADDR = %X, DATA = FF\n", address, out);
   } else
     out = 0xFF;
 
@@ -323,16 +320,16 @@ void CPU6809::printLastInstructions() {
 }
 
 void CPU6809::on_branch(const char* opcode, uint16_t src, uint16_t dst) {
-  if (debug) {
+  /*if (debug) {
     const char* name = address_name(dst);
     Serial.printf("branch with opcode %s from %04x to %04x (%s)\n", opcode, src, dst, name);
-  }
+  }*/
 }
 void CPU6809::on_branch_subroutine(const char* opcode, uint16_t src, uint16_t dst) {
-  if (debug) {
+  /*if (debug) {
     const char* name = address_name(dst);
     Serial.printf("call with opcode %s from %04x to %04x (%s)\n", opcode, src, dst, name);
-  }
+  }*/
 }
 
 void CPU6809::on_nmi(uint16_t src, uint16_t dst) {

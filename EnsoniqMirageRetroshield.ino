@@ -126,7 +126,7 @@ void setup()
   via_init();
   set_log("fdc");
   fdc_init();
-  set_log("doc");
+  set_log("doc5503");
   doc_init();
 
   set_log("setup()");
