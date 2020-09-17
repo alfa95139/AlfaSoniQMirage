@@ -147,6 +147,7 @@ extern bool debug_mode;
 extern bool do_continue;
 
 void CPU6809::write(uint16_t address, uint8_t data) {
+  set_log("bus");
   /*if (data == 0x7f && address > WAV_END && address < DEVICES_START) {
     log_debug("Wrote 0x%02x to %04x.\n", data, address);
     do_continue = false;
@@ -168,28 +169,25 @@ void CPU6809::write(uint16_t address, uint8_t data) {
     //log_debug("Writing to WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, data);
 
   } else if ( (address & 0xFF00) == VIA6522) {
-    log_debug("write VIA 6522   [%04x] <- %02x\n", address, data);
+    set_log("via");
     via_wreg(address & 0xFF, data);
-
   } else if ( (address & 0xFF00) == FDC1770) {
-    log_debug("write FDC 1770   [%04x] <- %02x\n", address, data);
+    set_log("fdc");
     fdc_wreg(address & 0xFF, data);
-
   } else if ((address & 0xFF00) == DOC5503) {
-    //log_debug("write to DOC 5503   [%04x] <- %02x\n", address, data);
-
+    
   } else if ((address & 0xFF00) == 0xE100) {
     // FTDI?
-    log_debug("write ACIA (wip) [%04x] <- %02x\n", address, data);
-    //Serial.write(data);
   } else if ((address & 0xFF00) == 0xE400) {
     log_debug("write filters    [%04x] <- %02x\n", address, data);
   }
+  set_log("cpu");
 }
 
 uint8_t CPU6809::read(uint16_t address) {
   uint8_t out;
 
+  set_log("bus");
   // ROM?
   if ((ROM_START <= address) && (address <= ROM_END)) {
     out = ROM [ (address - ROM_START) ];
@@ -197,13 +195,10 @@ uint8_t CPU6809::read(uint16_t address) {
   } else if ((RAM_START <= address) && (address <= RAM_END)) {
     // RAM?
 
-    //const char* adrname = address_name(address);
-    //if (adrname[0] == '*')
-    //  log_debug("  *** %04x : %s ***  \n", address, adrname);
-
     out = PRG_RAM[address - RAM_START];
   } else if ((WAV_START <= address) && (address <= WAV_END)) {
     // WAVE RAM? NOTE: VIA 6522 PORT B contains info about the page, when we will be ready to manage 4 banks
+    set_log("via");
     page = via_rreg(0) & 0b0011;
     out = WAV_RAM[page][address - WAV_START];
   } else if ((CART_START <= address) && (address <= CART_END)) {
@@ -211,26 +206,22 @@ uint8_t CPU6809::read(uint16_t address) {
     out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
 
   } else if ((address & 0xFF00) == VIA6522) {
+    set_log("via");
     out = via_rreg(address & 0xFF);
-    log_debug("read VIA 6522    [%04x] -> %02x\n", address, out);
-
   } else if ((address & 0xFF00) == FDC1770) {
+    set_log("fdc");
     out = fdc_rreg(address & 0xFF);
-    //log_debug("read FDC 1770    [%04x] -> %02x\n", address, out);
-    //log_debug("**** Reading from FDC 1770. Value ====> out = %02x\n", out);
-
   } else if ((address & 0xFF00) == DOC5503 ) {
-    //log_debug("Reading from DOC 5503: Register %02X\n", address & 0x00FF);
     out = 0xFF;
   } else if ((address & 0xFF00) == 0xE400) {
     log_debug("read filters     [%04x] -> %02x\n", address, out);
   } else if ((CART_START <= address) && (address <= CART_END) ) {
     //DATA_OUT = CartROM[ (uP_ADDR - CART_START) ];
     out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
-    log_debug("Reading from Expansion Port: uP_ADDR = %X, DATA = FF\n", address, out);
   } else
     out = 0xFF;
 
+  set_log("cpu");
   return out;
 }
 

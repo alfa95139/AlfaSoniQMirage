@@ -138,6 +138,7 @@ void setup()
   cpu->reset();
   cpu->set_stack_overflow(0x8000);
 
+  set_log("setup()");
   log_info("Initialized processor");
   cpu->set_debug(debug_mode);
 }
