@@ -32,6 +32,7 @@ June 2020:  fdc.cpp -- ported emulation to work with SD card in Teensy 3.5/3.6
 
 #include "fdc.h"
 #include "bus.h"
+#include "log.h"
 
 #include <SD.h>
 #include <SPI.h>
@@ -197,20 +198,20 @@ int fdc_init() {
   
   ReadSectorDone = true;
 
-  Serial.print("Initializing SD card...");
+  log_info("Initializing SD card...");
 
   if (!SD.begin(chipSelect)) {
-    Serial.println("initialization failed!");
+    log_emergency("initialization failed!");
     return(-2);
   }
-  Serial.println("SD CARD Initialization: Completed.");
+  log_info("SD CARD Initialization: Completed.");
 
   // open the file.
   disk = SD.open("A1.img"); // TO DO: CHOOSE FROM AVAIL IMGs IN SD ROOT DIRECTORY
   if (disk) 
-    Serial.println("Found Mirage image disk: A1.img");
+    log_info("Found Mirage image disk: A1.img");
   else {
-    Serial.println("Error: Mirage image disk not found!!!");
+    log_emergency("Error: Mirage image disk not found!!!");
     return(-1);
   }
 
@@ -237,7 +238,7 @@ void fdc_run(CPU6809* cpu) {
   
 	switch (fdc.cr & 0xf0) {
 		case 0x00:  // Restore
-			Serial.printf("***** fdc_run(): restore\n");
+			log_debug("fdc_run(): restore\n");
 			fdc.trk_r = 0;  // Track 0
 			fdc.sr = 0x04;  // We are emulating TR00 HIGH from the FDC (track at 0), clear BUSY and DRQ INTERRUPT
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
@@ -246,7 +247,7 @@ void fdc_run(CPU6809* cpu) {
 			return;
       break;
 		case 0x10:  // Seek
-			Serial.printf("***** fdc_run(): Seek\n");
+			log_debug("fdc_run(): Seek\n");
 			fdc.trk_r = fdc.data_r;
 			fdc.sr = 0; // Clear BUSY and DRQ INTERRUPT
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
@@ -256,13 +257,13 @@ void fdc_run(CPU6809* cpu) {
 			return;
       break;
     case 0x50:  // Step In
-      Serial.printf("***** fdc_run(): Step In\n");
+      log_debug("fdc_run(): Step In\n");
       //fdc_cycles = get_cpu_cycle_count() + 32; // new
       cpu->nmi(true);
       return;
       break;
     case 0x60:  // Step Out
-      Serial.printf("***** fdc_run(): Step Out\n");
+      log_debug("fdc_run(): Step Out\n");
       //fdc_cycles = get_cpu_cycle_count() + 32; // new
       cpu->nmi(true);
       return;
@@ -284,13 +285,13 @@ void fdc_run(CPU6809* cpu) {
 			//Serial.printf("**** fdc_run(): read sector %d\n", fdc.sec_r);
      
       if (ReadSectorDone) {
-        Serial.printf("FDC RUN: Performing Seek @ %d;  ", (1024*fdc.sec_r)+(5632*fdc.trk_r));
-        Serial.printf("s_byte = %d\n", s_byte);
+        log_debug("fdc_run(): Performing Seek @ %d;  ", (1024*fdc.sec_r)+(5632*fdc.trk_r));
+        log_debug("           s_byte = %d\n", s_byte);
         disk.seek((1024*fdc.sec_r)+(5632*fdc.trk_r));
         disk.read(diskTrackdata, 1024);
       }
       a = s_byte;
-      if(s_byte > 1024) Serial.printf("**************SOMETHING IS WRONG*************"); // remove this after debug
+      if(s_byte > 1024) log_error("SOMETHING IS WRONG"); // remove this after debug
 			fdc.data_r = diskTrackdata[a];
       //Serial.printf("*** fdc_run(): s_byte=%04x trk=%d sec=%d disk addr = %04x data=%02x\n",s_byte, fdc.trk_r, fdc.sec_r, a, fdc.data_r);
       cpu->irq();
@@ -301,21 +302,21 @@ void fdc_run(CPU6809* cpu) {
 			if (s_byte > (fdc.sec_r == 5 ? 512 : 1024) ) {
         fdc.sr &= 0xfe; // Clear the Busy Bit, we will disregard the last value read anyway, this is needed to keep irq and nmi in sync
         ReadSectorDone = true; // NEXT TIME: This will force reading a new sector of 1024 bytes from the SD card
-        Serial.printf("SDFDC: Done reading sector %x\n", fdc.sec_r);
+        log_debug("SDFDC: Done reading sector %x\n", fdc.sec_r);
         cpu->nmi(true);
       } else
         ReadSectorDone = false;
 			return;
       break;
 		default: // Others
-			Serial.printf("***** FDC EMULATION RUN: NOT SUPPORTED(%02x)\n", fdc.cr);
+			log_warning("FDC EMULATION RUN: NOT SUPPORTED(%02x)\n", fdc.cr);
 			fdc.sr = 0;
       return;
 			break;
 	}
   // Should we ever get here?
 	fdc.sr &= 0xfe;	// stop, clear BUSY bit
-  Serial.printf("***** FDC EMULATION RUN: <fdc.sr &= 0xfe;  // stop> where fdc.sr =%02x ", fdc.sr);
+  log_debug("<fdc.sr &= 0xfe;  // stop> where fdc.sr =%02x ", fdc.sr);
 }
 
 uint8_t fdc_rreg(uint8_t reg) {
@@ -327,22 +328,22 @@ uint8_t fdc_rreg(uint8_t reg) {
 		case FDC_SR:
 			      val = fdc.sr;
 #if FDC1772_DEBUG
-            Serial.printf("FDC_RREG FDC: SR ");
-            Serial.printf(" val => %02x (FDC)\n",val);
+            log_debug("FDC_RREG FDC: SR ");
+            log_debug(" val => %02x (FDC)\n",val);
 #endif
 			      break;
 		case FDC_TRACK:
 			      val = fdc.trk_r;
 #if FDC1772_DEBUG
-            Serial.printf("FDC_RREG FDC_TRACK: ");
-            Serial.printf(" val => %02x (FDC)\n",val);
+            log_debug("FDC_RREG FDC_TRACK: ");
+            log_debug(" val => %02x (FDC)\n",val);
 #endif
 			      break;
 		case FDC_SECTOR: 
 			      val =  fdc.sec_r;
 #if FDC1772_DEBUG
-            Serial.printf("FDC_RREG FDC_SECTOR: ");
-            Serial.printf(" val => %02x (FDC)\n",val);
+            log_debug("FDC_RREG FDC_SECTOR: ");
+            log_debug(" val => %02x (FDC)\n",val);
 #endif
 			      break;
 		case FDC_DATA:
@@ -351,7 +352,7 @@ uint8_t fdc_rreg(uint8_t reg) {
 			      val =  fdc.data_r;
 			      break;
       default: 
-            Serial.printf("*** FDC READING REGISTER EMULATION reg %02x: CURRENTLY NOT SUPPORTED\n", reg);
+            log_warning("FDC READING REGISTER EMULATION reg %02x: CURRENTLY NOT SUPPORTED\n", reg);
             break;
 	}
   
@@ -371,41 +372,41 @@ void fdc_wreg(uint8_t reg, uint8_t val) {
 	switch (reg & 0x03) {
 		case FDC_CR: // 0
 #if FDC1772_DEBUG
-            Serial.printf("FDC_WREG COMMAND fdc.cr = %02x\n", val);
+            log_debug("FDC_WREG COMMAND fdc.cr = %02x\n", val);
 #endif
 			if ((val & 0xf0) == 0xd0) { // mask is 1111_0000, comparig with 1101_0000 force interrupt
 #if FDC1772_DEBUG
-				      Serial.printf("FDC_WREG cmd %02x: force interrupt\n", val);
+				      log_debug("FDC_WREG cmd %02x: force interrupt\n", val);
 #endif
 				      fdc.sr &= 0xfe; // mask is 1111_1110,  we are clearing the busy bit
 				      return;
 			        }
 #if FDC1772_DEBUG
-            Serial.printf("FDC_WREG FDRC fdc.sr & 0x01 shows %s BUSY\n", fdc.sr & 0x01 ? "" : "NOT" );
+            log_debug("FDC_WREG FDRC fdc.sr & 0x01 shows %s BUSY\n", fdc.sr & 0x01 ? "" : "NOT" );
 #endif
 			if (fdc.sr & 0x01) return; // Just return if BUSY
 #if FDC1772_DEBUG
-            Serial.printf("FDC_WREG FDRC: cmd %02x val = %02x\n", cmd, val);
+            log_debug("FDC_WREG FDRC: cmd %02x val = %02x\n", cmd, val);
 #endif
 			fdc.cr = val;
 			switch(cmd) {
 				     case 0x0: // Restore
 #if FDC1772_DEBUG
-					            Serial.printf("FDC_WREG cmd %02x: restore\n",  val);
+					            log_debug("FDC_WREG cmd %02x: restore\n",  val);
 #endif
 					            fdc_cycles = get_cpu_cycle_count() + 1000; //1000000;   // remove (or minimize) this
 					            fdc.sr = 0x01; // busy
 					            break;
 				     case 0x1: // Seek
 #if FDC1772_DEBUG
-					            Serial.printf("FDC_WREG cmd %02x: seek to %d\n", val, fdc.data_r);
+					            log_debug("FDC_WREG cmd %02x: seek to %d\n", val, fdc.data_r);
 #endif
 					            fdc_cycles = get_cpu_cycle_count() + 1000; //1000000;   // remove (or minimize) this
 					            fdc.sr = 0x01;  // busy
 					            break;
 				     case 0x5: // Step In
 #if FDC1772_DEBUG
-                      Serial.printf("FDC_WREG cmd %02x: Step in %d\n", val, fdc.trk_r++);
+                      log_debug("FDC_WREG cmd %02x: Step in %d\n", val, fdc.trk_r++);
 #endif
 					            fdc_cycles = get_cpu_cycle_count() + 100; //100000;    // remove (or minimize) this
 					            fdc.trk_r++;
@@ -414,7 +415,7 @@ void fdc_wreg(uint8_t reg, uint8_t val) {
 				              break;
 				     case 0x6: // Step Out
 #if FDC1772_DEBUG
-					            Serial.printf("FDC_WREG cmd %02x: Step out (w/o Update) %d\n", val, fdc.trk_r--);
+					            log_debug("FDC_WREG cmd %02x: Step out (w/o Update) %d\n", val, fdc.trk_r--);
 #endif
 					            fdc_cycles = get_cpu_cycle_count() + 100; //100000;    // remove (or minimize) this
 					            fdc.trk_r--;
@@ -422,11 +423,11 @@ void fdc_wreg(uint8_t reg, uint8_t val) {
 					            ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 				              break;
              case 0x7:
-                      Serial.printf("*** FDC WRITING COMMAND: Step Out (w Update (%02x) CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
+                      log_warning("*** FDC WRITING COMMAND: Step Out (w Update (%02x) CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
                       break;
 				     case 0x8: // Read Single Sector
 #if FDC1772_DEBUG
-					            Serial.printf("FDC_WREG cmd %02x: read sector\n", val);
+					            log_debug("FDC_WREG cmd %02x: read sector\n", val);
 #endif
 					            fdc_cycles = get_cpu_cycle_count() + 10; //1000;    // remove (or minimize) this
 					            s_byte = 0;
@@ -434,16 +435,16 @@ void fdc_wreg(uint8_t reg, uint8_t val) {
                       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 					            break;
              case 0xa: // Write Single Sector
-                      Serial.printf("*** FDC WRITING COMMAND: Write Single Sector (%02x) CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
+                      log_warning("FDC WRITING COMMAND: Write Single Sector (%02x) CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
                       break;
              case 0xb: // Write Multiple Sectors
-                      Serial.printf("*** FDC WRITING COMMAND: Write Multiple Sectors (%02x) CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
+                      log_warning("FDC WRITING COMMAND: Write Multiple Sectors (%02x) CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
                       break;
              case 0xf: // Write Track
-                      Serial.printf("*** FDC WRITING COMMAND: Write Track (%02x) CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
+                      log_warning("FDC WRITING COMMAND: Write Track (%02x) CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
                       break;
 				      default: //0f
-					            Serial.printf("*** FDC WRITING REGISTER EMULATION: COMMAND cmd %02x: CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
+					            log_warning("FDC WRITING REGISTER EMULATION: COMMAND cmd %02x: CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
 					            fdc.sr = 0;
 					            fdc_cycles = 0;
 					            break;
@@ -451,26 +452,26 @@ void fdc_wreg(uint8_t reg, uint8_t val) {
 			break;
 		case FDC_TRACK:
 #if FDC1772_DEBUG
-			Serial.printf("FDC_WREG *TRACK* = %d\n",  val);
+			log_debug("FDC_WREG track = %d\n",  val);
 #endif
 			fdc.trk_r = val; 
 			ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 			break;
 		case FDC_SECTOR:
 #if FDC1772_DEBUG
-			Serial.printf("FDC_WREG *SECTOR* = %d\n", val);
+			log_debug("FDC_WREG sector = %d\n", val);
 #endif
 			fdc.sec_r = val;
 			ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 			break;
 		case FDC_DATA:
 #if FDC1772_DEBUG
-    	Serial.printf("FDC_WREG *DATA* = %d\n", val);
+    	log_debug("FDC_WREG data = %d\n", val);
 #endif
 			fdc.data_r = val;
 			break;
     default:
-      Serial.printf("*** FDC WRITING REGISTER EMULATION reg %02x: CURRENTLY NOT SUPPORTED\n", reg);
+      log_warning("FDC WRITING REGISTER EMULATION reg %02x: CURRENTLY NOT SUPPORTED\n", reg);
       fdc.sr = 0;
       fdc_cycles = 0;
       break;

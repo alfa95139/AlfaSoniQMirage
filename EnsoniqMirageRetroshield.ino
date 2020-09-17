@@ -117,6 +117,7 @@ void setup()
   Serial.println();
   Serial.flush();
 
+  set_log("setup()");
   if (debug_mode)
     log_info("Debug mode enabled.");
   set_debug_enable(debug_mode);
