@@ -39,7 +39,7 @@
 #include "via.h"
 #include "fdc.h"
 #include "doc5503.h"
-#include "debug.h"
+#include "log.h"
 
 ////////////////////////////////////////////////////////////////////
 // Serial Functions

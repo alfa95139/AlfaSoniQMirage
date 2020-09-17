@@ -4,7 +4,7 @@
 #include <stdarg.h>
 #include "Arduino.h"
 
-#include "debug.h"
+#include "log.h"
 
 #define NAME_STR_LEN 11
 #define MAX_LINE_MESSAGE_LENGTH 64
