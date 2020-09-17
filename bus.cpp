@@ -216,7 +216,7 @@ uint8_t CPU6809::read(uint16_t address) {
 
   } else if ((address & 0xFF00) == FDC1770) {
     out = fdc_rreg(address & 0xFF);
-    log_debug("read FDC 1770    [%04x] -> %02x\n", address, out);
+    //log_debug("read FDC 1770    [%04x] -> %02x\n", address, out);
     //log_debug("**** Reading from FDC 1770. Value ====> out = %02x\n", out);
 
   } else if ((address & 0xFF00) == DOC5503 ) {
@@ -249,12 +249,7 @@ void CPU6809::tick()
 extern bool emergency;
 
 void CPU6809::invalid(const char* message) {
-  Serial.print("CPU error detected: ");
-  if (message)
-    Serial.println(message);
-  else
-    Serial.println("No message specified");
-  Serial.println("EMERGENCY.");
+  log_emergency("CPU error detected: %s", message);
   printRegs();
 
   // stack trace
@@ -335,20 +330,20 @@ void CPU6809::on_branch_subroutine(const char* opcode, uint16_t src, uint16_t ds
 void CPU6809::on_nmi(uint16_t src, uint16_t dst) {
   if (debug) {
     const char* name = address_name(dst);
-    Serial.printf("NMI from %04x to %04x (%s)\n", src, dst, name);
+    log_debug("NMI from %04x to %04x (%s)\n", src, dst, name);
   }
 }
 
 void CPU6809::on_irq(uint16_t src, uint16_t dst) {
   if (debug) {
     const char* name = address_name(dst);
-    Serial.printf("IRQ from %04x to %04x (%s)\n", src, dst, name);
+    log_debug("IRQ from %04x to %04x (%s)\n", src, dst, name);
   }
 }
 void CPU6809::on_firq(uint16_t src, uint16_t dst) {
   if (debug) {
     const char* name = address_name(dst);
-    Serial.printf("FIRQ from %04x to %04x (%s)\n", src, dst, name);
+    log_debug("FIRQ from %04x to %04x (%s)\n", src, dst, name);
   }
 }
 
