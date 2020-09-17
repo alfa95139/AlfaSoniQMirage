@@ -94,7 +94,7 @@ void log_error(const char* fmt, ...) {
 void log_emergency(const char* fmt, ...) {
   va_list args;
   va_start(args, fmt);
-  _base_print("*** EMERGENCY ***", fmt, args);
+  _base_print("EMERGENCY", fmt, args);
   va_end(args);
   _emergency_triggered = true;
 }
