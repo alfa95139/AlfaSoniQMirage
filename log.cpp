@@ -47,18 +47,50 @@ void _base_print(const char* type, const char* fmt, va_list args) {
   char* current_buffer = tmp_log_text;
   while (bytes_printed < length) {
     char c = current_buffer[i];
-    if (c == '\n' || c == '\r' || c == 0 || i >= MAX_LINE_MESSAGE_LENGTH) {
-      if (i != 0) {
+    if (c == '\n' || c == '\r') {
+
+      // Print if we have data
+      if (i > 0) {
+        _print_header(type);
+        Serial.write(current_buffer, i);
+        Serial.write('\n');
+
+        // increment counters
+        bytes_printed += i;
+        current_buffer += i;
+      }
+
+      // set to one to skip the byte we just read
+      i = 1;
+
+      // Tell the loop that we just finished another byte (the newline or carriage return)
+      bytes_printed++;
+
+    } else if (i >= MAX_LINE_MESSAGE_LENGTH) {
+
+      if (i > 0) {
+        _print_header(type);
+        Serial.write(current_buffer, i);
+        Serial.write('\n');
+
+        // increment counters
+        bytes_printed += i;
+        current_buffer += i;
+      }
+      i = 0;
+    } else if (c == 0) {
+
+      if (i > 0) {
         _print_header(type);
         Serial.write(current_buffer, i);
         Serial.write('\n');
       }
-      current_buffer += i;
-      bytes_printed += i;
-      i = 0;
-      length = strlen(current_buffer);
+
+      // We're done here - received null terminator
+      break;
+    } else {
+      i++;
     }
-    i++;
   }
 }
 
