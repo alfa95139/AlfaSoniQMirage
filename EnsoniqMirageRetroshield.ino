@@ -167,6 +167,8 @@ void loop()
   //  
   while(true)
   {
+    if (was_emergency_triggered())
+      emergency = true;
     if (emergency) {
       do_continue = false;
       debug_mode = true;
