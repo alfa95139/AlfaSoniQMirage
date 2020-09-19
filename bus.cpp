@@ -158,7 +158,7 @@ void CPU6809::write(uint16_t address, uint8_t data) {
   // RAM?
   if ((RAM_START <= address) && (address <= RAM_END)) {
     PRG_RAM[address - RAM_START] = data;
-    if (address < 0x9000 && address > 0x8030) {
+    if (address < 0x9000 && address >= 0x828C) {
       if (os_img_start[address - RAM_START] != data) {
         log_emergency("Attempted to write OS RAM at 0x%04x with data 0x%02x, which does not match expected 0x%02x", address, data, os_img_start[address - RAM_START]);
       }
