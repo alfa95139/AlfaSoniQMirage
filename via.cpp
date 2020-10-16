@@ -221,8 +221,10 @@ void via_init() {
 //***********************************************************
 uint8_t via_irq() {
   if (via.ier & 0x20) // if T2 Interrupt Enable
-	if (!(via.ifr & 0x20)) 
-		via.ifr &= (0xef); // clear IRQ
+  	if (!(via.ifr & 0x20)) 
+  		via.ifr &= (0xef); // clear IRQ
+
+  
 
   return((via.ifr & 0x80) == 0x80);  // mask 1000_0000 for bit 7, IRQ 
 }
@@ -248,6 +250,11 @@ void via_run(CPU6809* cpu) {
     //  return (1);  // fire interrupt
   }
   via_cycles = get_cpu_cycle_count() + (via_t2>>2);  // half, because the clock frequency is 2MHz
+
+  if (via_irq()) {
+    cpu->irq();
+  }
+
   return;
 }
 
