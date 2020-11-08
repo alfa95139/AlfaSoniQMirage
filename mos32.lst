@@ -44,12 +44,14 @@ unknown3 EQU $F541
 copybytes EQU $F55B
 swapbytes EQU $F564
 swponefilt EQU $F571
-unknown5 EQU $F5BE
-unknown6 EQU $F5DC
-unknown7 EQU $F5E7
+unknown5 EQU $F5BE  ; this does something with the DOC
+setmaxres EQU $F5DC
+setfilterdac EQU $F5E7
 unknown8 EQU $F5F1
 unknown9 EQU $F6DD
 ledpatterns EQU $FB4D
+;$FB4D  -> display for Hex: 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, A, B, C, D, E, F
+;$FB5D  -> display for: L n o P r U _ - [top bar]  c u
 resetvec EQU $FC7F
 ospanic EQU $FC91
 ;* In OS 3.2 the keypad is scanned during the LED display routine
@@ -124,6 +126,7 @@ osvec:
 8270: FF FF FF FF FF FF FF FF 82 80 82 7C 10 11 01 0A 
 8280: 00 00 00 00 00 00 00 00 00 00 00 00 
 
+; AF_1 $828C
 828C: 34 01       PSHS  CC
 828E: 0F 4E       CLR   $4E
 8290: 1A 50       ORCC  #$50
@@ -134,6 +137,7 @@ osvec:
 829B: 0F 38       CLR   $38
 829D: 35 81       PULS  CC,PC ;(PUL? PC=RTS)
 
+; AF_2 $829F
 829F: EC A4       LDD   ,Y
 82A1: DD 59       STD   $59
 82A3: 26 02       BNE   $82A7
@@ -142,6 +146,7 @@ osvec:
 82A9: AD B8 02    JSR   [$02,Y]
 82AC: 20 E2       BRA   $8290
 
+; AF_3 $82AE
 82AE: E6 24       LDB   $0004,Y
 82B0: C0 24       SUBB  #$24
 82B2: CE 80 4F    LDU   #$804F
@@ -176,7 +181,7 @@ osvec:
 82ED: E7 06       STB   $0006,X
 82EF: F7 81 06    STB   $8106
 82F2: 7E 84 23    JMP   $8423
-
+; AF_4 $82F5
 82F5: 9E 47       LDX   $47
 82F7: 27 21       BEQ   $831A
 82F9: D1 7D       CMPB  $7D
@@ -744,25 +749,27 @@ osvec:
 875A: 1C AF       ANDCC #$AF
 875C: 35 82       PULS  A,PC ;(PUL? PC=RTS)
 
+
 ;jump here from OS Entry - no idea
+; firstOSjmp $8759
 875E: BD AE 17    JSR   $AE17   ; 
 8761: 8E 80 38    LDX   #$8038  ; X now contains the value in 8038
 8764: 6F 80       CLR   ,X+
 8766: 8C 80 57    CMPX  #$8057
-8769: 25 F9       BCS   $8764   ; do this a few times...
+8769: 25 F9       BCS   $8764   ; do this a few times with values to 8057
 876B: 86 FF       LDA   #$FF
 876D: B7 81 05    STA   $8105
 8770: B7 81 06    STA   $8106
 8773: CC 81 07    LDD   #$8107
 8776: DD 57       STD   $57
 8778: 1F 01       TFR   D,X
-877A: C3 00 08    ADDD  #$0008
+877A: C3 00 08    ADDD  #$0008  ; jump here from below 8781
 877D: ED 84       STD   ,X
 877F: 1F 01       TFR   D,X
 8781: 8C 81 FF    CMPX  #$81FF
-8784: 26 F4       BNE   $877A
+8784: 26 F4       BNE   $877A   ; do this a few times from 8107 to 81FF at increments of 8
 8786: 86 1F       LDA   #$1F
-8788: 97 5D       STA   $5D
+8788: 97 5D       STA   $5D     ; write 1F to DP + 5D (385D) (????)
 878A: B7 82 07    STA   $8207
 878D: CC 00 00    LDD   #$0000
 8790: ED 84       STD   ,X
@@ -772,14 +779,14 @@ osvec:
 8799: 1F 13       TFR   X,U
 879B: C3 00 4D    ADDD  #$004D
 879E: ED 84       STD   ,X
-87A0: 9F 3B       STX   $3B
+87A0: 9F 3B       STX   $3B   ; is X the page for WAV RAM?
 87A2: 34 06       PSHS  B,A
-87A4: BD 88 44    JSR   $8844
+87A4: BD 88 44    JSR   $8844 ; this goes to writing DOC CR values
 87A7: 35 06       PULS  A,B
 87A9: 1F 01       TFR   D,X
 87AB: EF 02       STU   $0002,X
 87AD: 10 83 B2 BA CMPD  #$B2BA
-87B1: 25 E4       BCS   $8797
+87B1: 25 E4       BCS   $8797    ; Jump back up
 87B3: CC 00 00    LDD   #$0000
 87B6: FD B0 54    STD   $B054
 87B9: CC 00 00    LDD   #$0000
@@ -855,7 +862,7 @@ osvec:
 8840: 7F 82 07    CLR   $8207
 8843: 39          RTS   
 
-8844: 10 AE 0E    LDY   $000E,X
+8844: 10 AE 0E    LDY   $000E,X  ; Write control register a0, a1, etc w value 03
 8847: 86 03       LDA   #$03
 8849: AA 88 41    ORA   $41,X
 884C: A7 A8 21    STA   $21,Y
@@ -870,10 +877,10 @@ osvec:
 8860: 10 EF 81    STS   ,X++
 8863: 8C B2 C6    CMPX  #$B2C6
 8866: 25 03       BCS   $886B
-8868: 8E B2 BE    LDX   #$B2BE
+8868: 8E B2 BE    LDX   #$B2BE          ; *** last useful address before PC is corrupted
 886B: 9F 5E       STX   $5E
 886D: 10 EE 84    LDS   ,X
-8870: 39          RTS   
+8870: 39          RTS                   ; **** This RTS sends the PC to the WAV data section ***
 
 8871: 4F          CLRA  	            ; Clear Accumulator
 8872: 1F 02       TFR   D,Y	            ; Txfer D into index register Y
@@ -1164,7 +1171,7 @@ irqentry:
 8ADC: 23 03       BLS   $8AE1
 8ADE: A6 88 27    LDA   $27,X
 8AE1: E6 88 28    LDB   $28,X
-8AE4: BD F5 E7    JSR   unknown7
+8AE4: BD F5 E7    JSR   setfilterdac
 8AE7: 1A 50       ORCC  #$50
 8AE9: EC 88 29    LDD   $29,X
 8AEC: 6E 98 2B    JMP   [$2B,X]
@@ -4039,7 +4046,7 @@ A115: 39          RTS
 A116: 34 01       PSHS  CC      ; save context
 A118: 1A 50       ORCC  #$50	; disable interrupt
 A11A: C6 F8       LDB   #$F8    ; load $F8 in B
-A11C: D7 BB       STB   $BB	; then put $F8 in $00BB
+A11C: D7 BB       STB   $BB	    ; then put $F8 in $00BB
 A11E: 8D 18       BSR   $A138	; branch to A138
 A120: 35 81       PULS  CC,PC 	; (PUL? PC=RTS) ; is this equivalent to RTS?
 
@@ -4059,7 +4066,7 @@ A138: 96 22       LDA   $22	; put the content of $8022 in A
 A13A: 27 01       BEQ   $A13D	; if 0 goes to A13D
 A13C: 39          RTS   	; otherwise we are done
 
-A13D: 9E BC       LDX   $BC
+A13D: 9E BC       LDX   $BC     ; Does something with the ACIA status register
 A13F: E7 80       STB   ,X+
 A141: 8C 82 35    CMPX  #$8235	; what's in $8235?
 A144: 25 03       BCS   $A149
@@ -5644,12 +5651,12 @@ AE10: BD A4 04    JSR   $A404
 AE13: 35 04       PULS  B
 AE15: 35 81       PULS  CC,PC ;(PUL? PC=RTS)
 
-; no idea
+; no idea - arrives here right away after entering into the OS
 AE17: CE E4 18    LDU   #$E418   ; 1_1000 -> disable INH for 4051s Res & Cutoff -> CBA = 000 ???
 AE1A: CC 00 00    LDD   #$0000
-AE1D: BD F5 E7    JSR   unknown7
-AE20: 11 83 E4 20 CMPU  #$E420
-AE24: 26 F7       BNE   $AE1D
+AE1D: BD F5 E7    JSR   setfilterdac
+AE20: 11 83 E4 20 CMPU  #$E420   ; we are looping from X=E400 to X = E41F (all filters) need to see what setfilterdac does with U 
+AE24: 26 F7       BNE   $AE1D    ; jump back up two lines to JSR setfilterdac
 AE26: CE B0 52    LDU   #$B052
 AE29: CC 8A D7    LDD   #$8AD7
 AE2C: 8E 8B BE    LDX   #$8BBE
@@ -5968,6 +5975,11 @@ B8D4: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF
 B8E4: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
 B8F4: FF FF FF FF FF FF FF FF FF FF FF 00 
 
+;;
+;; First time: IR = 001f
+;;             U  = b2b8; S = b052; X = E420 (top filters); Y = EC9B (DOC5503);
+;;             DP = 38;   A = 38;   B =80;    CC = d9;
+;;
 B900: CC 80 38    LDD   #$8038 	; A=$80, B=$38
 B903: 1F 8B       TFR   A,DP	; following Direct Page is $8000 
 B905: 10 8E B2 BE LDY   #$B2BE

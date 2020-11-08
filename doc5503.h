@@ -2,9 +2,11 @@
 #ifndef _DOC5503_H
 #define _DOC5503_H
 
+#include "bus.h"
+
 uint8_t doc5503_irq();
 void doc_init();
-void doc_run();
+void doc_run(CPU6809* cpu);
 uint8_t doc_rreg(uint8_t reg);
 void doc_wreg(uint8_t reg, uint8_t val);
 

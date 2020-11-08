@@ -210,7 +210,7 @@ void doc_init() {
 return;
 }
 
-void doc_run() {
+void doc_run(CPU6809* cpu) {
   // this function will update the audio stream, one day...
   // check
   //  https://github.com/mamedev/mame/blob/master/src/devices/sound/es5503.cpp
@@ -269,7 +269,12 @@ void halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
 
 
 //void sound_stream_update (sound_stream &stream, stream_sample_t **inputs, stream_sample_t **outputs, int samples) {
+//AF 11/1/2020 we will have to develop this
 //}
+
+//----------------------------------------------------------
+// Put this back on after fixing the issue with doc5503_run
+//----------------------------------------------------------
 
 uint8_t doc_rreg(uint8_t reg) {
   uint8_t retval;
@@ -369,6 +374,7 @@ uint8_t doc_rreg(uint8_t reg) {
   }
 }
 
+
 void doc_wreg(uint8_t reg, uint8_t val) {
 uint8_t osc;
 
@@ -404,7 +410,7 @@ if (reg < 0xe0)
         break;
 
       case 0x80:  // wavetable pointer
-        Serial.printf("DOC5503 WRITE: Waveteable Pointer Register %02x with value %02x <<8 == %02x\n", reg, val, val<<8);
+        Serial.printf("DOC5503 WRITE: Waveteble Pointer Register %02x with value (%02x << 8) == %02x\n", reg, val, val<<8);
         oscillators[osc].wavetblpointer = (val<<8);
         break;
 

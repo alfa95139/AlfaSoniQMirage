@@ -3,6 +3,7 @@
 
 #include "via.h"
 #include "fdc.h"
+#include "doc5503.h" //AF: Added: 11/1/2020
 #include "log.h"
 #include "os.h"
 #include <stdint.h>
@@ -48,11 +49,23 @@
 #define var22   0xbf85
 #define var23   0xbf8c
 
-#define firqvec    0x800B
-#define osvec     0x800E // location of osentry
-#define irqentry    0x893C // IRQ service routine in OS 3.2
-#define firqentry   0xA151 // FIRQ Service Routine
-#define osentry   0xB920 // OS 3.2 OS Entry point
+#define firqvec         0x800B
+#define osvec           0x800E // location of osentry
+#define irqentry        0x893C // IRQ service routine in OS 3.2
+#define firqentry       0xA151 // FIRQ Service Routine
+#define osentry         0xB920 // OS 3.2 OS Entry point
+#define AF_1            0x828C //
+#define AF_2            0x829F //
+#define AF_3            0x82AE //
+#define AF_4            0x82F5 //
+#define firstOSjmp      0x875E // this is the first jump from OS 3.2 Entry Point
+#define tunefiltpitchw  0xB96E // this is the second routine from OS 3.2 Entry Point
+#define keypadscan      0x896B // seems to be keypad scanner
+#define somehousekeep   0xB900 // don't know yet 
+#define docctrlregs     0x8844 // Write ctrl registers a0, 1a, ext w value 03
+#define lastusefuldbg   0x8868 // last useful address to study PC corruption
+#define rtsb4crash      0x8870 // this is the RTS before the cpu crash
+#define writeaciasr     0xA13D // subroutine that ends with loading $B5 (1011_0101) in the ACIA Status Register
 #define fdcreadsector   0xF000
 #define fdcskipsector   0xF013
 #define fdcwritesector  0xF024
@@ -87,7 +100,7 @@
 #define enablefd    0xF4C6
 #define disablefd   0xF4D6
 
-uint8_t WAV_RAM[4][WAV_END - WAV_START+1];
+uint8_t WAV_RAM[4][WAV_END - WAV_START+1]; // AF: 11/2/2020 -> Very nice, thank you Dylan!
 
 uint8_t PRG_RAM[RAM_END - RAM_START+1];
 int page = 0;
@@ -96,11 +109,11 @@ const char* address_name(uint16_t address) {
   if (address == loadopsys)           return "LOAD OS IN PRG RAM";
   if (address == osentry)             return "*OS ENTRY";
   if (address == irqentry)            return "IRQ INTERRUPT ROUTINE ENTRY POINT";
-  if (address == firqentry)           return "FIRQ INTERRUPT ROUTINE ENTRY POINT";
-  if (address == firqvec)             return "firqvec";
+  if (address == firqentry)           return "*FIRQ INTERRUPT ROUTINE ENTRY POINT";
+  if (address == firqvec)             return "*firqvec";
   //if (address == irqvec)              return "irqvec";
-  if (address == osvec)               return "*osvec"; 
-  if (address == fdcreadsector)       return "*fdcreadsector"; 
+  if (address == osvec)               return "osvec"; 
+  if (address == fdcreadsector)       return "fdcreadsector"; 
   if (address == fdcskipsector)       return "fdcskipsector"; 
   if (address == fdcwritesector)      return "fdcwritesector"; 
   if (address == fdcfillsector)       return "fdcfillsector"; 
@@ -114,7 +127,7 @@ const char* address_name(uint16_t address) {
   if (address == countdown)           return "countdown"; 
   if (address == nmivec)              return "nmivec"; 
   if (address == coldstart)           return "coldstart"; 
-  if (address == runopsys)            return "*runopsys"; 
+  if (address == runopsys)            return "runopsys"; 
   if (address == hwsetup)             return "hwsetup"; 
   if (address == qchipsetup)          return "qchipsetup"; 
   if (address == clearram)            return "clearram"; 
@@ -132,6 +145,20 @@ const char* address_name(uint16_t address) {
   if (address == gototrack2)          return "gototrack2"; 
   if (address == enablefd)            return "enablefd";
   if (address == disablefd)           return "disablefd";
+  if (address == docctrlregs)         return "docctrlregs";
+  if (address == AF_1)                return "*AF_1";
+  if (address == AF_2)                return "*AF_2";
+  if (address == AF_3)                return "*AF_3";
+  if (address == AF_4)                return "*AF_4";
+  if (address == firstOSjmp)          return "*firstOSjmp";
+  if (address == writeaciasr)         return "*writeaciasr";
+  if (address == tunefiltpitchw )     return "*tunefiltpitchw";
+  if (address == keypadscan)          return "*keypadscan";
+  if (address == somehousekeep)       return "*somehousekeep";
+  if (address == lastusefuldbg)       return "*lastusefuldbg";
+  if (address ==rtsb4crash )          return "*rtsb4crash";
+  //if (address == )         return "*c";
+
   if ((address & 0xFF00) == 0x7f00)     return "*cpucrash";
 
   if ((WAV_START <= address) && (address <= WAV_END)) return "wav data section";
@@ -163,7 +190,7 @@ void CPU6809::write(uint16_t address, uint8_t data) {
         log_emergency("Attempted to write OS RAM at 0x%04x with data 0x%02x, which does not match expected 0x%02x", address, data, os_img_start[address - RAM_START]);
       }
     }
-    //log_debug("Writing to PRG_RAM, address = %04x : DATA = %02x\n", address, data);
+    log_debug("********************* Writing to PRG_RAM, address = %04x : DATA = %02x\n", address, data);
     /*if(address == 0x800F) log_debug("************* WRITING OS ENTRY JMP 0x800F = %02X *********************\n", data);
     if(address == 0x8010) log_debug("*************                      0x8010 = %02X *********************\n", data);
     if(address == 0xBDEB) log_debug("************* WRITING TO 0xBDEB = %02X *********************\n", data);
@@ -172,7 +199,7 @@ void CPU6809::write(uint16_t address, uint8_t data) {
     // WAV RAM
     page = via_rreg(0) & 0b0011;
     WAV_RAM[page][address - WAV_START] = data;
-    //log_debug("Writing to WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, data);
+    log_debug("Writing to WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, data);
 
   } else if ( (address & 0xFF00) == VIA6522) {
     set_log("via");
@@ -181,11 +208,13 @@ void CPU6809::write(uint16_t address, uint8_t data) {
     set_log("fdc");
     fdc_wreg(address & 0xFF, data);
   } else if ((address & 0xFF00) == DOC5503) {
-    
+    set_log("doc5503");                       // AF: Added 11.1.2020
+    doc_wreg(address & 0xFF, data);           // AF: Added 11.1.2020
   } else if ((address & 0xFF00) == 0xE100) {
     // FTDI?
   } else if ((address & 0xFF00) == 0xE400) {
-    log_debug("write filters    [%04x] <- %02x\n", address, data);
+    log_debug("* Write Filters    [%04x] <- %02x\n", address, data);
+    log_debug("*               Not yet implemented\n");
   }
   set_log("cpu");
 }
@@ -207,6 +236,7 @@ uint8_t CPU6809::read(uint16_t address) {
     set_log("via");
     page = via_rreg(0) & 0b0011;
     out = WAV_RAM[page][address - WAV_START];
+    log_debug("READING FROM WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, out);
   } else if ((CART_START <= address) && (address <= CART_END)) {
     //out = CartROM[ (address - CART_START) ];
     out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
@@ -218,9 +248,12 @@ uint8_t CPU6809::read(uint16_t address) {
     set_log("fdc");
     out = fdc_rreg(address & 0xFF);
   } else if ((address & 0xFF00) == DOC5503 ) {
-    out = 0xFF;
+    set_log("doc5503");                       // AF: Added 11.1.2020
+    out = doc_rreg(address & 0xFF);           // AF: Added 11.1.2020
+    //out = 0xFF;
   } else if ((address & 0xFF00) == 0xE400) {
-    log_debug("read  filters    [%04x] -> %02x\n", address, out);
+    log_debug("read  filters    [%04x] -> %02x\n", address);
+    log_debug("*               Not yet implemented\n");
   } else if ((CART_START <= address) && (address <= CART_END) ) {
     //DATA_OUT = CartROM[ (uP_ADDR - CART_START) ];
     out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART

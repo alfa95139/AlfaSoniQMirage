@@ -38,7 +38,7 @@ June 2020:  fdc.cpp -- ported emulation to work with SD card in Teensy 3.5/3.6
 #include <SPI.h>
 
 
-// Teensy 3.5 & 3.6 on-board: BUILTIN_SDCARD
+// Teensy 3.5 & beyond on-board: BUILTIN_SDCARD
 const int chipSelect = BUILTIN_SDCARD;
 
 
