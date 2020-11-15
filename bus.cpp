@@ -161,6 +161,8 @@ const char* address_name(uint16_t address) {
 
   if ((address & 0xFF00) == 0x7f00)     return "*cpucrash";
 
+  if ((address & 0xFF00) < 0x8000)     return "*cpucrash";
+
   if ((WAV_START <= address) && (address <= WAV_END)) return "wav data section";
 
   if ((address & 0xFF00) == VIA6522) return "VIA6522";
@@ -254,6 +256,7 @@ uint8_t CPU6809::read(uint16_t address) {
   } else if ((address & 0xFF00) == 0xE400) {
     log_debug("read  filters    [%04x] -> %02x\n", address);
     log_debug("*               Not yet implemented\n");
+    out = 0xFF;
   } else if ((CART_START <= address) && (address <= CART_END) ) {
     //DATA_OUT = CartROM[ (uP_ADDR - CART_START) ];
     out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
