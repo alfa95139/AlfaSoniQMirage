@@ -156,6 +156,17 @@ Loop End
 #include "Arduino.h"
 #include "doc5503.h"
 
+DOC5503Osc oscillators[32];
+
+uint8_t  oscsenabled;      // # of oscillators enabled
+uint8_t     regE0, regE1, regE2;            // contents of register 0xe0
+
+uint8_t m_channel_strobe;
+
+int output_channels;
+uint32_t output_rate;
+
+uint8_t doc_irq;
 
 // useful constants
 static constexpr uint16_t wavesizes[8] = { 256, 512, 1024, 2048, 4096, 8192, 16384, 32768 }; // T2, T1, T0
@@ -199,7 +210,7 @@ void doc_init() {
 return;
 }
 
-void doc_run() {
+void doc_run(CPU6809* cpu) {
   // this function will update the audio stream, one day...
   // check
   //  https://github.com/mamedev/mame/blob/master/src/devices/sound/es5503.cpp
@@ -258,7 +269,12 @@ void halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
 
 
 //void sound_stream_update (sound_stream &stream, stream_sample_t **inputs, stream_sample_t **outputs, int samples) {
+//AF 11/1/2020 we will have to develop this
 //}
+
+//----------------------------------------------------------
+// Put this back on after fixing the issue with doc5503_run
+//----------------------------------------------------------
 
 uint8_t doc_rreg(uint8_t reg) {
   uint8_t retval;
@@ -358,6 +374,7 @@ uint8_t doc_rreg(uint8_t reg) {
   }
 }
 
+
 void doc_wreg(uint8_t reg, uint8_t val) {
 uint8_t osc;
 
@@ -393,7 +410,7 @@ if (reg < 0xe0)
         break;
 
       case 0x80:  // wavetable pointer
-        Serial.printf("DOC5503 WRITE: Waveteable Pointer Register %02x with value %02x <<8 == %02x\n", reg, val, val<<8);
+        Serial.printf("DOC5503 WRITE: Waveteble Pointer Register %02x with value (%02x << 8) == %02x\n", reg, val, val<<8);
         oscillators[osc].wavetblpointer = (val<<8);
         break;
 

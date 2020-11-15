@@ -26,31 +26,14 @@
 #define FDC_SECTOR 2
 #define FDC_DATA 3
 
+#include "bus.h"
 #include <stdint.h>
 
 
 
 int fdc_init();
-void fdc_run();
+void fdc_run(CPU6809* cpu);
 uint8_t fdc_rreg(uint8_t reg);
 void fdc_wreg(uint8_t reg, uint8_t val);
-uint8_t fdc_intrq();
-uint8_t fdc_drq();
-
-
- //UNCOMMENT THESE TWO LINES FOR TEENSY AUDIO BOARD:
- //SPI.setMOSI(7);  // Audio shield has MOSI on pin 7
- //SPI.setSCK(14);  // Audio shield has SCK on pin 14
-
-
-
-struct {
-	uint8_t sr;       // STATUS REGISTER
-	uint8_t cr;       // COMMAND REGISTER
-	uint8_t trk_r;    // TRACK REGISTER
-	uint8_t sec_r;    // SECTOR REGISTER
-	uint8_t data_r;   // DATA REGISTER: holds the data during Read and Write operations
-	uint8_t intrq;    // Interrupt Request
-} fdc;
 
 #endif

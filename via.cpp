@@ -142,8 +142,23 @@ in a regular fashion
 
 #define VIA6522_DEBUG 1
 
+#include "bus.h"
 #include "via.h"
+#include "log.h"
 #include "Arduino.h"
+
+struct {
+  uint8_t orb, irb;
+  uint8_t ora, ira;
+  uint8_t ddrb, ddra;
+  uint8_t t1LL, t1HL; // t1 Latches (Low and High) 
+  uint8_t t1l, t1h;   // t1 Counter (Low and High)
+  uint8_t t2l, t2h;   // t2 Counter (Low and High)
+  uint8_t ier, ifr;
+  uint8_t acr;
+  uint8_t pcr;
+
+} via;
 
 /*
 VIA is clocked at 2MHz
@@ -181,7 +196,7 @@ The boot rom sets both DDRA and DDRB to 0001_1111 => 0x1F
 
 
 */
-extern unsigned long clock_cycle_count;
+extern unsigned long get_cpu_cycle_count();
 unsigned long via_cycles, via_t2=0;
 
 void via_init() {
@@ -205,10 +220,11 @@ void via_init() {
 // * Purpose of via_irq is to model the VIA IRQ based on T2 *
 //***********************************************************
 uint8_t via_irq() {
-
   if (via.ier & 0x20) // if T2 Interrupt Enable
-	if (!(via.ifr & 0x20)) 
-		via.ifr &= (0xef); // clear IRQ
+  	if (!(via.ifr & 0x20)) 
+  		via.ifr &= (0xef); // clear IRQ
+
+  
 
   return((via.ifr & 0x80) == 0x80);  // mask 1000_0000 for bit 7, IRQ 
 }
@@ -217,10 +233,10 @@ uint8_t via_irq() {
 //************************************************************************
 // * Purpose of via_run is to generate the irq when T2 finishes counting *
 //************************************************************************
-void via_run() {
+void via_run(CPU6809* cpu) {
 
   
-  if (clock_cycle_count < via_cycles) return; // not ready yet
+  if (get_cpu_cycle_count() < via_cycles) return; // not ready yet
 
 // via_cycles is set by timer2
 // The following code is meant to trigger an interrupt IRQ when Timer 2 finishes
@@ -230,10 +246,15 @@ void via_run() {
   if (via.ier & 0x20) { // mask is 0010_0000, so we are checking bit 5 of IER, which is Timer 2
     via.ifr |= 0xa0;    // the OR mask is 1010_0000, IRQ and timer 2 interrupt interrupt flag
                         // at this point the IRQ has been set. 
-			// The portion of the model that clears timer 2 will also need to clear IRQ
+	  // The portion of the model that clears timer 2 will also need to clear IRQ
     //  return (1);  // fire interrupt
   }
-  via_cycles = clock_cycle_count + (via_t2>>2);  // half, because the clock frequency is 2MHz
+  via_cycles = get_cpu_cycle_count() + (via_t2>>2);  // half, because the clock frequency is 2MHz
+
+  if (via_irq()) {
+    cpu->irq();
+  }
+
   return;
 }
 
@@ -253,7 +274,7 @@ uint8_t via_rreg(uint8_t reg) {
       break;
     case 0x01:
 #if VIA6522_DEBUG
-      Serial.printf(">>>>>>   *** **** VIA6522 READ: via_rreg read PORT A *** ***   <<<<<<<\n");
+      log_debug("VIA read  port A");
 #endif
       val =  via.ora;
      break;
@@ -265,77 +286,77 @@ uint8_t via_rreg(uint8_t reg) {
      break;
     case 0x04: // T1 Low-Order Counter
 #if VIA6522_DEBUG
-      Serial.printf("*** VIA6522 READ: via_rreg read T1 Low Order COUNTER - UNHANDLED\n");
+      log_debug("VIA read  T1 Low Order COUNTER - UNHANDLED\n");
 #endif
       val = 0;
      break;
     case 0x05: //T1 High-Order COUNTER t1HC
 #if VIA6522_DEBUG
-      Serial.printf("*** VIA6522 READ: via_rreg read T1 High-Order COUNTER  - UNHANDLED ****\n");
+      log_debug("VIA read  T1 High Order COUNTER - UNHANDLED\n");
 #endif
       val = 0;
      break;
     case 0x06:  //T1 Low-Order Latches t1LL  
 #if VIA6522_DEBUG
-      Serial.printf("*** VIA6522 READ: via_rreg read of T1 Low-Order Latches  - UNHANDLED ****\n");
+      log_debug("VIA read  T1 Low Order Latches - UNHANDLED\n");
 #endif
       val = 0;
      break;
     case 0x07:  // T1 High-Order Latches t1HL
 #if VIA6522_DEBUG
-      Serial.printf("*** VIA6522 READ: via_rreg read of  T1 High-Order Latches   UNHANDLED *****\n");
+      log_debug("VIA read  T1 High Order Latches - UNHANDLED\n");
 #endif
       val = 0;
      break;
     case 0x08: //T2 Low-Order Counter t2LC
 #if VIA6522_DEBUG
-      Serial.printf("*** VIA6522 READ: via_rreg read of T2 Low-Order Counter - UNHANDLED *****\n");
+      log_debug("VIA read  T2 Low Order COUNTER - UNHANDLED\n");
 #endif
       val = 0;
      break;
     case 0x09: //  T2 High-Order Counter  t2HC  
 #if VIA6522_DEBUG
-      Serial.printf("*** VIA6522 READ: via_rreg read of  T2 High-Order Counter - UNHANDLED **** \n");
+      log_debug("VIA read  T2 High Order COUNTER - UNHANDLED\n");
 #endif
       val = 0;
      break;
     case 0x0A:
 #if VIA6522_DEBUG
-      Serial.printf("*** VIA6522 READ: via_rreg read shift register unhandled\n");
+      log_debug("VIA read  Shift Register - UNHANDLED\n");
 #endif
       val = 0;
       break;
     case 0x0B:
 #if VIA6522_DEBUG
-      Serial.printf("***              VIA6522 READ: via_rreg ACR = %02b\n", via.acr);
+      log_debug("VIA read  ACR = %02b\n", via.acr);
 #endif
      val = via.acr;
     case 0x0C:
 #if VIA6522_DEBUG
-      Serial.printf("***              VIA6522 READ: via_rreg PCR = %02b\n", via.pcr);
-      Serial.printf("*** ({CB2ctrl_2, CB2ctrl_1, CB2ctrl_0}, CB1, {CA1_2,CA2_2, CA2_0}, CA1a) ***\n");
+      log_debug("VIA read  PCR = %02b\n", via.pcr);
+      log_debug("               ({CB2ctrl_2, CB2ctrl_1, CB2ctrl_0}, CB1, {CA1_2,CA2_2, CA2_0}, CA1a)");
 #endif
       val = via.pcr;
       break;
     case 0x0D:
 #if VIA6522_DEBUG
-      Serial.printf("*** VIA6522 READ: via_rreg IFR = %02x\n", via.ifr);
+      log_debug("VIA read  IFR = %02x\n", via.ifr);
 #endif
       val = via.ifr;
       break;
     case 0x0E:
 #if VIA6522_DEBUG
-      Serial.printf("*** VIA6522 READ: via_rreg IER = %02x\n", via.ier);
+      log_debug("VIA read  IER = %02x\n", via.ier);
 #endif
       val = via.ier;
       break;  
      case 0x0F:       
-     Serial.printf(">>>>>>   *** **** VIA6522 READ: via_rreg read PORT A +NO HANDSHAKE+ *** ***   <<<<<<<\n");
+     log_debug("VIA read  PORT A +NO HANDSHAKE+ *** ***   <<<<<<<\n");
      val = via.ora;
      break;
     default:
 #if VIA6522_DEBUG
-      Serial.printf("*** VIA6522 READ: >>> SHOULD NOT GET HERE <<< via_rreg(%02x,val)\n",  reg);
+      log_warning("*** VIA6522 READ: >>> SHOULD NOT GET HERE <<< via_rreg(%02x,val)\n",  reg);
 #endif
       break;
     }
@@ -348,22 +369,20 @@ void via_wreg(uint8_t reg, uint8_t val) {
 
   switch(reg) {
     case 0x00: // PORT B
-    Serial.printf("*** VIA6522 WRITE: portb %02x. Page = %0X \n", val, val & 0x03);
+    log_debug("VIA write portb <- %02x (Page = %0X)", val, val & 0x03);
  
  #if VIA6522_DEBUG
       bc = val ^ via.orb;
-      Serial.println("vvvvvvvvvvvvvvvvvvvvvvvvvvvvv");
-      Serial.printf("*** VIA6522 WRITE: New Port B value: %02x.Previous value: %02x. bc is %02x. val & 0x10 = %x \n", val, via.orb, bc, val & 0x10);
-      if (bc == 0) Serial.printf("No change ***\n");
-      if (bc & 0x01) Serial.printf("**** Bank = %s \n",    (val & 0x01) ?   "0"    : "1");
-      if (bc & 0x02) Serial.printf("**** Half = %s \n",    (val & 0x02) ?  "Lower" : "Upper");
-      if (bc & 0x04) Serial.printf("**** Input = %s \n",   (val & 0x04) ?  "Line"  : "Mic");
+      log_debug("VIA write portb <- %02x Previous value: %02x. bc is %02x. val & 0x10 = %x", val, via.orb, bc, val & 0x10);
+      if (bc == 0) log_debug("      No change");
+      if (bc & 0x01) log_debug("      Bank = %s \n",    (val & 0x01) ?   "0"    : "1");
+      if (bc & 0x02) log_debug("      Half = %s \n",    (val & 0x02) ?  "Lower" : "Upper");
+      if (bc & 0x04) log_debug("      Input = %s \n",   (val & 0x04) ?  "Line"  : "Mic");
       if (bc & 0x08) // if line (meaning playing)
-          Serial.printf("****  %swheel selected\n", (val &0x04) ? "Mod" : "Pitch");
-      if (bc & 0x10) Serial.printf("**** FDC = %s \n",     (val & 0x10) ?  "Off"   : "On");
-      if (bc & 0x20) Serial.printf("**** DOC CA3 = %s \n", (val & 0x20) ? "1" : "0");
-      if (bc & 0x40) Serial.printf("**** Disc = %s \n",    (val & 0x40) ? "Loaded" : "Not Loaded");
-      Serial.println("^^^^^^^^^^^^^^^^^^^^^^^^^^^^^");
+          log_debug("****  %swheel selected\n", (val &0x04) ? "Mod" : "Pitch");
+      if (bc & 0x10) log_debug("      FDC = %s \n",     (val & 0x10) ?  "Off"   : "On");
+      if (bc & 0x20) log_debug("      DOC CA3 = %s \n", (val & 0x20) ? "1" : "0");
+      if (bc & 0x40) log_debug("      Disc = %s \n",    (val & 0x40) ? "Loaded" : "Not Loaded");
 #endif
 
 //TODO: clear IFR flags according to documentation
@@ -371,94 +390,97 @@ void via_wreg(uint8_t reg, uint8_t val) {
       return;
     case 0x01: // port A only used for keypad and display
  //#if VIA6522_DEBUG
-       Serial.printf("*** VIA6522 >WRITE<: TODO Add Display emulation===========================\n");
+       log_error("*** VIA6522 >WRITE<: TODO Add Display emulation===========================\n");
  //#endif
        via.ora = val;
       return;
     case 0x02:
  #if VIA6522_DEBUG
-      Serial.printf("*** VIA6522 >WRITE<: ddrb=%02x\n", val);
+      log_debug("VIA write ddrb <- %02x", val);
  #endif
       via.ddrb = val;
       break;
     case 0x03:
 #if VIA6522_DEBUG  
-      Serial.printf("*** VIA6522 >WRITE<: ddra=%02x ==============================================\n", val);
+      log_debug("VIA write ddra <- %02x", val);
 #endif
       via.ddra = val;
       break;
     case 0x04: // T1 Low-Order Latches 
 #if VIA6522_DEBUG
-      Serial.printf("*** VIA6522 >WRITE<: of T1 Low-Order Latches - UNHANDLED %02x <= %02x\n", reg, val);
+      log_debug("VIA write T1 Low-Order Latches - UNHANDLED %02x <= %02x\n", reg, val);
 #endif
     break;
     case 0x05: // T1 High-Order Counter     
 #if VIA6522_DEBUG
-      Serial.printf("*** VIA6522 >WRITE<  of T1 High-Order Counter - UNHANDLED %02x <= %02x\n", reg, val);
+      log_debug("VIA write T1 High-Order Counter - UNHANDLED %02x <= %02x\n", reg, val);
 #endif
     break;
     case 0x06: //T1 Low-Order Latches    
 #if VIA6522_DEBUG   
-      Serial.printf("*** VIA6522 >WRITE<  of T1 Low-Order Latches - UNHANDLED %02x <= %02x\n", reg, val);
+      log_debug("VIA write T1 Low-Order Latches - UNHANDLED %02x <= %02x\n", reg, val);
 #endif
     break;
     case 0x07: //T1 High-Order Latches    
 #if VIA6522_DEBUG   
-      Serial.printf("*** VIA6522 >WRITE< :of 1 High-Order Latches  - UNHANDLED %02x <= %02x\n", reg, val);
+      log_debug("VIA write T1 High-Order Latches  - UNHANDLED %02x <= %02x\n", reg, val);
 #endif
       break;
     case 0x08: // T2 Low-Order Latches FOLLOWING CODE IS SUSPICIOUS: 0x08 register is for latches, not counter
       via.t2l = val;
       via_t2 = via.t2l | (via.t2h<<8);
-      via_cycles = clock_cycle_count + (via_t2>>2);  // half, because the clock frequency is 2MHz
+      via_cycles = get_cpu_cycle_count() + (via_t2>>2);  // half, because the clock frequency is 2MHz
 #if VIA6522_DEBUG  
-      Serial.printf("*** VIA6522 REG #8 WRITE: t2 = %04x\n", (int) via_t2);
+      log_debug("VIA write reg8 t2 <- %04x\n", (int) via_t2);
 #endif
       break;
     case 0x09: // T2 High-Order Counter
       via.t2h = val;
       via_t2 = via.t2l | (via.t2h<<8);
-      via_cycles = clock_cycle_count + (via_t2>>2);  // half, because the clock frequency is 2MHz
+      via_cycles = get_cpu_cycle_count() + (via_t2>>2);  // half, because the clock frequency is 2MHz
       via.ifr = (via.ifr & 0x11011111); // Clear IFR5, which is Timer2
-//#if VIA6522_DEBUG  
-      Serial.printf("*** VIA6522 REG #9 WRITE: t2 = %04x\n", (int) via_t2);
-      Serial.printf("*** WRITING in T2H CLEARS THE INTERRUPT FLAG ****\n");
+//#if VIA6522_DEBUG
+      log_debug("VIA write reg9 t2 <- %04x\n", (int) via_t2);
+      log_debug("      WRITING IN T2H CLEARS THE INTERRUPT FLAG ****\n");
 //#endif
       break;
     case 0x0A:  // 0xE20A
 #if VIA6522_DEBUG  
-      Serial.printf("*** VIA6522 WRITE: sr<=%02x\n",  val);
+      log_debug("VIA write sr <- %02x\n",  val);
 #endif
       break;
     case 0x0B:  // 0xE20B
 #if VIA6522_DEBUG  
-     Serial.printf("*** VIA6522 WRITE:  acr<=%02x\n", val);
+     log_debug("VIA write acr <- %02x\n", val);
 #endif
       via.acr = val;
       break;
     case 0x0C:  // 0xE20C
       via.pcr = val;
 #if VIA6522_DEBUG  
-      Serial.printf("*** VIA6522 WRITE:  pcr<=%02x\n", val);
+      log_debug("VIA write pcr <- %02x\n", val);
 #endif
       break;
     case 0x0D:  // 0xE20D  IFR
       val &= 0x7f;     // mask is 0111_1111, IFR bit 7 can only be cleared when disabling the interrupt flag that generated it
       via.ifr &= ~val; // bitwise update of IFR with val
 #if VIA6522_DEBUG  
-      Serial.printf("*** VIA6522 >>WRITE<< *** STUDY INTERRUPT FLAG REGISTER *** val=%02x ifr<=%02x\n", val, via.ifr);
+      log_debug("VIA write IFR val <- %02x / ifr<=%02x\n", val, via.ifr);
+      log_debug("      -> STUDY INTERRUPT FLAG REGISTER");
 #endif
       break;
     case 0x0E:  // 0xE20E IER
       // okay, this is a funny one.  If bit 7 is set, the remaining bits
       // that are high are set high in IER.  If it is unset, the remaining
       // bits that are high are cleared.
-      
-       Serial.printf("*** VIA6522 WRITE: ORIGINAL VALUE FOR ier=%02x\n", via.ier);
+
+      int old_ier = via.ier;
+
       if (val & 0x80) via.ier |= (val & 0x7f);
         else via.ier &= (~val);
 #if VIA6522_DEBUG  
-      Serial.printf("*** VIA6522 WRITE:  val=%02x ier=%02x\n", val, via.ier);
+      log_debug("VIA write IER val <- %02x ier=%02x\n", val, via.ier);
+      log_debug("      old IER was %02x", old_ier);
       // one write shows val == a6 and ier = 26
       // val is 1010_0110, so (val & 0x80) => via.ier = via.ier | (val & 0x7f)
       //                                      via.ier = 0000_0000 | 0010_0110
@@ -468,14 +490,14 @@ void via_wreg(uint8_t reg, uint8_t val) {
       break;
     case 0x0F:  // 0xE20F
 #if VIA6522_DEBUG  
-      Serial.printf("*** VIA6522 WRITE:  ora<=%02x\n",  val);
-      Serial.printf("***                 Here is where to add Display & Keypad emulation===========================\n");
+      log_debug("VIA write ora <- %02x\n",  val);
+      log_error("      TODO: Here is where to add Display & Keypad emulation");
 #endif
       via.ora = val;
       break;
     default:
 #if VIA6522_DEBUG  
-    Serial.printf("*** VIA6522 WRITE: >>>STILL UNMANAGED<<< via_wreg(%d, 0x%02x)\n", reg, val);
+    log_warning("VIA write >>>STILL UNMANAGED<<< via_wreg(%d, 0x%02x)\n", reg, val);
 #endif
     break;  
   }
