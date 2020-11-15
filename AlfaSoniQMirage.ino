@@ -1,14 +1,16 @@
 ////////////////////////////////////////////////////////////////////
 // Ensoniq Mirage Retroshield 6809 Emulator for Teensy 3.5
+// 2020/06/14 Version 1.0 by A. Fasan
+// Contributions from Gordon J. Pierce, Erturk Kocalar (8bitforce.com)
+// 2020/11/2 Version 2.0 by D. Brophy, A. Fasan
+// Ensoniq Mirage Retroshield 6809 Emulator for Teensy 4.1
+// Made possible by Dylan Brophy (6809 sw emulator, which enabled to upgrade to Teensy 4.1 (speed + full 128K WAV memory)
 //
-// 2020/06/14
-// Version 1.0
-
 // The MIT License (MIT)
-
-// Copyright (C) 2012 Gordon JC Pearce <gordonjcp@gjcp.net> ---  VIA 6522 Emulation
+//
+// Copyright (C) 2012 Gordon JC Pearce <gordonjcp@gjcp.net>
 // Copyright (c) 2019 Erturk Kocalar, 8Bitforce.com
-// Copyright (c) 2020 Alessandro Fasan, ALFASoniQ           
+// Copyright (c) 2020 Alessandro Fasan, ALFASoniQ  / Dylan Brophy,          
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -34,6 +36,7 @@
 // 2020/06/13   Bring-up Ensoniq Mirage ROM                               Alessandro
 // 2020/06/14   Porting GordonJCP implementation of VIA6522 emulation     Alessandro
 // 2020/06/14   Porting GordonJCP implementation of FDC emulation         Alessandro
+// 2020/11/1    Porting/Developing implementation of DOC 5503             Alessandro
 
 #include "bus.h"
 #include "via.h"
@@ -152,7 +155,7 @@ void tick_system() {
   set_log("fdc");
   fdc_run(cpu);
   set_log("doc5503");
-  //doc5503_run(cpu);
+  doc_run(cpu);
 }
 
 ////////////////////////////////////////////////////////////////////
