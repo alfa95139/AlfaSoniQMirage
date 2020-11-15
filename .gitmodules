@@ -1,0 +1,3 @@
+[submodule "src/usim"]
+	path = src/usim
+	url = https://github.com/NuclearManD/usim.git
