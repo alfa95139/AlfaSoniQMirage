@@ -348,19 +348,35 @@ void CPU6809::printLastInstructions() {
 }
 
 void CPU6809::on_branch(const char* opcode, uint16_t src, uint16_t dst) {
+  if (dst < 0x8000UL)
+    invalid("Not allowed to branch below 0x8000 (branch)");
   /*if (debug) {
     const char* name = address_name(dst);
     Serial.printf("branch with opcode %s from %04x to %04x (%s)\n", opcode, src, dst, name);
   }*/
 }
+
 void CPU6809::on_branch_subroutine(const char* opcode, uint16_t src, uint16_t dst) {
+  if (dst < 0x8000UL)
+    invalid("Not allowed to branch below 0x8000 (branch subroutine)");
   /*if (debug) {
     const char* name = address_name(dst);
     Serial.printf("call with opcode %s from %04x to %04x (%s)\n", opcode, src, dst, name);
   }*/
 }
 
+void CPU6809::on_ret(const char* opcode, uint16_t src, uint16_t dst) {
+  if (dst < 0x8000UL)
+    invalid("Not allowed to branch below 0x8000 (return)");
+  /*if (debug) {
+    const char* name = address_name(dst);
+    Serial.printf("return with opcode %s from %04x to %04x (%s)\n", opcode, src, dst, name);
+  }*/
+}
+
 void CPU6809::on_nmi(uint16_t src, uint16_t dst) {
+  if (dst < 0x8000UL)
+    invalid("Not allowed to branch below 0x8000 (nmi)");
   if (debug) {
     const char* name = address_name(dst);
     log_debug("NMI from %04x to %04x (%s)\n", src, dst, name);
@@ -368,12 +384,16 @@ void CPU6809::on_nmi(uint16_t src, uint16_t dst) {
 }
 
 void CPU6809::on_irq(uint16_t src, uint16_t dst) {
+  if (dst < 0x8000UL)
+    invalid("Not allowed to branch below 0x8000 (irq)");
   if (debug) {
     const char* name = address_name(dst);
     log_debug("IRQ from %04x to %04x (%s)\n", src, dst, name);
   }
 }
 void CPU6809::on_firq(uint16_t src, uint16_t dst) {
+  if (dst < 0x8000UL)
+    invalid("Not allowed to branch below 0x8000 (firq)");
   if (debug) {
     const char* name = address_name(dst);
     log_debug("FIRQ from %04x to %04x (%s)\n", src, dst, name);

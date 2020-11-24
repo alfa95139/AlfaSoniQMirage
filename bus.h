@@ -64,6 +64,7 @@ class CPU6809: virtual public mc6809 {
     
     virtual void    on_branch(const char* opcode, uint16_t src, uint16_t dst);
     virtual void    on_branch_subroutine(const char* opcode, uint16_t src, uint16_t dst);
+    virtual void    on_ret(const char* opcode, uint16_t src, uint16_t dst);
     virtual void    on_nmi(uint16_t src, uint16_t dst);
     virtual void    on_irq(uint16_t src, uint16_t dst);
     virtual void    on_firq(uint16_t src, uint16_t dst);

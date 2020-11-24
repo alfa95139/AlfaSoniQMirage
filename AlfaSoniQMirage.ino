@@ -168,6 +168,8 @@ void loop()
   
   // Loop forever
   //  
+  if (cpu->pc < 0x8000UL)
+    cpu->invalid("Not allowed to execute wave RAM");
   while(true)
   {
     if (was_emergency_triggered())
