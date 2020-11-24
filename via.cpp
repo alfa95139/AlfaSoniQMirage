@@ -366,6 +366,7 @@ uint8_t via_rreg(uint8_t reg) {
 
 void via_wreg(uint8_t reg, uint8_t val) {
   int bc;
+  int old_ier;
 
   switch(reg) {
     case 0x00: // PORT B
@@ -474,7 +475,7 @@ void via_wreg(uint8_t reg, uint8_t val) {
       // that are high are set high in IER.  If it is unset, the remaining
       // bits that are high are cleared.
 
-      int old_ier = via.ier;
+      old_ier = via.ier;
 
       if (val & 0x80) via.ier |= (val & 0x7f);
         else via.ier &= (~val);
