@@ -1,0 +1,570 @@
+f9dasm: M6800/1/2/3/8/9 / H6309 Binary/OS9/FLEX9 Disassembler V1.75-RB
+Loaded binary file monitor.bin
+
+; Print string pointed to by X
+
+;****************************************************
+;* Used Labels                                      *
+;****************************************************
+
+M0000                   	EQU	$0000
+M0001                   	EQU	$0001
+M0020                   	EQU	$0020
+; top of stack
+stack                   	EQU	$BF80
+UART_csr                	EQU	$E100
+UART_data               	EQU	$E101
+VIA_dr_b                	EQU	$E200
+VIA_ddr_b               	EQU	$E202
+VIA_t1_lsb              	EQU	$E206
+VIA_data                	EQU	$E20F
+ROM_coldstart           	EQU	$F0F0
+ROM_hwsetup             	EQU	$F15D
+
+;****************************************************
+;* Program Code / Data Areas                        *
+;****************************************************
+
+        ORG     $C000
+
+
+; magic numbers for ROM boot to detect this as a program cart
+magic:
+        FCB     $00,$01,$02,$03,$04,$05  ;C000: 00 01 02 03 04 05 
+        FCB     $06,$07,$08,$09,$0A,$0B  ;C006: 06 07 08 09 0A 0B 
+        FCB     $0C,$0D,$0E,$0F          ;C00C: 0C 0D 0E 0F 
+;------------------------------------------------------------------------
+
+; ROM entry point, jumped to by Mirage ROM on detecting cart
+romentry:
+        JMP     start                    ;C010: 7E C1 00 
+;------------------------------------------------------------------------
+        JMP     readch                   ;C013: 7E C0 71 
+;------------------------------------------------------------------------
+        JMP     sendch                   ;C016: 7E C0 A8 
+;------------------------------------------------------------------------
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C019: FF FF FF FF FF FF 
+        FCB     $FF                      ;C01F: FF 
+;------------------------------------------------------------------------
+
+; Get two hex words in Y and X, separated by a dash
+getyyxx:
+        BSR     getxx                    ;C020: 8D 09          get first word in X
+        BVS     setovf                   ;C022: 29 43          return if error
+        TFR     X,Y                      ;C024: 1F 12          save it in Y
+        LDA     #$2D                     ;C026: 86 2D          print a dash
+        JSR     sendch                   ;C028: BD C0 A8 
+
+; and fall through to...
+; Get hex word
+getxx:
+        BSR     gethexbyte               ;C02B: 8D 0F          get MSB in A
+        BVS     setovf                   ;C02D: 29 38          return if error
+        TFR     D,X                      ;C02F: 1F 01          save A in MSB of X
+        BSR     gethexbyte               ;C031: 8D 09          get LSB in A
+        BVS     setovf                   ;C033: 29 32          return if error
+        PSHS    X                        ;C035: 34 10          stack MSB of word
+        STA     $01,S                    ;C037: A7 61          add LSB into second byte
+        PULS    X                        ;C039: 35 10          unstack word into X
+        RTS                              ;C03B: 39 
+;------------------------------------------------------------------------
+
+; get hex byte
+gethexbyte:
+        BSR     gethexdigit              ;C03C: 8D 11 
+        BVS     setovf                   ;C03E: 29 27 
+        ASLA                             ;C040: 48 
+        ASLA                             ;C041: 48 
+        ASLA                             ;C042: 48 
+        ASLA                             ;C043: 48 
+        TFR     A,B                      ;C044: 1F 89 
+        BSR     gethexdigit              ;C046: 8D 07 
+        BVS     setovf                   ;C048: 29 1D 
+        PSHS    B                        ;C04A: 34 04 
+        ADDA    ,S+                      ;C04C: AB E0 
+        RTS                              ;C04E: 39 
+;------------------------------------------------------------------------
+
+; get hex digit
+gethexdigit:
+        BSR     get7bit                  ;C04F: 8D 19 
+        CMPA    #$30                     ;C051: 81 30 
+        BCS     setovf                   ;C053: 25 12 
+        CMPA    #$39                     ;C055: 81 39 
+        BHI     gethexdigit1             ;C057: 22 03 
+        SUBA    #$30                     ;C059: 80 30 
+        RTS                              ;C05B: 39 
+;------------------------------------------------------------------------
+
+gethexdigit1:
+        CMPA    #$41                     ;C05C: 81 41 
+        BCS     setovf                   ;C05E: 25 07 
+        CMPA    #$46                     ;C060: 81 46 
+        BHI     setovf                   ;C062: 22 03 
+        SUBA    #$37                     ;C064: 80 37 
+        RTS                              ;C066: 39 
+;------------------------------------------------------------------------
+
+; Set overflow flag and return
+setovf:
+        ORCC    #$02                     ;C067: 1A 02 
+        RTS                              ;C069: 39 
+;------------------------------------------------------------------------
+
+; Get 7-bit character from ACIA
+get7bit:
+        BSR     readch                   ;C06A: 8D 05 
+        ANDA    #$7F                     ;C06C: 84 7F 
+        JMP     sendch                   ;C06E: 7E C0 A8 
+;------------------------------------------------------------------------
+
+; Wait for character and read
+readch:
+        LDA     UART_csr                 ;C071: B6 E1 00 
+        ASRA                             ;C074: 47 
+        BCC     readch                   ;C075: 24 FA 
+        LDA     UART_data                ;C077: B6 E1 01 
+        RTS                              ;C07A: 39 
+;------------------------------------------------------------------------
+ZC07B:	BSR     printbytex               ;C07B: 8D 06 
+ZC07D:	BSR     printbytex               ;C07D: 8D 04 
+
+; Print space
+space:
+        LDA     #$20                     ;C07F: 86 20 
+        BRA     sendch                   ;C081: 20 25 
+;------------------------------------------------------------------------
+
+; Print byte pointed to by X, incrementing X
+printbytex:
+        LDA     ,X+                      ;C083: A6 80 
+
+printbytea:
+        PSHS    A                        ;C085: 34 02 
+        LSRA                             ;C087: 44 
+        LSRA                             ;C088: 44 
+        LSRA                             ;C089: 44 
+        LSRA                             ;C08A: 44 
+        BSR     printhexdigit            ;C08B: 8D 02 
+        PULS    A                        ;C08D: 35 02 
+
+printhexdigit:
+        ANDA    #$0F                     ;C08F: 84 0F 
+        ADDA    #$30                     ;C091: 8B 30 
+        CMPA    #$39                     ;C093: 81 39 
+        BLE     printhexdig1             ;C095: 2F 02 
+        ADDA    #$07                     ;C097: 8B 07 
+
+printhexdig1:
+        BRA     sendch                   ;C099: 20 0D 
+;------------------------------------------------------------------------
+
+printstring1:
+        BSR     sendch                   ;C09B: 8D 0B          print character, fall through to loop
+
+printstring:
+        LDA     ,X+                      ;C09D: A6 80          get character pointed to by X in A, bump X
+        BNE     printstring1             ;C09F: 26 FA          if it's not zero, branch to print character and fall through
+        RTS                              ;C0A1: 39 
+;------------------------------------------------------------------------
+
+; Send CR/LF
+crlf:
+        LDA     #$0D                     ;C0A2: 86 0D 
+        BSR     sendch                   ;C0A4: 8D 02 
+        LDA     #$0A                     ;C0A6: 86 0A 
+
+; Send character
+sendch:
+        PSHS    A                        ;C0A8: 34 02          stack the character for later
+
+sendch1:
+        LDA     UART_csr                 ;C0AA: B6 E1 00       get ACIA TX status
+        ASRA                             ;C0AD: 47             shift into carry
+        ASRA                             ;C0AE: 47 
+        BCC     sendch1                  ;C0AF: 24 F9          loop until ACIA is ready
+        PULS    A                        ;C0B1: 35 02          unstack the character to send
+        STA     UART_data                ;C0B3: B7 E1 01       transmit
+        RTS                              ;C0B6: 39 
+;------------------------------------------------------------------------
+
+; Wait for ACIA
+waitacia:
+        PSHS    A                        ;C0B7: 34 02 
+        LDA     UART_csr                 ;C0B9: B6 E1 00 
+        BITA    #$20                     ;C0BC: 85 20 
+        PULS    A                        ;C0BE: 35 02 
+        RTS                              ;C0C0: 39 
+;------------------------------------------------------------------------
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C0C1: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C0C7: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C0CD: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C0D3: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C0D9: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C0DF: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C0E5: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C0EB: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C0F1: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C0F7: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF              ;C0FD: FF FF FF 
+;------------------------------------------------------------------------
+
+; Monitor entry point
+start:
+        ORCC    #$50                     ;C100: 1A 50 
+        LDA     #$1F                     ;C102: 86 1F 
+        STA     VIA_ddr_b                ;C104: B7 E2 02 
+        LDA     #$10                     ;C107: 86 10 
+        STA     VIA_dr_b                 ;C109: B7 E2 00 
+        LDS     #stack                   ;C10C: 10 CE BF 80 
+        JSR     ROM_hwsetup              ;C110: BD F1 5D 
+        LDA     #$15                     ;C113: 86 15 
+        STA     UART_csr                 ;C115: B7 E1 00 
+        LDA     #$34                     ;C118: 86 34 
+        STA     VIA_t1_lsb               ;C11A: B7 E2 06 
+        LDD     #M0000                   ;C11D: CC 00 00 
+
+startwait:
+        SUBD    #M0001                   ;C120: 83 00 01 
+        BNE     startwait                ;C123: 26 FB 
+        LDA     #$18                     ;C125: 86 18 
+        STA     VIA_data                 ;C127: B7 E2 0F 
+
+mainloop:
+        LDX     #startmsg                ;C12A: 8E C1 70 
+        JSR     printstring              ;C12D: BD C0 9D 
+        JSR     getcmd                   ;C130: BD C1 F0 
+        CMPA    #$42                     ;C133: 81 42          "B" - dump as binary
+        BNE     ZC13C                    ;C135: 26 05 
+        JSR     bindump_command          ;C137: BD C1 A0 
+ZC13A:	BRA     mainloop                 ;C13A: 20 EE 
+;------------------------------------------------------------------------
+ZC13C:	CMPA    #$44                     ;C13C: 81 44          "D" - dump as hex and ascii
+        BNE     ZC145                    ;C13E: 26 05 
+        JSR     dump_command             ;C140: BD C1 FE 
+ZC143:	BRA     ZC13A                    ;C143: 20 F5 
+;------------------------------------------------------------------------
+ZC145:	CMPA    #$4D                     ;C145: 81 4D          "M" - view/edit memory
+        BNE     ZC14E                    ;C147: 26 05 
+        JSR     mem_command              ;C149: BD C2 40 
+ZC14C:	BRA     ZC143                    ;C14C: 20 F5 
+;------------------------------------------------------------------------
+ZC14E:	CMPA    #$4C                     ;C14E: 81 4C          "L" - load S-rec format
+        BNE     ZC157                    ;C150: 26 05 
+        JSR     srecload_command         ;C152: BD C2 90 
+ZC155:	BRA     ZC14C                    ;C155: 20 F5 
+;------------------------------------------------------------------------
+ZC157:	CMPA    #$50                     ;C157: 81 50          "P" - dump as S-rec format
+        BNE     ZC160                    ;C159: 26 05 
+        JSR     srecdump_command         ;C15B: BD C3 30 
+ZC15E:	BRA     ZC155                    ;C15E: 20 F5 
+;------------------------------------------------------------------------
+ZC160:	CMPA    #$4A                     ;C160: 81 4A          "J" - jump to address
+        BNE     ZC167                    ;C162: 26 03 
+        JMP     jump_command             ;C164: 7E C1 90 
+;------------------------------------------------------------------------
+ZC167:	CMPA    #$51                     ;C167: 81 51          "Q" - reboot Mirage
+        BNE     ZC15E                    ;C169: 26 F3 
+        JMP     ROM_coldstart            ;C16B: 7E F0 F0 
+;------------------------------------------------------------------------
+        FCB     $FF,$FF                  ;C16E: FF FF 
+
+; Startup message
+startmsg:
+        FCB     $0d,$0a,'E','n','s','o'  ;C170: 0D 0A 45 6E 73 6F 
+        FCB     'n','i','q',' ','M','o'  ;C176: 6E 69 71 20 4D 6F 
+        FCB     'n','i','t','o','r',' '  ;C17C: 6E 69 74 6F 72 20 
+        FCB     'R','O','M',$0d,$0a,'>'  ;C182: 52 4F 4D 0D 0A 3E 
+        FCB     $00,$FF,$FF,$FF,$FF,$FF  ;C188: 00 FF FF FF FF FF 
+        FCB     $FF,$FF                  ;C18E: FF FF 
+;------------------------------------------------------------------------
+
+; Jxxxx - jump to xxxx
+jump_command:
+        JSR     getxx                    ;C190: BD C0 2B       get address to jump to
+        PSHS    X                        ;C193: 34 10          stack address
+        RTS                              ;C195: 39             will "return" to the address we just stacked
+;------------------------------------------------------------------------
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C196: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF          ;C19C: FF FF FF FF 
+;------------------------------------------------------------------------
+
+; Bxxxxyyyy - dump from xxxx to yyyy as binary
+bindump_command:
+        JSR     ZC1BA                    ;C1A0: BD C1 BA 
+        BVS     ZC1AD                    ;C1A3: 29 08 
+        EXG     X,Y                      ;C1A5: 1E 12 
+ZC1A7:	PSHS    Y                        ;C1A7: 34 20 
+        CMPX    ,S++                     ;C1A9: AC E1 
+        BCS     ZC1AE                    ;C1AB: 25 01 
+ZC1AD:	RTS                              ;C1AD: 39 
+;------------------------------------------------------------------------
+ZC1AE:	LDA     ,X+                      ;C1AE: A6 80 
+        JSR     sendch                   ;C1B0: BD C0 A8 
+        BRA     ZC1A7                    ;C1B3: 20 F2 
+;------------------------------------------------------------------------
+        FCB     $FF,$FF,$FF,$FF,$FF      ;C1B5: FF FF FF FF FF 
+;------------------------------------------------------------------------
+ZC1BA:	JSR     getyyxx                  ;C1BA: BD C0 20 
+        BVC     commandwait              ;C1BD: 28 01 
+        RTS                              ;C1BF: 39 
+;------------------------------------------------------------------------
+
+; wait, for some reason
+commandwait:
+        LDD     #M0000                   ;C1C0: CC 00 00 
+
+commandwait1:
+        SUBD    #M0001                   ;C1C3: 83 00 01 
+        BNE     commandwait1             ;C1C6: 26 FB 
+        LDA     #$40                     ;C1C8: 86 40          send an "@" character
+        JSR     sendch                   ;C1CA: BD C0 A8 
+        RTS                              ;C1CD: 39 
+;------------------------------------------------------------------------
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C1CE: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C1D4: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C1DA: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C1E0: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C1E6: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF          ;C1EC: FF FF FF FF 
+;------------------------------------------------------------------------
+
+; Get command character
+getcmd:
+        JSR     get7bit                  ;C1F0: BD C0 6A 
+        PSHS    A                        ;C1F3: 34 02 
+        JSR     space                    ;C1F5: BD C0 7F 
+        PULS    A                        ;C1F8: 35 02 
+        RTS                              ;C1FA: 39 
+;------------------------------------------------------------------------
+        FCB     $FF,$FF,$FF              ;C1FB: FF FF FF 
+;------------------------------------------------------------------------
+
+dump_command:
+        JSR     getyyxx                  ;C1FE: BD C0 20 
+        BVS     ZC20B                    ;C201: 29 08 
+        EXG     X,Y                      ;C203: 1E 12 
+ZC205:	PSHS    Y                        ;C205: 34 20 
+        CMPX    ,S++                     ;C207: AC E1 
+        BCS     ZC20C                    ;C209: 25 01 
+ZC20B:	RTS                              ;C20B: 39 
+;------------------------------------------------------------------------
+ZC20C:	JSR     waitacia                 ;C20C: BD C0 B7 
+        BNE     ZC20B                    ;C20F: 26 FA 
+        JSR     crlf                     ;C211: BD C0 A2 
+        PSHS    X                        ;C214: 34 10 
+        TFR     S,X                      ;C216: 1F 41 
+        JSR     ZC07B                    ;C218: BD C0 7B 
+        LDX     ,S                       ;C21B: AE E4 
+        LDB     #$10                     ;C21D: C6 10 
+ZC21F:	JSR     ZC07D                    ;C21F: BD C0 7D 
+        DECB                             ;C222: 5A 
+        BNE     ZC21F                    ;C223: 26 FA 
+        LDX     ,S++                     ;C225: AE E1 
+        LDB     #$10                     ;C227: C6 10 
+ZC229:	LDA     ,X+                      ;C229: A6 80 
+        CMPA    #$20                     ;C22B: 81 20 
+        BCS     ZC233                    ;C22D: 25 04 
+        CMPA    #$7E                     ;C22F: 81 7E 
+        BLS     ZC235                    ;C231: 23 02 
+ZC233:	LDA     #$2E                     ;C233: 86 2E 
+ZC235:	JSR     sendch                   ;C235: BD C0 A8 
+        DECB                             ;C238: 5A 
+        BNE     ZC229                    ;C239: 26 EE 
+        BRA     ZC205                    ;C23B: 20 C8 
+;------------------------------------------------------------------------
+        FCB     $FF,$FF,$FF              ;C23D: FF FF FF 
+;------------------------------------------------------------------------
+
+; Mxxxx - display and edit memory
+mem_command:
+        JSR     getxx                    ;C240: BD C0 2B 
+        BVS     ZC26A                    ;C243: 29 25 
+ZC245:	PSHS    X                        ;C245: 34 10 
+        LDX     #MC284                   ;C247: 8E C2 84 
+        JSR     printstring              ;C24A: BD C0 9D 
+        TFR     S,X                      ;C24D: 1F 41 
+        JSR     ZC07B                    ;C24F: BD C0 7B 
+        PULS    X                        ;C252: 35 10 
+        TFR     X,Y                      ;C254: 1F 12 
+        JSR     ZC07D                    ;C256: BD C0 7D 
+        JSR     gethexbyte               ;C259: BD C0 3C 
+        BVC     ZC26B                    ;C25C: 28 0D 
+        CMPA    #$08                     ;C25E: 81 08 
+        BEQ     ZC27B                    ;C260: 27 19 
+        CMPA    #$5E                     ;C262: 81 5E 
+        BEQ     ZC27F                    ;C264: 27 19 
+        CMPA    #$0D                     ;C266: 81 0D 
+        BNE     ZC279                    ;C268: 26 0F 
+ZC26A:	RTS                              ;C26A: 39 
+;------------------------------------------------------------------------
+ZC26B:	STA     ,Y                       ;C26B: A7 A4 
+        CMPA    ,Y                       ;C26D: A1 A4 
+        BEQ     ZC279                    ;C26F: 27 08 
+        JSR     space                    ;C271: BD C0 7F 
+        LDA     #$3F                     ;C274: 86 3F 
+        JSR     sendch                   ;C276: BD C0 A8 
+ZC279:	LEAY    -$0E,Y                   ;C279: 31 32 
+ZC27B:	TFR     Y,X                      ;C27B: 1F 21 
+        BRA     ZC245                    ;C27D: 20 C6 
+;------------------------------------------------------------------------
+ZC27F:	LEAY    -$01,Y                   ;C27F: 31 3F 
+        BRA     ZC27B                    ;C281: 20 F8 
+;------------------------------------------------------------------------
+        FCB     $FF                      ;C283: FF 
+MC284:	FCB     $0d,$0a,'-',' ',$00,$FF  ;C284: 0D 0A 2D 20 00 FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C28A: FF FF FF FF FF FF 
+;------------------------------------------------------------------------
+
+; L - load memory in S-rec format
+srecload_command:
+        JSR     ZC31B                    ;C290: BD C3 1B 
+ZC293:	CMPA    #$53                     ;C293: 81 53 
+        BNE     srecload_command         ;C295: 26 F9 
+        JSR     ZC31B                    ;C297: BD C3 1B 
+        CMPA    #$39                     ;C29A: 81 39 
+        BEQ     ZC2DB                    ;C29C: 27 3D 
+        CMPA    #$31                     ;C29E: 81 31 
+        BNE     ZC293                    ;C2A0: 26 F1 
+        JSR     ZC2ED                    ;C2A2: BD C2 ED 
+        PSHS    A                        ;C2A5: 34 02 
+        BVS     ZC2CF                    ;C2A7: 29 26 
+        JSR     ZC2DC                    ;C2A9: BD C2 DC 
+        BVS     ZC2CF                    ;C2AC: 29 21 
+        PSHS    X                        ;C2AE: 34 10 
+        LDB     ,S+                      ;C2B0: E6 E0 
+        ADDB    ,S+                      ;C2B2: EB E0 
+        ADDB    ,S                       ;C2B4: EB E4 
+        DEC     ,S                       ;C2B6: 6A E4 
+        DEC     ,S                       ;C2B8: 6A E4 
+ZC2BA:	PSHS    B                        ;C2BA: 34 04 
+        JSR     ZC2ED                    ;C2BC: BD C2 ED 
+        PULS    B                        ;C2BF: 35 04 
+        BVS     ZC2CF                    ;C2C1: 29 0C 
+        PSHS    A                        ;C2C3: 34 02 
+        ADDB    ,S+                      ;C2C5: EB E0 
+        DEC     ,S                       ;C2C7: 6A E4 
+        BEQ     ZC2D0                    ;C2C9: 27 05 
+        STA     ,X+                      ;C2CB: A7 80 
+        BRA     ZC2BA                    ;C2CD: 20 EB 
+;------------------------------------------------------------------------
+ZC2CF:	CLRB                             ;C2CF: 5F 
+ZC2D0:	PULS    A                        ;C2D0: 35 02 
+        CMPB    #$FF                     ;C2D2: C1 FF 
+        BEQ     srecload_command         ;C2D4: 27 BA 
+        LDA     #$3F                     ;C2D6: 86 3F 
+        JSR     sendch                   ;C2D8: BD C0 A8 
+ZC2DB:	RTS                              ;C2DB: 39 
+;------------------------------------------------------------------------
+ZC2DC:	BSR     ZC2ED                    ;C2DC: 8D 0F 
+        BVS     ZC318                    ;C2DE: 29 38 
+        TFR     D,X                      ;C2E0: 1F 01 
+        BSR     ZC2ED                    ;C2E2: 8D 09 
+        BVS     ZC318                    ;C2E4: 29 32 
+        PSHS    X                        ;C2E6: 34 10 
+        STA     $01,S                    ;C2E8: A7 61 
+        PULS    X                        ;C2EA: 35 10 
+        RTS                              ;C2EC: 39 
+;------------------------------------------------------------------------
+ZC2ED:	BSR     ZC300                    ;C2ED: 8D 11 
+        BVS     ZC318                    ;C2EF: 29 27 
+        ASLA                             ;C2F1: 48 
+        ASLA                             ;C2F2: 48 
+        ASLA                             ;C2F3: 48 
+        ASLA                             ;C2F4: 48 
+        TFR     A,B                      ;C2F5: 1F 89 
+        BSR     ZC300                    ;C2F7: 8D 07 
+        BVS     ZC318                    ;C2F9: 29 1D 
+        PSHS    B                        ;C2FB: 34 04 
+        ADDA    ,S+                      ;C2FD: AB E0 
+        RTS                              ;C2FF: 39 
+;------------------------------------------------------------------------
+ZC300:	BSR     ZC31B                    ;C300: 8D 19 
+        CMPA    #$30                     ;C302: 81 30 
+        BCS     ZC318                    ;C304: 25 12 
+        CMPA    #$39                     ;C306: 81 39 
+        BHI     ZC30D                    ;C308: 22 03 
+        SUBA    #$30                     ;C30A: 80 30 
+        RTS                              ;C30C: 39 
+;------------------------------------------------------------------------
+ZC30D:	CMPA    #$41                     ;C30D: 81 41 
+        BCS     ZC318                    ;C30F: 25 07 
+        CMPA    #$46                     ;C311: 81 46 
+        BHI     ZC318                    ;C313: 22 03 
+        SUBA    #$37                     ;C315: 80 37 
+        RTS                              ;C317: 39 
+;------------------------------------------------------------------------
+ZC318:	ORCC    #$02                     ;C318: 1A 02 
+        RTS                              ;C31A: 39 
+;------------------------------------------------------------------------
+ZC31B:	JSR     readch                   ;C31B: BD C0 71 
+        ANDA    #$7F                     ;C31E: 84 7F 
+        RTS                              ;C320: 39 
+;------------------------------------------------------------------------
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C321: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C327: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF              ;C32D: FF FF FF 
+;------------------------------------------------------------------------
+
+; Pxxxxyyyy - dump from xxxx to yyyy as S-rec
+srecdump_command:
+        CLR     ,-S                      ;C330: 6F E2          clear a byte at the top of the stack
+        JSR     getyyxx                  ;C332: BD C0 20       get start and end addresses
+        PSHS    Y,X                      ;C335: 34 30          stack them
+        BVS     ZC37E                    ;C337: 29 45          return if error
+        CMPX    $02,S                    ;C339: AC 62          check address range is valid
+        BCS     ZC37E                    ;C33B: 25 41          return if error
+        LEAX    $01,X                    ;C33D: 30 01          bump x
+        STX     ,S                       ;C33F: AF E4          save at top of stack
+ZC341:	LDD     ,S                       ;C341: EC E4 
+        SUBD    $02,S                    ;C343: A3 62 
+        BEQ     ZC34D                    ;C345: 27 06 
+        CMPD    #M0020                   ;C347: 10 83 00 20 
+        BLS     ZC34F                    ;C34B: 23 02 
+ZC34D:	LDB     #$20                     ;C34D: C6 20 
+ZC34F:	STB     $04,S                    ;C34F: E7 64 
+        LDX     #srec_header             ;C351: 8E C3 8D 
+        JSR     printstring              ;C354: BD C0 9D 
+        ADDB    #$03                     ;C357: CB 03 
+        TFR     B,A                      ;C359: 1F 98 
+        JSR     printbytea               ;C35B: BD C0 85 
+        LDX     $02,S                    ;C35E: AE 62 
+        JSR     printx                   ;C360: BD C3 81 
+        ADDB    $02,S                    ;C363: EB 62 
+        ADDB    $03,S                    ;C365: EB 63 
+ZC367:	ADDB    ,X                       ;C367: EB 84 
+        LDA     ,X+                      ;C369: A6 80 
+        JSR     printbytea               ;C36B: BD C0 85 
+        DEC     $04,S                    ;C36E: 6A 64 
+        BNE     ZC367                    ;C370: 26 F5 
+        COMB                             ;C372: 53 
+        TFR     B,A                      ;C373: 1F 98 
+        JSR     printbytea               ;C375: BD C0 85 
+        STX     $02,S                    ;C378: AF 62 
+        CMPX    ,S                       ;C37A: AC E4 
+        BNE     ZC341                    ;C37C: 26 C3 
+ZC37E:	LEAS    $05,S                    ;C37E: 32 65 
+        RTS                              ;C380: 39 
+;------------------------------------------------------------------------
+
+; Print value in X
+printx:
+        PSHS    X                        ;C381: 34 10 
+        PULS    A                        ;C383: 35 02 
+        JSR     printbytea               ;C385: BD C0 85 
+        PULS    A                        ;C388: 35 02 
+        JMP     printbytea               ;C38A: 7E C0 85 
+;------------------------------------------------------------------------
+
+srec_header:
+        FCB     $0d,$0a,'S','1',$00,$FF  ;C38D: 0D 0A 53 31 00 FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C393: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C399: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C39F: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C3A5: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C3AB: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C3B1: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF,$FF,$FF,$FF  ;C3B7: FF FF FF FF FF FF 
+        FCB     $FF,$FF,$FF              ;C3BD: FF FF FF 
+
+        END
