@@ -4,10 +4,22 @@
 #include "via.h"
 #include "fdc.h"
 #include "doc5503.h" //AF: Added: 11/1/2020
+#include "acia.h"    //AF: Added: 11/28/2020
 #include "log.h"
 #include "os.h"
 #include <stdint.h>
 #include <Arduino.h>
+
+#define RomMonEnable  1 //AF: Added 11/28/2020. Set to 0 to disable Ensoniq Monitor ROM
+// Format Examples
+// Q              : Quit
+// DC100-C1FF     : Display from C100 to C1FF
+// Mxxxx          : Display content of location xxxx. "dd" will change the data, "space" will step forward, "return" will exit back to the monitor
+// Jxxxx          : Jump to location xxxx and run program. NOTE: SOMETHING WRONG HAPPEN WHEN I TRY JC100, which is the Jump to ROM Monitor start
+// L              : Load memory data in Motorola S-record format
+// Pxxxxyyyy      : Dump memory from xxxx to yyyy as S-records
+// Bxxxxyyyy      : Dump memory from xxxx to yyyy as raw binary data preceded by a "$" marker
+
 
 ////////////////////////////////////////////////////////////////////
 // Monitor Code
@@ -100,12 +112,21 @@
 #define enablefd    0xF4C6
 #define disablefd   0xF4D6
 
+#define monitorROM  0xC113     // after completing hwsetup
+#define monitorMainLoop 0xC12A // This is where it launches printstring, etc
+#define monitorPrintStr 0xC09D // This is the print of "Monitor Rom"
+#define monitorsendch1  0xC0AA // This is the send char of "Monitor Rom"
+
 uint8_t WAV_RAM[4][WAV_END - WAV_START+1]; // AF: 11/2/2020 -> Very nice, thank you Dylan!
 
 uint8_t PRG_RAM[RAM_END - RAM_START+1];
 int page = 0;
 
 const char* address_name(uint16_t address) {
+  if (address == monitorROM)          return "MONITOR ROM";
+  if (address == monitorMainLoop)     return "MONITOR ROM Main Loop";
+  if (address == monitorPrintStr)     return "MONITOR ROM printstring Routine";
+  if (address == monitorsendch1)      return "MONITOR ROM sendch1 Routine";
   if (address == loadopsys)           return "LOAD OS IN PRG RAM";
   if (address == osentry)             return "*OS ENTRY";
   if (address == irqentry)            return "IRQ INTERRUPT ROUTINE ENTRY POINT";
@@ -159,16 +180,16 @@ const char* address_name(uint16_t address) {
   if (address ==rtsb4crash )          return "*rtsb4crash";
   //if (address == )         return "*c";
 
-  if ((address & 0xFF00) == 0x7f00)     return "*cpucrash";
+  if ((address & 0xFF00) == 0x7f00)     return "cpucrash";
 
-  if ((address & 0xFF00) < 0x8000)     return "*cpucrash";
+  if ((address & 0xFF00) < 0x8000)     return "cpucrash";
 
   if ((WAV_START <= address) && (address <= WAV_END)) return "wav data section";
 
   if ((address & 0xFF00) == VIA6522) return "VIA6522";
   if ((address & 0xFF00) == FDC1770) return "FDC1770";
   if ((address & 0xFF00) == DOC5503) return "DOC5503";
-  if ((address & 0xFF00) == 0xE100)  return "ACIA";
+  if ((address & 0xFF00) == UART6850)  return "ACIA";
 
   return "?";
 }
@@ -192,7 +213,7 @@ void CPU6809::write(uint16_t address, uint8_t data) {
         log_emergency("Attempted to write OS RAM at 0x%04x with data 0x%02x, which does not match expected 0x%02x", address, data, os_img_start[address - RAM_START]);
       }
     }
-    log_debug("********************* Writing to PRG_RAM, address = %04x : DATA = %02x\n", address, data);
+    //log_debug("********************* Writing to PRG_RAM, address = %04x : DATA = %02x\n", address, data);
     /*if(address == 0x800F) log_debug("************* WRITING OS ENTRY JMP 0x800F = %02X *********************\n", data);
     if(address == 0x8010) log_debug("*************                      0x8010 = %02X *********************\n", data);
     if(address == 0xBDEB) log_debug("************* WRITING TO 0xBDEB = %02X *********************\n", data);
@@ -202,7 +223,6 @@ void CPU6809::write(uint16_t address, uint8_t data) {
     page = via_rreg(0) & 0b0011;
     WAV_RAM[page][address - WAV_START] = data;
     log_debug("Writing to WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, data);
-
   } else if ( (address & 0xFF00) == VIA6522) {
     set_log("via");
     via_wreg(address & 0xFF, data);
@@ -212,8 +232,9 @@ void CPU6809::write(uint16_t address, uint8_t data) {
   } else if ((address & 0xFF00) == DOC5503) {
     set_log("doc5503");                       // AF: Added 11.1.2020
     doc_wreg(address & 0xFF, data);           // AF: Added 11.1.2020
-  } else if ((address & 0xFF00) == 0xE100) {
-    // FTDI?
+  } else if ((address & 0xFF00) == UART6850) { // AF: Added 11.28.20 
+    //Serial.printf("UART6850: Writing Register %04x %04x\n", address & 0xFF, data);
+    acia_wreg(address & 0xFF, data); 
   } else if ((address & 0xFF00) == 0xE400) {
     log_debug("* Write Filters    [%04x] <- %02x\n", address, data);
     log_debug("*               Not yet implemented\n");
@@ -238,11 +259,14 @@ uint8_t CPU6809::read(uint16_t address) {
     set_log("via");
     page = via_rreg(0) & 0b0011;
     out = WAV_RAM[page][address - WAV_START];
-    log_debug("READING FROM WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, out);
-  } else if ((CART_START <= address) && (address <= CART_END)) {
-    //out = CartROM[ (address - CART_START) ];
-    out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
-
+    //log_debug("READING FROM WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, out);
+ } else if ((CART_START <= address) && (address <= CART_END)) { // Will load the Monitor first. The command "Q" will Quit the monitor and continue the regular boot
+#if RomMonEnable
+    out = CartROM[ (address - CART_START) ];
+#else
+    out = 0xFF;
+#endif
+   // log_debug("READING FROM ROM CART:  address  = %04x, DATA = %02x\n", address, out);
   } else if ((address & 0xFF00) == VIA6522) {
     set_log("via");
     out = via_rreg(address & 0xFF);
@@ -253,13 +277,13 @@ uint8_t CPU6809::read(uint16_t address) {
     set_log("doc5503");                       // AF: Added 11.1.2020
     out = doc_rreg(address & 0xFF);           // AF: Added 11.1.2020
     //out = 0xFF;
+  } else if ((address & 0xFF00) == UART6850) { //AF: Added 11.28.20 
+    out = acia_rreg(address & 0xFF);
+    //Serial.printf("UART6850: Reading Register %04x %04x\n", address & 0xFF, out);
   } else if ((address & 0xFF00) == 0xE400) {
     log_debug("read  filters    [%04x] -> %02x\n", address);
     log_debug("*               Not yet implemented\n");
     out = 0xFF;
-  } else if ((CART_START <= address) && (address <= CART_END) ) {
-    //DATA_OUT = CartROM[ (uP_ADDR - CART_START) ];
-    out = 0xFF; // we will enable when everything (but DOC5503) is working, we will need working UART
   } else
     out = 0xFF;
 

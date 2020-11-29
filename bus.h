@@ -39,8 +39,7 @@
 // Devices
 #define DEVICES_START   0xE000
 #define DEVICES_END     0xEFFF
-#define UART6850cs      0xE100 // Control/Status
-#define UART6850_d      0xE101 // Data
+#define UART6850        0xE100 // Control/Status
 #define VIA6522         0xE200 // to 0xE20F
 #define VCF3328         0xE400 //   0xE410 to 0xE417: Filter cut-off Freq. Filter Resonance.E408-E40F.  Multiplexer address pre-set (no output) E418: OFF
 #define FDC1770         0xE800 // to 0xE803

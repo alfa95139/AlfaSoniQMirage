@@ -10,7 +10,7 @@
 //
 // Copyright (C) 2012 Gordon JC Pearce <gordonjcp@gjcp.net>
 // Copyright (c) 2019 Erturk Kocalar, 8Bitforce.com
-// Copyright (c) 2020 Alessandro Fasan, ALFASoniQ  / Dylan Brophy,          
+// Copyright (c) 2020 Alessandro Fasan, ALFASoniQ  / Dylan Brophy, Nuclare         
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -42,55 +42,14 @@
 #include "via.h"
 #include "fdc.h"
 #include "doc5503.h"
+#include "acia.h" // AF 11.28.20
 #include "log.h"
 
-////////////////////////////////////////////////////////////////////
-// Serial Functions
-////////////////////////////////////////////////////////////////////
 
-/*
-  SerialEvent occurs whenever a new data comes in the
- hardware serial RX.  This routine is run between each
- time loop() runs, so any delay inside loop will delay
- response.  
- Warning: Multiple bytes of data may be available.
- */
-
- /*
-inline __attribute__((always_inline))
-void serialEvent0() 
-{
-  // If serial data available, assert FIRQ so process can grab it.
-  if (Serial.available())
-      digitalWrite(uP_FIRQ_N, LOW);
-  return;
-}
-
-
-inline __attribute__((always_inline))
-byte FTDI_Read()
-{
-  byte x = Serial.read();
-  // If no more characters left, deassert FIRQ to the processor.
-  if (Serial.available() == 0)
-      digitalWrite(uP_FIRQ_N, false);
-  return x;
-}
-
-
-// This function is not used by the timer loop
-// because it takes too long to call a subrouting.
-inline __attribute__((always_inline))
-void FTDI_Write(byte x)
-{
-  Serial.write(x);
-}
-
-*/
 
 CPU6809* cpu;
 bool emergency = false;
-bool debug_mode = true;
+bool debug_mode = false;
 bool do_continue = true;
 
 ////////////////////////////////////////////////////////////////////
@@ -131,6 +90,8 @@ void setup()
   fdc_init();
   set_log("doc5503");
   doc_init();
+  set_log("acia6850");
+  acia_init();
 
   set_log("setup()");
   log_info("Initializing processor...");
@@ -156,6 +117,8 @@ void tick_system() {
   fdc_run(cpu);
   set_log("doc5503");
   doc_run(cpu);
+  set_log("acia6950");
+  acia_run(cpu);
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -182,7 +145,7 @@ void loop()
       emergency = false;
       cpu->printLastInstructions();
     }
-    //serialEvent0();
+   
     if (debug_mode) {
       const char* s = address_name(cpu->pc);
       if (s[0] == '*') { // && strcmp(s, "countdown")) {
