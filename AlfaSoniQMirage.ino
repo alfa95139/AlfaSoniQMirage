@@ -145,7 +145,7 @@ void loop()
       emergency = false;
       cpu->printLastInstructions();
     }
-   
+
     if (debug_mode) {
       const char* s = address_name(cpu->pc);
       if (s[0] == '*') { // && strcmp(s, "countdown")) {
@@ -195,11 +195,11 @@ void loop()
           cpu->printLastInstructions();
         } else if (c == 'm') {
           // print memory at location
-          /* location can be any 16-bit unsigned integer literal...
-           *    EX: 0xb920 (hex), 1024 (decimal), 0b1101 (binary)
-           * ... or a 16-bit register name
-           *    EX: s, u, pc, x, y (use lowercase)
-          */
+          // location can be any 16-bit unsigned integer literal...
+          //    EX: 0xb920 (hex), 1024 (decimal), 0b1101 (binary)
+          // ... or a 16-bit register name
+          //    EX: s, u, pc, x, y (use lowercase)
+          //
           char s[8];
           int i = 0;
           while (Serial.available()) {

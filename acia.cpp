@@ -69,7 +69,7 @@ uint8_t acia_irq() {
 void acia_run(CPU6809* cpu) { 
         // call this every time around the loop
         int i;
-        uint8_t buf=255;
+        uint8_t buf;
 
        if (get_cpu_cycle_count() < acia_cycles) 
                 return;                       // nothing to do yet
