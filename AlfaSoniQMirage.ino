@@ -49,7 +49,7 @@
 
 CPU6809* cpu;
 bool emergency = false;
-bool debug_mode = false;
+bool debug_mode = true;
 bool do_continue = true;
 
 ////////////////////////////////////////////////////////////////////

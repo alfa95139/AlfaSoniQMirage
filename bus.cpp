@@ -98,21 +98,21 @@
 #define clearram    0xF1E5
 #define loadopsys   0xF20D // load OS in PROGRAM RAM
 #define readsysparams   0xF2AF
-#define checkos   0xF306
-#define showerrcode   0xF33C
-#define preparefd   0xF38C
+#define checkos         0xF306
+#define showerrcode     0xF33C
+#define preparefd       0xF38C
 #define loadossector    0xF3AC
-#define gototrack   0xF3F1
-#define seterrcode    0xF413
-#define saveparams    0xF425
+#define gototrack       0xF3F1
+#define seterrcode      0xF413
+#define saveparams      0xF425
 #define restoreparams   0xF437
 #define readsector    0xF448
 #define writesector   0xF476
 #define gototrack2    0xF4A4
-#define enablefd    0xF4C6
-#define disablefd   0xF4D6
+#define enablefd      0xF4C6
+#define disablefd     0xF4D6
 
-#define monitorROM  0xC113     // after completing hwsetup
+#define monitorROM      0xC113     // after completing hwsetup
 #define monitorMainLoop 0xC12A // This is where it launches printstring, etc
 #define monitorPrintStr 0xC09D // This is the print of "Monitor Rom"
 #define monitorsendch1  0xC0AA // This is the send char of "Monitor Rom"

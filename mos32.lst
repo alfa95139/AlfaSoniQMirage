@@ -5995,7 +5995,7 @@ B91D: 7E 88 68    JMP   $8868
 
 osentry:
 B920: 10 CE B0 52 LDS   #$B052 ; is B052 the stack?
-B924: CC 80 38    LDD   #$8038 ; Load $8038 in D: THIS MEANS A=$80, B=$38
+B924: CC 80 38    LDD   #$8038 ; Load $8038 in D: THIS MEANS A=$38, B=$80
 B927: 1F 8B       TFR   A,DP   ; Accumulator in Direct Page, per the above $80 (page $8000)
 B929: BD 87 5E    JSR   $875E  ; called also from other places
 B92C: BD B9 6E    JSR   $B96E  ; Tunes the flters, then reads pitch wheel value
