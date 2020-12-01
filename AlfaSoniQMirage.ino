@@ -45,9 +45,37 @@
 #include "acia.h" // AF 11.28.20
 #include "log.h"
 
-
-
 CPU6809* cpu;
+
+typedef struct reg_save_s {
+  uint16_t u, s, x, y, d;
+  uint8_t dp, cc;
+} reg_save_t;
+
+reg_save_t register_slots[10];
+
+void save_regs(int slot) {
+  reg_save_t& save = register_slots[slot];
+  save.u = cpu->u;
+  save.s = cpu->s;
+  save.x = cpu->x;
+  save.y = cpu->y;
+  save.d = cpu->d;
+  save.dp = cpu->dp;
+  save.cc = cpu->cc.all;
+}
+
+void load_regs(int slot) {
+  reg_save_t& save = register_slots[slot];
+  cpu->u = save.u;
+  cpu->s = save.s;
+  cpu->x = save.x;
+  cpu->y = save.y;
+  cpu->d = save.d;
+  cpu->dp = save.dp;
+  cpu->cc.all = save.cc;
+}
+
 bool emergency = false;
 bool debug_mode = true;
 bool do_continue = true;
@@ -119,6 +147,45 @@ void tick_system() {
   doc_run(cpu);
   set_log("acia6950");
   acia_run(cpu);
+}
+
+uint16_t ask_address() {
+  char s[8];
+  int i = 0;
+  while (Serial.available()) {
+    char c = Serial.read();
+    if (c == ' ') {
+      if (i == 0) {
+        continue;
+        Serial.write(' ');
+      } else {
+        s[i] = 0;
+        break;
+      }
+    }
+    if (c == '\n' || c == '\r' || i == 7) {
+      s[i] = 0;
+      break;
+    }
+    s[i++] = c;
+  }
+  Serial.println(s);
+
+  // Decode location
+  uint16_t address;
+  if (!strcmp(s, "pc"))
+    address = cpu->pc;
+  else if (!strcmp(s, "s"))
+    address = cpu->s;
+  else if (!strcmp(s, "u"))
+    address = cpu->u;
+  else if (!strcmp(s, "x"))
+    address = cpu->x;
+  else if (!strcmp(s, "y"))
+    address = cpu->y;
+  else
+    address = (uint16_t)strtol(s, NULL, 0);
+  return address;
 }
 
 ////////////////////////////////////////////////////////////////////
@@ -200,44 +267,47 @@ void loop()
           // ... or a 16-bit register name
           //    EX: s, u, pc, x, y (use lowercase)
           //
-          char s[8];
-          int i = 0;
-          while (Serial.available()) {
-            char c = Serial.read();
-            if (c == ' ') {
-              if (i == 0) {
-                continue;
-                Serial.write(' ');
-              } else {
-                s[i] = 0;
-                break;
-              }
-            }
-            if (c == '\n' || c == '\r' || i == 7) {
-              s[i] = 0;
-              break;
-            }
-            s[i++] = c;
-          }
-          Serial.println(s);
-
-          // Decode location
-          int location;
-          if (!strcmp(s, "pc"))
-            location = cpu->pc;
-          else if (!strcmp(s, "s"))
-            location = cpu->s;
-          else if (!strcmp(s, "u"))
-            location = cpu->u;
-          else if (!strcmp(s, "x"))
-            location = cpu->x;
-          else if (!strcmp(s, "y"))
-            location = cpu->y;
-          else
-            location = strtol(s, NULL, 0);
-          Serial.printf("%s = %04x\n", s, location);
+          int location = ask_address();
 
           cpu->print_memory(location);
+        } else if (c == 'j') {
+          // jump to address
+          // location can be any 16-bit unsigned integer literal...
+          //    EX: 0xb920 (hex), 1024 (decimal), 0b1101 (binary)
+          // ... or a 16-bit register name
+          //    EX: s, u, pc, x, y (use lowercase)
+          //
+          uint16_t location = ask_address();
+          Serial.printf("pc <= 0x%04hx\n", location);
+
+          cpu->pc = location;
+        } else if (c == 'C') {
+          // Jump to cartridge ROM
+          Serial.println("\nRegisters before jump to cartridge ROM:");
+          cpu->printRegs();
+          cpu->pc = 0xc010;
+        } else if (c == 'S') {
+          while (!Serial.available());
+          char c = Serial.read();
+          Serial.write(c);
+          if (c < '0' || c > '9')
+            Serial.println("\nSave requires slot specification (0-9), ex: s0 to save to register slot 0");
+          else {
+            save_regs(c - '0');
+            Serial.println("\nSaved register values:");
+            cpu->printRegs();
+          }
+        } else if (c == 'L') {
+          while (!Serial.available());
+          char c = Serial.read();
+          Serial.write(c);
+          if (c < '0' || c > '9')
+            Serial.println("\nLoad requires slot specification (0-9), ex: s0 to save to register slot 0");
+          else {
+            load_regs(c - '0');
+            Serial.println("\nLoaded register values:");
+            cpu->printRegs();
+          }
         }
       }
     }
