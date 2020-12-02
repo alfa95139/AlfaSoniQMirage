@@ -96,8 +96,8 @@ fdcerr  equ $8007
 ;			Must be a complete message
 ;			i.e. terminated with enter if necessary
 ;
-; 01111111	0x7f 	end of command marker
-; 11110111	0xf7	end of System Exclusive
+; 01111111	0x7F 	end of command marker
+; 11110111	0xF7	end of System Exclusive
 ;
 ; Keypad Number Decoding Table
 ;
@@ -1169,7 +1169,7 @@ irqentry:
 
 8A5D: 39          RTS   
 
-8A5E: 8E B0 52    LDX   #$B052
+8A5E: 8E B0 52    LDX   #$B052  ; save the stack in X
 8A61: 10 8E EC 7F LDY   #$EC7F  ; last from DOC Waveform Data Sample
 8A65: CE E4 18    LDU   #$E418  ; disable 4051s for Res & Cutoff - CBA = 000
 8A68: 8D 23       BSR   $8A8D
@@ -5764,18 +5764,18 @@ AE15: 35 81       PULS  CC,PC ;(PUL? PC=RTS)
 ; no idea - arrives here right away after entering into the OS
 AE17: CE E4 18    LDU   #$E418   ; 1_1000 -> disable INH for 4051s Res & Cutoff -> CBA = 000 ???
 AE1A: CC 00 00    LDD   #$0000
-AE1D: BD F5 E7    JSR   setfilterdac
+AE1D: BD F5 E7    JSR   setfilterdac	; call routine with U=#$E418 D=#$0000.
 AE20: 11 83 E4 20 CMPU  #$E420   ; we are looping from X=E400 to X = E41F (all filters) need to see what setfilterdac does with U 
 AE24: 26 F7       BNE   $AE1D    ; jump back up two lines to JSR setfilterdac
-AE26: CE B0 52    LDU   #$B052
-AE29: CC 8A D7    LDD   #$8AD7
-AE2C: 8E 8B BE    LDX   #$8BBE
-AE2F: ED C8 1C    STD   $1C,U
-AE32: AF C8 2B    STX   $2B,U
-AE35: 6F C8 1A    CLR   $1A,U
-AE38: 33 C8 4D    LEAU  $4D,U
-AE3B: 11 83 B2 BA CMPU  #$B2BA
-AE3F: 25 EE       BCS   $AE2F
+AE26: CE B0 52    LDU   #$B052   ; U= $B052. Saves the Stack in U - this will loop to $B2BA
+AE29: CC 8A D7    LDD   #$8AD7   ; A= $8A, B=$D7
+AE2C: 8E 8B BE    LDX   #$8BBE   ; X= $8BBE
+AE2F: ED C8 1C    STD   $1C,U    ;  <---+  $1C (16 + 12 = 28)
+AE32: AF C8 2B    STX   $2B,U    ;      |  $2B (32 + 11 = 43)
+AE35: 6F C8 1A    CLR   $1A,U    ;      ^  $1A (16 + 10 = 26)
+AE38: 33 C8 4D    LEAU  $4D,U    ;      |  $4D (64 + 13 = 77)
+AE3B: 11 83 B2 BA CMPU  #$B2BA   ;      |
+AE3F: 25 EE       BCS   $AE2F    ; >----+
 AE41: 39          RTS   
 
 AE42: AC FF 16 00 CPX   [$1600,S]
@@ -6104,8 +6104,8 @@ B91B: 1C AF       ANDCC #$AF
 B91D: 7E 88 68    JMP   $8868
 
 osentry:
-B920: 10 CE B0 52 LDS   #$B052 ; is B052 the stack?
-B924: CC 80 38    LDD   #$8038 ; Load $8038 in D: THIS MEANS A=$38, B=$80
+B920: 10 CE B0 52 LDS   #$B052 ; $B052 is the stack
+B924: CC 80 38    LDD   #$8038 ; Load $8038 in D: THIS MEANS A=$80, B=$38
 B927: 1F 8B       TFR   A,DP   ; Accumulator in Direct Page, per the above $80 (page $8000)
 B929: BD 87 5E    JSR   $875E  ; called also from other places
 B92C: BD B9 6E    JSR   $B96E  ; Tunes the flters, then reads pitch wheel value

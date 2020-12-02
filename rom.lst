@@ -898,11 +898,11 @@ F5E6: 39          RTS
 
 *** Another QChip dealie
 setfilterdac:
-F5E7: A7 C4       STA   ,U
-F5E9: A7 58       STA   $FFF8,U
-F5EB: E7 C0       STB   ,U+
-F5ED: E7 C8 EF    STB   -$11,U
-F5F0: 39          RTS   
+F5E7: A7 C4       STA   ,U			; Called from OS 3.2 the first time with U=#$E418 and D=#$0000 (A=$00, B=$00). E418 is the last address of the filters ($E400 to $E417).
+F5E9: A7 58       STA   -$08,U		; Store in the location of U-8 ($E410) the value in A (which is 0)
+F5EB: E7 C0       STB   ,U+         ; Store in the location pointed by U+ the value B (which is 0)
+F5ED: E7 C8 EF    STB   -$11,U      ; Store in the location of U-$11, which is d17 ($E408)
+F5F0: 39          RTS               ; This will loop until all the filters DACs are reset.
 
 
 *** Another QChip dealie
