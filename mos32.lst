@@ -1,3 +1,4 @@
+; updated on 12/1/2020
 irqvec EQU $8008
 firqvec EQU $800B
 osvec EQU $800E
@@ -86,8 +87,8 @@ fdcerr  equ $8007
 ; Message Format
 ; --------------
 ;
-; 11110000	0xf0	System Exclusive
-; 00001111	0x0f	Ensoniq Code
+; 11110000	0xF0	System Exclusive 
+; 00001111	0x0F	Ensoniq Code
 ; 00000001	0x01	Mirage code
 ; 00000001	0x01	Mirage command code
 ;
@@ -1964,44 +1965,74 @@ irqentry:
 
 ; *********************
 ; * keyvalinterpreter *
+; Keypad Number Decoding Table
+;
+; 0x00	0/Prog
+; 0x01	1
+; 0x02	2
+; 0x03	3
+; 0x04	4
+; 0x05	5
+; 0x06	6
+; 0x07 	7
+; 0x08	8
+; 0x09	9
+; 0x0A	Enter/Start
+; 0x0B	Cancel/Stop
+;
+; 0x0C	Param
+; 0x0D	Value
+; 0x0E	Up Arrow
+; 0x0F	Down Arrow
+; 
+; 0x10 	Load Upper
+; 0x11	Load Lower
+; 0x12	Sample Upper
+; 0x13	Sample Lower
+; 
+; 0x14	Rec Seq
+; 0x15	Play Seq
+; 0x16	Load Seq
+; 0x17	Save Seq
+
 ; *********************
-90E9: 96 AE       LDA   $AE    ; load keyval
-90EB: 81 0A       CMPA  #$0A   ; 0000_1010
-90ED: 24 04       BCC   $90F3
-90EF: BD 92 58    JSR   $9258
+90E9: 96 AE       LDA   $AE		; load keyval
+90EB: 81 0A       CMPA  #$0A	; px0A	Enter/Start
+90ED: 24 04       BCC   $90F3	; if it's not Enter/Start, load the next keyval
+90EF: BD 92 58    JSR   $9258	; if it is, jump here... This subroutine is only called once
 90F2: 39          RTS   
 
 90F3: 96 AE       LDA   $AE    ; load keyval
-90F5: 81 10       CMPA  #$10   ; 0001_0000
+90F5: 81 10       CMPA  #$10   ; 0x10 	Load Upper
 90F7: 25 08       BCS   $9101
-90F9: 81 17       CMPA  #$17   ; 0001_0111
+90F9: 81 17       CMPA  #$17   ; 0x17	Save Seq
 90FB: 22 04       BHI   $9101
 90FD: BD 94 3B    JSR   $943B
 9100: 39          RTS   
 
 9101: 96 AE       LDA   $AE    ; load keyval
-9103: 81 18       CMPA  #$18   ; 0001_1000
+9103: 81 18       CMPA  #$18   ; 0x18 ?????
 9105: 25 04       BCS   $910B  ; yes, go below
 9107: BD 95 F0    JSR   $95F0  ; no, jump quite a bit below
 910A: 39          RTS   
 
 910B: 8D 09       BSR   $9116
-910D: 81 0E       CMPA  #$0E
+910D: 81 0E       CMPA  #$0E	; 0x0E	Up Arrow
 910F: 27 D8       BEQ   $90E9
-9111: 81 0F       CMPA  #$0F
+9111: 81 0F       CMPA  #$0F	; 0x0F	Down Arrow
 9113: 27 D4       BEQ   $90E9
 9115: 39          RTS   
 
 9116: 96 AE       LDA   $AE 	; load keyval
-9118: 81 0B       CMPA  #$0B 	; 0000_1011
+9118: 81 0B       CMPA  #$0B 	; 0x0B	Cancel/Stop
 911A: 26 08       BNE   $9124
 911C: BD AB 90    JSR   $AB90
-911F: BD 92 49    JSR   $9249
+911F: BD 92 49    JSR   $9249	; this is a sort of clear variables routine
 9122: 20 07       BRA   $912B
 
-9124: 81 0C       CMPA  #$0C
+9124: 81 0C       CMPA  #$0C	; 0x0C	Param
 9126: 26 13       BNE   $913B
-9128: BD 92 49    JSR   $9249
+9128: BD 92 49    JSR   $9249	; this is a sort of clear variables routine
 912B: D6 8B       LDB   $8B
 912D: BD 9D 2D    JSR   $9D2D
 9130: CE FB 4D    LDU   #$FB4D ; led patterns
@@ -2011,14 +2042,14 @@ irqentry:
 9139: 4F          CLRA  
 913A: 39          RTS   
 
-913B: 81 0D       CMPA  #$0D
+913B: 81 0D       CMPA  #$0D	; 0x0D	Value
 913D: 26 09       BNE   $9148
-913F: BD 92 49    JSR   $9249
+913F: BD 92 49    JSR   $9249	; this is a sort of clear variables routine
 9142: 0C 83       INC   $83
 9144: BD 99 8B    JSR   $998B
 9147: 39          RTS   
 
-9148: 81 0E       CMPA  #$0E
+9148: 81 0E       CMPA  #$0E	; 0x0E	Up Arrow
 914A: 26 0C       BNE   $9158
 914C: 0D 83       TST   $83
 914E: 27 F2       BEQ   $9142
@@ -2027,7 +2058,7 @@ irqentry:
 9154: 97 84       STA   $84
 9156: 20 12       BRA   $916A
 
-9158: 81 0F       CMPA  #$0F
+9158: 81 0F       CMPA  #$0F	; 0x0F	Down Arrow
 915A: 10 26 00 3A LBNE  $9198
 915E: 0D 83       TST   $83
 9160: 27 E0       BEQ   $9142
@@ -2062,32 +2093,32 @@ irqentry:
 
 9197: 39          RTS   
 
-9198: 81 0A       CMPA  #$0A
+9198: 81 0A       CMPA  #$0A	; 0x0A	Enter/Start
 919A: 10 26 00 A9 LBNE  $9247
 919E: 96 82       LDA   $82
-91A0: 81 04       CMPA  #$04
+91A0: 81 04       CMPA  #$04	;	4
 91A2: 10 26 00 96 LBNE  $923C
 91A6: 96 85       LDA   $85
 91A8: 81 03       CMPA  #$03
 91AA: 26 01       BNE   $91AD
 91AC: 39          RTS   
 
-91AD: 81 04       CMPA  #$04
+91AD: 81 04       CMPA  #$04	; 0x04	4
 91AF: 26 0E       BNE   $91BF
 91B1: 96 E7       LDA   $E7
-91B3: 81 06       CMPA  #$06
+91B3: 81 06       CMPA  #$06	;	6
 91B5: 26 06       BNE   $91BD
 91B7: BD AB 60    JSR   $AB60
 91BA: BD 96 F4    JSR   $96F4
 91BD: 4F          CLRA  
 91BE: 39          RTS   
 
-91BF: 81 08       CMPA  #$08
+91BF: 81 08       CMPA  #$08	; 0x08	8
 91C1: 26 10       BNE   $91D3
 91C3: BD 9F B4    JSR   $9FB4
 91C6: 0D BA       TST   $BA
 91C8: 2B 06       BMI   $91D0
-91CA: BD 92 49    JSR   $9249
+91CA: BD 92 49    JSR   $9249	; this is a sort of clear variables routine
 91CD: 7E 91 2B    JMP   $912B
 
 91D0: 0F BA       CLR   $BA
@@ -2111,7 +2142,7 @@ irqentry:
 91F1: BD 9E 83    JSR   $9E83
 91F4: 7D 80 07    TST   fdcerr
 91F7: 27 07       BEQ   $9200
-91F9: BD 92 49    JSR   $9249
+91F9: BD 92 49    JSR   $9249	; this is a sort of clear variables routine
 91FC: BD 94 31    JSR   $9431
 91FF: 39          RTS   
 
@@ -2140,32 +2171,35 @@ irqentry:
 922F: 31 AB       LEAY  D,Y
 9231: 10 9F A5    STY   $A5
 9234: BD 8E CF    JSR   $8ECF
-9237: 8D 10       BSR   $9249
+9237: 8D 10       BSR   $9249	; this is a sort of clear variables routine
 9239: 16 FE EF    LBRA  $912B
 
 923C: 96 82       LDA   $82
 923E: 81 05       CMPA  #$05
 9240: 26 05       BNE   $9247
-9242: 8D 05       BSR   $9249
+9242: 8D 05       BSR   $9249	; this is a sort of clear variables routine
 9244: 16 FE E4    LBRA  $912B
 
 9247: 4F          CLRA  
 9248: 39          RTS   
 
-9249: 0F 82       CLR   $82
-924B: 0F 85       CLR   $85
-924D: 0F 83       CLR   $83
-924F: 0F 84       CLR   $84
-9251: 0F 33       CLR   $33
-9253: 0F 8A       CLR   $8A
-9255: 0F 89       CLR   $89
+; This looks like a nice reset routine... we need to identify the variables below.
+; 8033, [8082, 8083, 8084, 8085], 8089, 808A
+9249: 0F 82       CLR   $82	; CLR 8082 
+924B: 0F 85       CLR   $85 ; CLR 8085
+924D: 0F 83       CLR   $83 ; CLR 8083
+924F: 0F 84       CLR   $84 ; CLR 8084
+9251: 0F 33       CLR   $33 ; CLR 8033
+9253: 0F 8A       CLR   $8A ; CLR 808A
+9255: 0F 89       CLR   $89 ; CLR 8089
 9257: 39          RTS   
 
-9258: 10 8E FB 4D LDY   #$FB4D ; led patterns
-925C: 96 82       LDA   $82
-925E: 81 00       CMPA  #$00
-9260: 10 26 00 44 LBNE  $92A8
-9264: 0D AE       TST   $AE
+; CALLED ONCE ONLY, if key pressed is Enter/Start
+9258: 10 8E FB 4D LDY   #$FB4D ; led patterns	; NOTE: I get here if I recognize Enter/Start
+925C: 96 82       LDA   $82		; $8082
+925E: 81 00       CMPA  #$00    ; compare with zero
+9260: 10 26 00 44 LBNE  $92A8	; go here if not zero
+9264: 0D AE       TST   $AE		; what does TST does? I do this if the value in $8082 is zero
 9266: 27 1C       BEQ   $9284
 9268: 0D A4       TST   $A4
 926A: 26 04       BNE   $9270
@@ -2174,7 +2208,7 @@ irqentry:
 
 9270: C6 7C       LDB   #$7C
 9272: 96 AE       LDA   $AE	; load keyval
-9274: 97 8D       STA   $8D	; 1000_1101
+9274: 97 8D       STA   $8D	; Store keyval in $808D
 9276: A6 A6       LDA   A,Y
 9278: DD B3       STD   $B3
 927A: BD 94 31    JSR   $9431
@@ -2206,15 +2240,15 @@ irqentry:
 
 92A8: 81 01       CMPA  #$01
 92AA: 10 26 00 88 LBNE  $9336
-92AE: BD 92 49    JSR   $9249
-92B1: D6 AE       LDB   $AE
+92AE: BD 92 49    JSR   $9249	; this is a sort of clear variables routine
+92B1: D6 AE       LDB   $AE		; Keyval
 92B3: E6 A5       LDB   B,Y
 92B5: D7 B4       STB   $B4
 92B7: 96 8D       LDA   $8D
 92B9: C6 0A       LDB   #$0A
 92BB: 3D          MUL   
 92BC: DB AE       ADDB  $AE
-92BE: C1 0B       CMPB  #$0B
+92BE: C1 0B       CMPB  #$0B	; 0x0B Cancel Stop (assuming this is keypad value or midi code)
 92C0: 25 0E       BCS   $92D0
 92C2: CE 9F F3    LDU   #$9FF3
 92C5: A6 C5       LDA   B,U
@@ -2229,30 +2263,30 @@ irqentry:
 
 92D4: D7 8B       STB   $8B
 92D6: 1F 98       TFR   B,A
-92D8: 81 0B       CMPA  #$0B
+92D8: 81 0B       CMPA  #$0B	; ?
 92DA: 26 08       BNE   $92E4
 92DC: 5F          CLRB  
 92DD: D7 92       STB   $92
 92DF: C6 1C       LDB   #$1C
 92E1: 7E 92 FB    JMP   $92FB
 
-92E4: 81 0C       CMPA  #$0C
+92E4: 81 0C       CMPA  #$0C	; 0x0C Param (assuming this is keypad value or midi code)
 92E6: 26 09       BNE   $92F1
 92E8: C6 01       LDB   #$01
 92EA: D7 92       STB   $92
 92EC: C6 7C       LDB   #$7C
 92EE: 7E 92 FB    JMP   $92FB
 
-92F1: 81 0D       CMPA  #$0D
+92F1: 81 0D       CMPA  #$0D	; 0x0D Value (assuming this is keypad value or midi code)
 92F3: 26 14       BNE   $9309
 92F5: C6 02       LDB   #$02
 92F7: D7 92       STB   $92
 92F9: C6 EE       LDB   #$EE
 92FB: 86 B6       LDA   #$B6
-92FD: DD B3       STD   $B3
-92FF: 86 02       LDA   #$02
-9301: 97 85       STA   $85
-9303: 97 82       STA   $82
+92FD: DD B3       STD   $B3		; Store $B6EE in $80B3 -> is $80B3 a pointer?
+92FF: 86 02       LDA   #$02	; 
+9301: 97 85       STA   $85		; Store $02 in $8085
+9303: 97 82       STA   $82		; Store $02 in $8082
 9305: BD 94 31    JSR   $9431
 9308: 39          RTS   
 
@@ -2363,7 +2397,7 @@ irqentry:
 93C2: E6 A6       LDB   A,Y
 93C4: D7 B4       STB   $B4
 93C6: 4A          DECA  
-93C7: BD 92 49    JSR   $9249
+93C7: BD 92 49    JSR   $9249	; this is a sort of clear variables routine
 93CA: C6 80       LDB   #$80
 93CC: D7 83       STB   $83
 93CE: 0D 16       TST   $16
@@ -2419,9 +2453,9 @@ irqentry:
 9430: 39          RTS   
 
 9431: CC 01 80    LDD   #$0180
-9434: 97 8A       STA   $8A
-9436: 97 89       STA   $89
-9438: D7 83       STB   $83
+9434: 97 8A       STA   $8A		; $808A
+9436: 97 89       STA   $89		; $8089
+9438: D7 83       STB   $83		; $8083
 943A: 39          RTS   
 
 943B: CE FB 4D    LDU   #$FB4D ; led patterns
@@ -2531,7 +2565,7 @@ irqentry:
 94FC: BD 97 95    JSR   $9795
 94FF: 97 93       STA   $93
 9501: BD 9F 6F    JSR   $9F6F
-9504: BD 92 49    JSR   $9249
+9504: BD 92 49    JSR   $9249		; this is a sort of clear variables routine
 9507: CE FB 4D    LDU   #$FB4D		; led patterns
 950A: 96 93       LDA   $93
 950C: 27 0D       BEQ   $951B
@@ -2556,16 +2590,33 @@ irqentry:
 ; * END OF SAMPLING CODE *
 ; ************************
 
+; 0x0A	Enter/Start
+; 0x0B	Cancel/Stop
+;
+; 0x0C	Param
+; 0x0D	Value
+; 0x0E	Up Arrow
+; 0x0F	Down Arrow
+; 
+; 0x10 	Load Upper
+; 0x11	Load Lower
+; 0x12	Sample Upper
+; 0x13	Sample Lower
+; 
+; 0x14	Rec Seq
+; 0x15	Play Seq
+; 0x16	Load Seq
+; 0x17	Save Seq
 ; ********************
 ; * check other keys *
 ; ********************
-952D: 96 AE       LDA   $AE
-952F: 81 14       CMPA  #$14
+952D: 96 AE       LDA   $AE		; Load Keyval
+952F: 81 14       CMPA  #$14	; 0x14	Rec Seq
 9531: 10 25 00 AB LBCS  $95E0
-9535: 81 17       CMPA  #$17
+9535: 81 17       CMPA  #$17	; 0x17	Save Seq
 9537: 10 22 00 A5 LBHI  $95E0
 953B: 96 AE       LDA   $AE
-953D: 81 15       CMPA  #$15 ; 0001_0101: 21
+953D: 81 15       CMPA  #$15	; 0x15	Play Seq
 953F: 26 3B       BNE   $957C
 9541: 86 04       LDA   #$04
 9543: 97 85       STA   $85
@@ -2667,20 +2718,20 @@ irqentry:
 95EF: 39          RTS   
 
 95F0: 96 AE       LDA   $AE 	; load keyval
-95F2: 81 19       CMPA  #$19	; 0001_1001
+95F2: 81 19       CMPA  #$19	; 0x19	?
 95F4: 26 09       BNE   $95FF
-95F6: BD 92 49    JSR   $9249
+95F6: BD 92 49    JSR   $9249	; this is a sort of clear variables routine
 95F9: BD 96 F4    JSR   $96F4
 95FC: 16 00 F4    LBRA  $96F3	; it's the RTS
 
-95FF: 81 1A       CMPA  #$1A
+95FF: 81 1A       CMPA  #$1A	; 0x1A	?
 9601: 10 26 00 0A LBNE  $960F
 9605: 86 0C       LDA   #$0C
 9607: 97 AE       STA   $AE
 9609: BD 91 16    JSR   $9116
 960C: 16 00 E4    LBRA  $96F3	; it's the RTS
 
-960F: 81 1B       CMPA  #$1B
+960F: 81 1B       CMPA  #$1B	; 0x1B	?
 9611: 10 26 00 37 LBNE  $964C
 9615: 96 E7       LDA   $E7
 9617: 81 00       CMPA  #$00
@@ -2688,14 +2739,14 @@ irqentry:
 961B: BD 95 E1    JSR   $95E1
 961E: 39          RTS   
 
-961F: 81 06       CMPA  #$06
+961F: 81 06       CMPA  #$06	; 0x06 6
 9621: 26 0A       BNE   $962D
 9623: BD AB 60    JSR   $AB60
-9626: BD 92 49    JSR   $9249
+9626: BD 92 49    JSR   $9249	; this is a sort of clear variables routine
 9629: BD 96 F4    JSR   $96F4
 962C: 39          RTS   
 
-962D: 81 08       CMPA  #$08
+962D: 81 08       CMPA  #$08	; 0x08
 962F: 26 13       BNE   $9644
 9631: BD AB 90    JSR   $AB90
 9634: 96 27       LDA   $27
@@ -2713,7 +2764,7 @@ irqentry:
 
 9649: 16 00 A7    LBRA  $96F3	; it's the RTS
 
-964C: 81 1C       CMPA  #$1C
+964C: 81 1C       CMPA  #$1C	; 0x1C	?
 964E: 10 26 00 10 LBNE  $9662
 9652: 96 E7       LDA   $E7
 9654: 81 00       CMPA  #$00
@@ -2808,7 +2859,7 @@ irqentry:
 
 
 ;******************************************
-;i* SAMPLING STARTS HERE 0x96F4 to 0x98AA *
+;* SAMPLING STARTS HERE 0x96F4 to 0x98AA *
 ;******************************************
 96F4: CC B6 0A    LDD   #$B60A
 96F7: DD B3       STD   $B3
@@ -3447,9 +3498,9 @@ irqentry:
 9BED: 81 49       CMPA  #$49 	; is param 73?
 9BEF: 26 0E       BNE   $9BFF 	; no, next param
 9BF1: 86 1E       LDA   #$1E	; Minimum Value (30)
-9BF3: 97 A1       STA   $A1	; Store in MIN
+9BF3: 97 A1       STA   $A1		; Store in MIN
 9BF5: 86 63       LDA   #$63	; Maximum value (99)
-9BF7: 97 A0       STA   $A0	; Store in MAX
+9BF7: 97 A0       STA   $A0		; Store in MAX
 9BF9: 8E 80 17    LDX   #$8017	; SAMPLE-TIME-ADJ
 9BFC: 16 00 C2    LBRA  $9CC1	; DISPLAY PARAMETER
 
@@ -3458,7 +3509,7 @@ irqentry:
 9C01: 26 0D       BNE   $9C10 	; no, next param
 9C03: BD 9D 38    JSR   $9D38	; yes, set step to 2
 9C06: 86 C6       LDA   #$C6	; 2 * 99 = 198, see value above
-9C08: 97 A0       STA   $A0	; Store in MAX
+9C08: 97 A0       STA   $A0		; Store in MAX
 9C0A: 8E 80 18    LDX   #$8018	; INPUT-FILT_FRQ
 9C0D: 16 00 B1    LBRA  $9CC1	; DISPLAY PARAMETER
 
@@ -3478,25 +3529,25 @@ irqentry:
 9C28: 16 00 96    LBRA  $9CC1 	; DISPLAY PARAMETER
 
 ; param77
-9C2B: 81 4D       CMPA  #$4D
+9C2B: 81 4D       CMPA  #$4D	; is this param 77?
 9C2D: 26 06       BNE   $9C35
 9C2F: 8E 80 1B    LDX   #$801B
 9C32: 16 00 8C    LBRA  $9CC1   ; DISPLAY PARAMETER
 
 ; param78
-9C35: 81 4E       CMPA  #$4E
+9C35: 81 4E       CMPA  #$4E	; is this param 78?
 9C37: 26 05       BNE   $9C3E
 9C39: 8E 80 1D    LDX   #$801D
 9C3C: 20 AA       BRA   $9BE8
 
 ; param79
-9C3E: 81 4F       CMPA  #$4F
+9C3E: 81 4F       CMPA  #$4F	; is this param 79?
 9C40: 26 06       BNE   $9C48
 9C42: 8E 80 1E    LDX   #$801E
 9C45: 16 FF A0    LBRA  $9BE8
 
 ; param80
-9C48: 81 50       CMPA  #$50
+9C48: 81 50       CMPA  #$50	; is this param 80?
 9C4A: 26 0C       BNE   $9C58
 9C4C: BD 9D 38    JSR   $9D38
 9C4F: 8E 80 1F    LDX   #$801F
@@ -5990,7 +6041,7 @@ B620: 0F B7 2F B7 0F B7 2F 00 00 00 00 00 BE 1E 00 01
 B630: 00 01 F0 00 00 00 00 B7 2F B7 4F B7 2F B7 4F 00 
 B640: 00 00 00 00 BE 1E 00 01 00 01 F0 00 00 00 00 00 
 B650: 00 01 01 FF FF FF FF FF FF FF FF FF FF FF FF FF 
-B660: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 40 
+B660: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 40 ;  
 B670: 3F FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
 B680: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 80 
 B690: 3F 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
@@ -5998,7 +6049,7 @@ B6A0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 C0
 B6B0: 3F 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 B6C0: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
 B6D0: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
-B6E0: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
+B6E0: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF ; $B6EE and $B6FF are here
 B6F0: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 
 B700: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 B710: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
