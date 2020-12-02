@@ -69,6 +69,65 @@ fdcbuff equ $8004
 fdcstat equ $8006
 fdcerr  equ $8007
 
+; How to press buttons on the front panel of your Ensoniq Mirage
+; using MIDI:
+;
+; Examples
+; --------
+; To sample into lower bank:
+; f0 0f 01 01 13 0a 7f f7
+;
+; To select parameter 54 (Amp Env Release Time):
+; f0 0f 01 01 0c 05 04 7f f7
+;
+; To press the up arrow:
+; f0 0f 01 01 03 7f f7
+;
+; Message Format
+; --------------
+;
+; 11110000	0xf0	System Exclusive
+; 00001111	0x0f	Ensoniq Code
+; 00000001	0x01	Mirage code
+; 00000001	0x01	Mirage command code
+;
+; 0NNNNNNN		up to 5 bytes of front panel message from Keypad Number Decoding Table
+;			Must be a complete message
+;			i.e. terminated with enter if necessary
+;
+; 01111111	0x7f 	end of command marker
+; 11110111	0xf7	end of System Exclusive
+;
+; Keypad Number Decoding Table
+;
+; 0x00	0/Prog
+; 0x01	1
+; 0x02	2
+; 0x03	3
+; 0x04	4
+; 0x05	5
+; 0x06	6
+; 0x07 	7
+; 0x08	8
+; 0x09	9
+; 0x0a	Enter/Start
+; 0x0b	Cancel/Stop
+;
+; 0x0c	Param
+; 0x0d	Value
+; 0x0e	Up Arrow
+; 0x0f	Down Arrow
+; 
+; 0x10 	Load Upper
+; 0x11	Load Lower
+; 0x12	Sample Upper
+; 0x13	Sample Lower
+; 
+; 0x14	Rec Seq
+; 0x15	Play Seq
+; 0x16	Load Seq
+; 0x17	Save Seq
+
 ORG $8000
 
 *** Ensoniq Mirage OS 3.2
