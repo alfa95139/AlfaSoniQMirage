@@ -154,6 +154,7 @@ Loop End
 
 
 #include "Arduino.h"
+#include "log.h"
 #include "doc5503.h"
 
 DOC5503Osc oscillators[32];
@@ -289,29 +290,29 @@ uint8_t doc_rreg(uint8_t reg) {
     switch(reg & 0xe0)
     {
       case 0x00:     // freq lo
-        Serial.printf("DOC5503 READ: Freq LOW %02x  value = %02x\n", reg, oscillators[osc].freq & 0xff);
+        log_debug("DOC5503 READ: Freq LOW %02x  value = %02x\n", reg, oscillators[osc].freq & 0xff);
         return (oscillators[osc].freq & 0xff);
       case 0x20:      // freq hi
-        Serial.printf("DOC5503 READ: Freq HIGH %02x  value = %02x\n", reg, (oscillators[osc].freq>>8) );
+        log_debug("DOC5503 READ: Freq HIGH %02x  value = %02x\n", reg, (oscillators[osc].freq>>8) );
         return (oscillators[osc].freq >> 8);
       case 0x40:  // volume
-        Serial.printf("DOC5503 READ: Volume %02x  value = %02x\n", reg, oscillators[osc].vol);
+        log_debug("DOC5503 READ: Volume %02x  value = %02x\n", reg, oscillators[osc].vol);
         return oscillators[osc].vol;
 
       case 0x60:  // data
-        Serial.printf("DOC5503 READ: Data %02x  value = %02x\n", reg, oscillators[osc].data);
+        log_debug("DOC5503 READ: Data %02x  value = %02x\n", reg, oscillators[osc].data);
         return oscillators[osc].data;
 
       case 0x80:  // wavetable pointer
-       Serial.printf("DOC5503 READ: Wavetable Pointer %02x  value = %02x\n", reg, (oscillators[osc].wavetblpointer >> 8) & 0xff );
+       log_debug("DOC5503 READ: Wavetable Pointer %02x  value = %02x\n", reg, (oscillators[osc].wavetblpointer >> 8) & 0xff );
 	return ((oscillators[osc].wavetblpointer>>8) & 0xff);
 
       case 0xa0:  // oscillator control
-        Serial.printf("DOC5503 READ: Oscillator Control %02x  value = %02x\n", reg, oscillators[osc].control);
+        log_debug("DOC5503 READ: Oscillator Control %02x  value = %02x\n", reg, oscillators[osc].control);
         return oscillators[osc].control;
 
       case 0xc0:  // / N.U. 1bit / Bank Select 1bit / Wavetable Size 3bits / Resolution 3bits/
-        Serial.printf("DOC5503 READ: Remember to implement 4 banks 32Kbytes each. ");
+        log_debug("DOC5503 READ: Remember to implement 4 banks 32Kbytes each. ");
         retval = 0;
         if (oscillators[osc].wavetblpointer & 0x10000) // if bit 17 is 1, we are addressing the next 64Kbytes
         {
@@ -320,7 +321,7 @@ uint8_t doc_rreg(uint8_t reg) {
 
         retval |= (oscillators[osc].wavetblsize<<3);
         retval |= oscillators[osc].resolution;
-        Serial.printf("DOC5503 READ: Bank Select %02x  value = %02x\n", reg, retval);
+        log_debug("DOC5503 READ: Bank Select %02x  value = %02x\n", reg, retval);
         return retval;
     }
   }
@@ -329,7 +330,7 @@ uint8_t doc_rreg(uint8_t reg) {
     switch (reg)
     {
       case 0xe0:  // interrupt status
-        Serial.printf("DOC5503 READ INTERRUPT STATUS: ");
+        log_debug("DOC5503 READ INTERRUPT STATUS: ");
         retval = regE0;
 
         doc_irq = 0; // clear DOC interrupt
@@ -355,20 +356,20 @@ uint8_t doc_rreg(uint8_t reg) {
         {
           if (oscillators[i].irqpend)
           {
-            Serial.printf("DOC5503 -> GENERATE IRQ!!! ");
+            log_debug("DOC5503 -> GENERATE IRQ!!! ");
             doc_irq = 1; // generate interrupt
             break;
           }
         }
-        Serial.printf(" %02x\n", retval);
+        log_debug(" %02x\n", retval);
         return retval;
 
       case 0xe1:  // oscillator enable
-        Serial.printf("DOC5503 READ OSCILLATOR ENABLE\n");
+        log_debug("DOC5503 READ OSCILLATOR ENABLE\n");
         return oscsenabled<<1;
 
       case 0xe2:  //A/D converter: reads from: pitch/mod wheel, output signal path, and line-in (sampling) 
-        Serial.printf("DOC5503 READ A/D Converter, faking %d value\n", regE2);
+        log_debug("DOC5503 READ A/D Converter, faking %d value\n", regE2);
         return(regE2); 
     }
   }
@@ -390,27 +391,27 @@ if (reg < 0xe0)
       case 0x0:     // freq lo
         oscillators[osc].freq &= 0xff00;
         oscillators[osc].freq |= val;
-        Serial.printf("DOC5503 WRITE: Freq LOW %02x with value = %02x\n", reg, oscillators[osc].freq );
+        log_debug("DOC5503 WRITE: Freq LOW %02x with value = %02x\n", reg, oscillators[osc].freq );
         break;
 
       case 0x20:      // freq hi
         oscillators[osc].freq &= 0x00ff;
         oscillators[osc].freq |= (val<<8);
-        Serial.printf("DOC5503 WRITE: Freq High %02x with value = %02x\n", reg, oscillators[osc].freq );
+        log_debug("DOC5503 WRITE: Freq High %02x with value = %02x\n", reg, oscillators[osc].freq );
         break;
 
       case 0x40:  // volume
-        Serial.printf("DOC5503 WRITE: Volume Register %02x with value = %02x\n", reg, val);
+        log_debug("DOC5503 WRITE: Volume Register %02x with value = %02x\n", reg, val);
         oscillators[osc].vol = val;
         break;
 
       case 0x60:  // data - ignore writes
-      Serial.printf("DOC5503 WRITE: ERROR ATTEMTPING TO Write READ-ONLY DATA REGISTER %02x with value = %02x\n", reg, val);
+      log_debug("DOC5503 WRITE: ERROR ATTEMTPING TO Write READ-ONLY DATA REGISTER %02x with value = %02x\n", reg, val);
 
         break;
 
       case 0x80:  // wavetable pointer
-        Serial.printf("DOC5503 WRITE: Waveteble Pointer Register %02x with value (%02x << 8) == %02x\n", reg, val, val<<8);
+        log_debug("DOC5503 WRITE: Waveteble Pointer Register %02x with value (%02x << 8) == %02x\n", reg, val, val<<8);
         oscillators[osc].wavetblpointer = (val<<8);
         break;
 
@@ -422,11 +423,11 @@ if (reg < 0xe0)
         }
 
         oscillators[osc].control = val;
-        Serial.printf("DOC5503 WRITE: Oscillator Control Register %02x with value = %02x\n", reg, val);
+        log_debug("DOC5503 WRITE: Oscillator Control Register %02x with value = %02x\n", reg, val);
         break;
 
       case 0xc0:  // bank select / wavetable size / resolution
-        Serial.printf("DOC5503 WRITE: Bank Select Register [REMEMBER TO IMPLEMENT BANK SELECT] %02x with value = %02x\n", reg, val);
+        log_debug("DOC5503 WRITE: Bank Select Register [REMEMBER TO IMPLEMENT BANK SELECT] %02x with value = %02x\n", reg, val);
         if (val & 0x40)    
         {
           oscillators[osc].wavetblpointer |= 0x10000;
@@ -447,7 +448,7 @@ if (reg < 0xe0)
     switch (reg)
     {
       case 0xe0:  // interrupt status
-        Serial.printf("DOC5503 WRITE not implemented: Attempting to write Interrupt Status Register %02x with value = %02x\n", reg, val);
+        log_debug("DOC5503 WRITE not implemented: Attempting to write Interrupt Status Register %02x with value = %02x\n", reg, val);
         break;
 
       case 0xe1:  // oscillator enable
@@ -457,7 +458,7 @@ if (reg < 0xe0)
        */
       {
         oscsenabled = (val>>1) & 0x1f;
-        Serial.printf("DOC5503 WRITE: Oscillator Enable Register %02x with value = %02x -> %02x\n", reg, val, oscsenabled);
+        log_debug("DOC5503 WRITE: Oscillator Enable Register %02x with value = %02x -> %02x\n", reg, val, oscsenabled);
 	// The number of oscillators selected will cause changes to the output_rate and sampling rate
 	// as such this will cause a change in timer that we will use to sample the data out
         //output_rate = (clock()/8)/(2+oscsenabled);
@@ -469,7 +470,7 @@ if (reg < 0xe0)
       }
 
       case 0xe2:  // A/D converter
-         Serial.printf("DOC5503 ILLEGAL WRITE: Attempting to write to A2D Converter (READ ONLY!!!) with value = %02x\n", val);
+         log_debug("DOC5503 ILLEGAL WRITE: Attempting to write to A2D Converter (READ ONLY!!!) with value = %02x\n", val);
         break;
     }
   }

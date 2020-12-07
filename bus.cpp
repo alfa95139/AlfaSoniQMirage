@@ -10,7 +10,7 @@
 #include <stdint.h>
 #include <Arduino.h>
 
-#define RomMonEnable  1 //AF: Added 11/28/2020. Set to 0 to disable Ensoniq Monitor ROM
+#define RomMonEnable  0 //AF: Added 11/28/2020. Set to 0 to disable Ensoniq Monitor ROM
 // Format Examples
 // Q              : Quit
 // DC100-C1FF     : Display from C100 to C1FF

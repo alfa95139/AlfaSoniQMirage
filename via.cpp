@@ -142,7 +142,7 @@ in a regular fashion
 
 #define VIA6522_DEBUG 1
 
-#include "bus.h"
+//#include "bus.h"
 #include "via.h"
 #include "log.h"
 #include "Arduino.h"
@@ -331,6 +331,7 @@ uint8_t via_rreg(uint8_t reg) {
       log_debug("VIA read  ACR = %02b\n", via.acr);
 #endif
      val = via.acr;
+     break;
     case 0x0C:
 #if VIA6522_DEBUG
       log_debug("VIA read  PCR = %02b\n", via.pcr);
@@ -388,13 +389,13 @@ void via_wreg(uint8_t reg, uint8_t val) {
 
 //TODO: clear IFR flags according to documentation
       via.orb = val;
-      return;
+      break;
     case 0x01: // port A only used for keypad and display
  //#if VIA6522_DEBUG
        log_error("*** VIA6522 >WRITE<: TODO Add Display emulation===========================\n");
  //#endif
        via.ora = val;
-      return;
+      break;
     case 0x02:
  #if VIA6522_DEBUG
       log_debug("VIA write ddrb <- %02x", val);
@@ -496,10 +497,8 @@ void via_wreg(uint8_t reg, uint8_t val) {
 #endif
       via.ora = val;
       break;
-    default:
-#if VIA6522_DEBUG  
+    default:  
     log_warning("VIA write >>>STILL UNMANAGED<<< via_wreg(%d, 0x%02x)\n", reg, val);
-#endif
     break;  
   }
 }

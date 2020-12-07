@@ -76,7 +76,8 @@ void acia_run(CPU6809* cpu) {
        
        acia_cycles = get_cpu_cycle_count() + ACIA_CLK;        // nudge timer
 
-       // read a character?
+/*
+       // read a character? 
        if (Serial.available()){
               buf = Serial.read();
               if (buf != 255) {         // when there is nothing this would read ff, or -1, or "@"
@@ -104,6 +105,8 @@ void acia_run(CPU6809* cpu) {
                                         }                  // it is required for OS3.2 ( firq interrupt routine)
                                    }
                         }
+*/
+
 }
 
 
