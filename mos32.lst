@@ -179,7 +179,7 @@ osvec:
 8200: 00 00 00 00 00 00 00 01 00 10 20 00 02 00 01 04 
 8210: 08 0C 05 09 0D 06 0A 0E 07 0B 0F 80 81 82 83 00 
 8220: 00 00 08 03 00 00 00 00 00 00 00 00 00 00 00 00 
-8230: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; 8235, 8236, 8237, 8238 for ACIA 
+8230: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; 8235, 8236, 8237, 8238 are used by ACIA 
 8240: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
 8250: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
 8260: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
@@ -641,7 +641,7 @@ osvec:
 860B: A7 07       STA   $0007,X
 860D: CE 80 3B    LDU   #$803B
 8610: BD 87 22    JSR   $8722
-8613: BD 88 44    JSR   $8844
+8613: BD 88 44    JSR   $8844	; DOC Initialization Routine: A0, A1, ... with value 03
 8616: 39          RTS   
 
 8617: 86 61       LDA   #$61
@@ -812,22 +812,22 @@ osvec:
 
 ;jump here from OS Entry - no idea
 ; firstOSjmp $8759
-875E: BD AE 17    JSR   $AE17   ; 
-8761: 8E 80 38    LDX   #$8038  ; X now contains the value in 8038
-8764: 6F 80       CLR   ,X+
-8766: 8C 80 57    CMPX  #$8057
-8769: 25 F9       BCS   $8764   ; do this a few times with values to 8057
+875E: BD AE 17    JSR   $AE17   ; Clear Filters and memory structures
+8761: 8E 80 38    LDX   #$8038  ; X now contains the value in $8038 (it was $8BBE in the routine just called)
+8764: 6F 80       CLR   ,X+     ; -<-+
+8766: 8C 80 57    CMPX  #$8057  ;    |  Clear all memory values between $8038 and $8057 - there are 32 values in total. 
+8769: 25 F9       BCS   $8764   ; ->-+  do this 32 times
 876B: 86 FF       LDA   #$FF
-876D: B7 81 05    STA   $8105
-8770: B7 81 06    STA   $8106
-8773: CC 81 07    LDD   #$8107
-8776: DD 57       STD   $57
-8778: 1F 01       TFR   D,X
-877A: C3 00 08    ADDD  #$0008  ; jump here from below 8781
-877D: ED 84       STD   ,X
-877F: 1F 01       TFR   D,X
-8781: 8C 81 FF    CMPX  #$81FF
-8784: 26 F4       BNE   $877A   ; do this a few times from 8107 to 81FF at increments of 8
+876D: B7 81 05    STA   $8105   ; location $8105 = FF
+8770: B7 81 06    STA   $8106   ; location $8106 = FF
+8773: CC 81 07    LDD   #$8107  ; A=81, B=07 - Load in D the content of location $8107
+8776: DD 57       STD   $57     ; Store in location $8107+$57 the value of D
+8778: 1F 01       TFR   D,X     ;       X was $8057 before this operation, now is the value of lcation $8107+$57 ($815E)
+877A: C3 00 08    ADDD  #$0008  ; -<-+  
+877D: ED 84       STD   ,X      ;    |
+877F: 1F 01       TFR   D,X     ;    |
+8781: 8C 81 FF    CMPX  #$81FF  ;    |
+8784: 26 F4       BNE   $877A   ; ->-+ ; do this a total of 61 more times (from 8107 to 81FF at increments of 8). 62 times total.
 8786: 86 1F       LDA   #$1F
 8788: 97 5D       STA   $5D     ; write 1F to DP + 5D (385D) (????)
 878A: B7 82 07    STA   $8207
@@ -835,18 +835,18 @@ osvec:
 8790: ED 84       STD   ,X
 8792: 8E B0 52    LDX   #$B052
 8795: 9F 39       STX   $39
-8797: 1F 10       TFR   X,D
-8799: 1F 13       TFR   X,U
-879B: C3 00 4D    ADDD  #$004D
-879E: ED 84       STD   ,X
-87A0: 9F 3B       STX   $3B   ; is X the page for WAV RAM?
-87A2: 34 06       PSHS  B,A
-87A4: BD 88 44    JSR   $8844 ; this goes to writing DOC CR values
-87A7: 35 06       PULS  A,B
-87A9: 1F 01       TFR   D,X
-87AB: EF 02       STU   $0002,X
-87AD: 10 83 B2 BA CMPD  #$B2BA
-87B1: 25 E4       BCS   $8797    ; Jump back up
+8797: 1F 10       TFR   X,D      ; -----------<---------------------------------+
+8799: 1F 13       TFR   X,U      ;                                              |
+879B: C3 00 4D    ADDD  #$004D   ;                                              |
+879E: ED 84       STD   ,X       ;                                              |
+87A0: 9F 3B       STX   $3B      ; is X the page for WAV RAM?                   |
+87A2: 34 06       PSHS  B,A      ;                                              |
+87A4: BD 88 44    JSR   $8844    ; this goes to write DOC CR values             ^
+87A7: 35 06       PULS  A,B		 ;                                              |
+87A9: 1F 01       TFR   D,X      ;                                              |
+87AB: EF 02       STU   $0002,X  ;                                              |
+87AD: 10 83 B2 BA CMPD  #$B2BA   ;                                              |
+87B1: 25 E4       BCS   $8797    ; Jump back up  -------------------->----------+
 87B3: CC 00 00    LDD   #$0000
 87B6: FD B0 54    STD   $B054
 87B9: CC 00 00    LDD   #$0000
@@ -922,7 +922,8 @@ osvec:
 8840: 7F 82 07    CLR   $8207
 8843: 39          RTS   
 
-8844: 10 AE 0E    LDY   $000E,X  ; Write control register a0, a1, etc w value 03
+; DOC Initialization Routine
+8844: 10 AE 0E    LDY   $000E,X  ; Write control register A0, A1, etc w value 03
 8847: 86 03       LDA   #$03
 8849: AA 88 41    ORA   $41,X
 884C: A7 A8 21    STA   $21,Y
@@ -937,27 +938,27 @@ osvec:
 8860: 10 EF 81    STS   ,X++
 8863: 8C B2 C6    CMPX  #$B2C6
 8866: 25 03       BCS   $886B
-8868: 8E B2 BE    LDX   #$B2BE          ; *** last useful address before PC is corrupted
+8868: 8E B2 BE    LDX   #$B2BE          ; 
 886B: 9F 5E       STX   $5E
 886D: 10 EE 84    LDS   ,X
-8870: 39          RTS                   ; **** This RTS sends the PC to the WAV data section ***
+8870: 39          RTS                   ; 
 
-8871: 4F          CLRA  	            ; Clear Accumulator
-8872: 1F 02       TFR   D,Y	            ; Txfer D into index register Y
-8874: EE A9 88 BB LDU   $88BB,Y
-8878: 57          ASRB  
-8879: 10 8E EC 5F LDY   #$EC5F              ; Last from DOC Volume -> Envelope Calculation?
+8871: 4F          CLRA  						; Clear Accumulator. What is the value of D when I enter????
+8872: 1F 02       TFR   D,Y						; Txfer D into index register Y
+8874: EE A9 88 BB LDU   $88BB,Y                 ;
+8878: 57          ASRB                          ;
+8879: 10 8E EC 5F LDY   #$EC5F                  ; Last from DOC Volume -> Envelope Calculation?
 887D: 31 A5       LEAY  B,Y
 887F: AD D4       JSR   [,U]
-8881: 1C BF       ANDCC #$BF		    ; 1011_1111
-8883: 1A 40       ORCC  #$40	            ; Disable FIRQ
+8881: 1C BF       ANDCC #$BF		            ; 1011_1111
+8883: 1A 40       ORCC  #$40	                ; Disable FIRQ
 8885: F6 EC E0    LDB   $DOC_OscInterruptR
-8888: 2B 07       BMI   $8891		    ; cleared all DOC interrupts? 
-888A: 0C 60       INC   $60		    ; $8060 contains the # of oscillator?
-888C: 26 E3       BNE   $8871	            ; loop back up
-888E: BD F1 BB    JSR   qchipsetup          ; DOC setup
-8891: 0F 60       CLR   $60		    ; clear $8060
-8893: 3B          RTI			    ; end irqentry, this portion was managing the DOC
+8888: 2B 07       BMI   $8891		            ; cleared all DOC interrupts? 
+888A: 0C 60       INC   $60		                ; $8060 contains the # of oscillator?
+888C: 26 E3       BNE   $8871	                ; loop back up
+888E: BD F1 BB    JSR   qchipsetup              ; DOC setup
+8891: 0F 60       CLR   $60		                ; clear $8060
+8893: 3B          RTI			                ; end irqentry, this portion was managing the DOC
 
 8894: AE 42       LDX   $0002,U
 8896: EC 81       LDD   ,X++
@@ -2871,7 +2872,7 @@ irqentry:
 9701: 50          NEGB  
 9702: 86 14       LDA   #$14		; 0001_0100: Disk, PB3=0, PB2=1, Volume is set to 0
 9704: B7 E2 00    STA   $VIA_PORTB
-9707: BD AE 17    JSR   $AE17
+9707: BD AE 17    JSR   $AE17       ; This is the routine the resets the filters and the data structure
 970A: 8E E4 1F    LDX   #$E41F		; Reg X is filters: E410-17 cutoff, E4_0000_1000-E41F resonance
 970D: 96 18       LDA   $18
 970F: BB B2 83    ADDA  $B283
@@ -4071,20 +4072,20 @@ A053: 00 40 20 40 01 63 63 63 FC 7C C6 A0 04 07 00 01
 A063: 1F 1F 1F 1F 1F 7C 7C 7C 7C 7C 1F 1F 1F 1F 1F 7C 
 A073: 7C 7C 7C 7C 01 07 FF 3F C6 C6 3C 
 
-A07E: 86 03       LDA   #$03  ; code 03
-A080: B7 E1 00    STA   $E100 ;
-A083: 86 95       LDA   #$95  ; code 149
-A085: B7 E1 00    STA   $E100
+A07E: 86 03       LDA   #$03   ; code 03 in UART register
+A080: B7 E1 00    STA   $E100  ;
+A083: 86 95       LDA   #$95   ; code 149 in UART register
+A085: B7 E1 00    STA   $E100  ; 
 A088: CC 82 25    LDD   #$8225
-A08B: DD BC       STD   $BC
-A08D: DD BE       STD   $BE
+A08B: DD BC       STD   $BC    ;
+A08D: DD BE       STD   $BE    ;
 A08F: CC A1 BC    LDD   #$A1BC
-A092: DD C6       STD   $C6
+A092: DD C6       STD   $C6    ;
 A094: CC A2 4A    LDD   #$A24A
-A097: DD C0       STD   $C0
-A099: 7F 82 35    CLR   $8235  ; what is 8235?
-A09C: 7F 82 36    CLR   $8236  ; what is 8236
-A09F: 7F 82 37    CLR   $8237  ; what is 8237
+A097: DD C0       STD   $C0    ;
+A099: 7F 82 35    CLR   $8235  ; what is 8235? Used by ACIA
+A09C: 7F 82 36    CLR   $8236  ; what is 8236? Used by ACIA
+A09F: 7F 82 37    CLR   $8237  ; what is 8237? Used by ACIA
 A0A2: 39          RTS   
 
 A0A3: 34 46       PSHS  U,B,A
@@ -4189,9 +4190,9 @@ A150: 39          RTS
 firqentry:
 A151: 34 76       PSHS  U,Y,X,B,A
 A153: B6 E1 00    LDA   $E100 ; status register (check)
-A156: 2A 51       BPL   $A1A9
+A156: 2A 51       BPL   $A1A9 ; manage the UART
 A158: 85 30       BITA  #$30
-A15A: 27 1D       BEQ   $A179
+A15A: 27 1D       BEQ   $A179 ; ..
 A15C: B6 82 37    LDA   $8237
 A15F: 27 02       BEQ   $A163
 A161: 97 CE       STA   $CE
@@ -4240,22 +4241,22 @@ A1B1: 35 06       PULS  A,B
 A1B3: DD C6       STD   $C6
 A1B5: 39          RTS   
 
-A1B6: AD 9F 80 C6 JSR   [$80C6,X]
+A1B6: AD 9F 80 C6 JSR   [$80C6,X] ; what does this do?
 A1BA: 20 ED       BRA   $A1A9
 
-A1BC: 9E BE       LDX   $BE
-A1BE: A6 80       LDA   ,X+
-A1C0: B7 E1 01    STA   $E101
-A1C3: 8C 82 35    CMPX  #$8235
-A1C6: 25 03       BCS   $A1CB
-A1C8: 8E 82 25    LDX   #$8225
-A1CB: 9C BC       CPX   $BC
-A1CD: 26 09       BNE   $A1D8
-A1CF: 96 22       LDA   $22
-A1D1: 26 00       BNE   $A1D3
-A1D3: C6 95       LDB   #$95
-A1D5: F7 E1 00    STB   $E100
-A1D8: 9F BE       STX   $BE
+A1BC: 9E BE       LDX   $BE       ; 
+A1BE: A6 80       LDA   ,X+       ;      
+A1C0: B7 E1 01    STA   $E101	  ; get a command from the outside world
+A1C3: 8C 82 35    CMPX  #$8235    ; what's in 8235?
+A1C6: 25 03       BCS   $A1CB     ; ->--+
+A1C8: 8E 82 25    LDX   #$8225    ;     |
+A1CB: 9C BC       CPX   $BC       ; -<--+     CPX????
+A1CD: 26 09       BNE   $A1D8     ; ----->---+
+A1CF: 96 22       LDA   $22       ;          |
+A1D1: 26 00       BNE   $A1D3     ; ->-\     |
+A1D3: C6 95       LDB   #$95      ; -<-/     v
+A1D5: F7 E1 00    STB   $E100     ;          | load 95 in UART CR (1001_0101)
+A1D8: 9F BE       STX   $BE       ; ----<----+
 A1DA: 39          RTS   
 
 A1DB: F6 E1 01    LDB   $E101
@@ -5761,21 +5762,21 @@ AE10: BD A4 04    JSR   $A404
 AE13: 35 04       PULS  B
 AE15: 35 81       PULS  CC,PC ;(PUL? PC=RTS)
 
-; no idea - arrives here right away after entering into the OS
-AE17: CE E4 18    LDU   #$E418   ; 1_1000 -> disable INH for 4051s Res & Cutoff -> CBA = 000 ???
-AE1A: CC 00 00    LDD   #$0000
+; arrives here right away after entering into the OS: CLEARS THE FILTERS AND MEMORY STRUCTURES
+AE17: CE E4 18    LDU   #$E418			; 1_1000 -> disable INH for 4051s Res & Cutoff -> CBA = 000 ???
+AE1A: CC 00 00    LDD   #$0000			; A= $0, B= $0: initial values of the setfilterdac routine
 AE1D: BD F5 E7    JSR   setfilterdac	; call routine with U=#$E418 D=#$0000.
-AE20: 11 83 E4 20 CMPU  #$E420   ; we are looping from X=E400 to X = E41F (all filters) need to see what setfilterdac does with U 
-AE24: 26 F7       BNE   $AE1D    ; jump back up two lines to JSR setfilterdac
-AE26: CE B0 52    LDU   #$B052   ; U= $B052. Saves the Stack in U - this will loop to $B2BA
-AE29: CC 8A D7    LDD   #$8AD7   ; A= $8A, B=$D7
-AE2C: 8E 8B BE    LDX   #$8BBE   ; X= $8BBE
-AE2F: ED C8 1C    STD   $1C,U    ;  <---+  $1C (16 + 12 = 28)
-AE32: AF C8 2B    STX   $2B,U    ;      |  $2B (32 + 11 = 43)
-AE35: 6F C8 1A    CLR   $1A,U    ;      ^  $1A (16 + 10 = 26)
-AE38: 33 C8 4D    LEAU  $4D,U    ;      |  $4D (64 + 13 = 77)
-AE3B: 11 83 B2 BA CMPU  #$B2BA   ;      |
-AE3F: 25 EE       BCS   $AE2F    ; >----+
+AE20: 11 83 E4 20 CMPU  #$E420			; we are looping from X=E400 to X = E41F (all filters) need to see what setfilterdac does with U 
+AE24: 26 F7       BNE   $AE1D			; jump back up two lines to JSR setfilterdac
+AE26: CE B0 52    LDU   #$B052			; U= $B052. Saves the Stack in U - this will loop to $B2BA
+AE29: CC 8A D7    LDD   #$8AD7			; A= $8A, B=$D7
+AE2C: 8E 8B BE    LDX   #$8BBE			; X= $8BBE
+AE2F: ED C8 1C    STD   $1C,U			;  <---+  $1C (16 + 12 = 28) Store in $B052 (then $B09F, $B0EC,...) + $1C = $B06E (then $B0BB, $B108, ...) the value of D ($80B7)
+AE32: AF C8 2B    STX   $2B,U			;      |  $2B (32 + 11 = 43) Store in $B052 (then $B09F, $B0EC,...) + $2B = $B07D (then $B0CA, $B117, ...) the value of X ($8BBE)
+AE35: 6F C8 1A    CLR   $1A,U			;      ^  $1A (16 + 10 = 26) Clear the value at location $B052 (then $B09F, $B0EC, ...) + $1A = location $B06C (then $B0B9, B106,...)
+AE38: 33 C8 4D    LEAU  $4D,U			;      |  $4D (64 + 13 = 77) Adds $4D to $B052 ($B09F, $B0EC, B139, B186, B1D3, B220, B26D, B2BA) for a total of 8 values in the loop
+AE3B: 11 83 B2 BA CMPU  #$B2BA			;      |  Loop until U gets to from $B052 to $B2BA, which is a total of 616  (or $268 in hex) values. It will loop for 8 times.
+AE3F: 25 EE       BCS   $AE2F			; >----+
 AE41: 39          RTS   
 
 AE42: AC FF 16 00 CPX   [$1600,S]
@@ -6107,27 +6108,27 @@ osentry:
 B920: 10 CE B0 52 LDS   #$B052 ; $B052 is the stack
 B924: CC 80 38    LDD   #$8038 ; Load $8038 in D: THIS MEANS A=$80, B=$38
 B927: 1F 8B       TFR   A,DP   ; Accumulator in Direct Page, per the above $80 (page $8000)
-B929: BD 87 5E    JSR   $875E  ; called also from other places
+B929: BD 87 5E    JSR   $875E  ; called also from other places, looks like initialization routine
 B92C: BD B9 6E    JSR   $B96E  ; Tunes the flters, then reads pitch wheel value
 B92F: BD 89 6B    JSR   $896B  ; this looks at keys pressed from keyboard
-B932: 7E B9 00    JMP   $B900  ; check above, somehting with index registers
+B932: 7E B9 00    JMP   $B900  ; check above, somehting with index registers - very convoluted
 
 ; This is called by B96E, after it did something with the filters
 ; I THINK this routine reads the voltage value from the pitch wheel and stores it in $900A
-B935: 86 18       LDA   #$18   ; 0001_1000 -> Disk Enable, PB3 = 1(voltage volume slider), PB2 = 0 (pitch wheel) 
+B935: 86 18       LDA   #$18              ; 0001_1000 -> Disk Enable, PB3 = 1(voltage volume slider), PB2 = 0 (pitch wheel) 
 B937: B7 E2 00    STA   $VIA_PORTB
 B93A: B6 EC E1    LDA   $DOC_OscEnableR
-B93D: B6 EC E2    LDA   $DOC_A2D ; we are basically reading the pitch wheel data? 
-B940: 3D          MUL  		 ; Multiply  A x B and store the result in D   
-B941: 3D          MUL            ; again
-B942: 3D          MUL            ; and again
-B943: F6 EC E2    LDB   $DOC_A2D ; read again from A2D
-B946: F7 90 0E    STB   $900E    ; but store in B and in $900E
+B93D: B6 EC E2    LDA   $DOC_A2D          ; we are basically reading the pitch wheel data? 
+B940: 3D          MUL  		              ; Multiply  A x B and store the result in D   
+B941: 3D          MUL                     ; again
+B942: 3D          MUL                     ; and again
+B943: F6 EC E2    LDB   $DOC_A2D          ; read again from A2D
+B946: F7 90 0E    STB   $900E             ; but store in B and in $900E
 B949: 3D          MUL   
 B94A: 3D          MUL   
 B94B: 3D          MUL   
-B94C: F6 EC E2    LDB   $DOC_A2D ; read again from A2D
-B94F: F7 90 0D    STB   $900D    ; store again in B, this time in $900D
+B94C: F6 EC E2    LDB   $DOC_A2D          ; read again from A2D
+B94F: F7 90 0D    STB   $900D             ; store again in B, this time in $900D
 B952: 3D          MUL   
 B953: 3D          MUL   
 B954: 3D          MUL   

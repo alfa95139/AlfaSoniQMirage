@@ -70,13 +70,12 @@
 #define AF_2            0x829F //
 #define AF_3            0x82AE //
 #define AF_4            0x82F5 //
-#define firstOSjmp      0x875E // this is the first jump from OS 3.2 Entry Point
+#define AF_5            0x8761 // this is after calling the setfilterdac routine
+#define firstOSjmp      0x875E // this is the first jump from OS 3.2 Entry Point. It contains the loop to reset the filters and other houskeeping
 #define tunefiltpitchw  0xB96E // this is the second routine from OS 3.2 Entry Point
 #define keypadscan      0x896B // seems to be keypad scanner
 #define somehousekeep   0xB900 // don't know yet 
 #define docctrlregs     0x8844 // Write ctrl registers a0, 1a, ext w value 03
-#define lastusefuldbg   0x8868 // last useful address to study PC corruption
-#define rtsb4crash      0x8870 // this is the RTS before the cpu crash
 #define writeaciasr     0xA13D // subroutine that ends with loading $B5 (1011_0101) in the ACIA Status Register
 #define fdcreadsector   0xF000
 #define fdcskipsector   0xF013
@@ -128,7 +127,7 @@ const char* address_name(uint16_t address) {
   if (address == monitorPrintStr)     return "MONITOR ROM printstring Routine";
   if (address == monitorsendch1)      return "MONITOR ROM sendch1 Routine";
   if (address == loadopsys)           return "LOAD OS IN PRG RAM";
-  if (address == osentry)             return "*OS ENTRY";
+  if (address == osentry)             return "OS ENTRY";
   if (address == irqentry)            return "IRQ INTERRUPT ROUTINE ENTRY POINT";
   if (address == firqentry)           return "*FIRQ INTERRUPT ROUTINE ENTRY POINT";
   if (address == firqvec)             return "*firqvec";
@@ -167,17 +166,17 @@ const char* address_name(uint16_t address) {
   if (address == enablefd)            return "enablefd";
   if (address == disablefd)           return "disablefd";
   if (address == docctrlregs)         return "docctrlregs";
-  if (address == AF_1)                return "*AF_1";
-  if (address == AF_2)                return "*AF_2";
-  if (address == AF_3)                return "*AF_3";
-  if (address == AF_4)                return "*AF_4";
-  if (address == firstOSjmp)          return "*firstOSjmp";
-  if (address == writeaciasr)         return "*writeaciasr";
-  if (address == tunefiltpitchw )     return "*tunefiltpitchw";
-  if (address == keypadscan)          return "*keypadscan";
-  if (address == somehousekeep)       return "*somehousekeep";
-  if (address == lastusefuldbg)       return "*lastusefuldbg";
-  if (address ==rtsb4crash )          return "*rtsb4crash";
+  if (address == AF_1)                return "AF_1";
+  if (address == AF_2)                return "AF_2";
+  if (address == AF_3)                return "AF_3";
+  if (address == AF_4)                return "AF_4";
+  if (address == AF_5)                return "*AF_5";
+  if (address == firstOSjmp)          return "firstOSjmp";
+  if (address == tunefiltpitchw )     return "tunefiltpitchw";
+  if (address == keypadscan)          return "keypadscan";
+  if (address == somehousekeep)       return "somehousekeep";
+  if (address == writeaciasr)         return "writeaciasr";
+
   //if (address == )         return "*c";
 
   if ((address & 0xFF00) == 0x7f00)     return "cpucrash";
