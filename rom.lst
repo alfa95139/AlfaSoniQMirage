@@ -725,8 +725,8 @@ F4DE: 39          RTS
 *** Handler for VIA timer 2 interrupt
 *** increment/decrement/toggle variables in OS direct page
 timer2int:
-F4DF: CC 13 88    LDD   #$1388
-F4E2: B7 E2 09    STA   $E209
+F4DF: CC 13 88    LDD   #$1388         ; A = $13, B = $88
+F4E2: B7 E2 09    STA   $E209          ; Put $13 in location $E209
 F4E5: 1C BF       ANDCC #$BF           ;clear FIRQ mask bit
 F4E7: 03 2E       COM   $2E
 F4E9: 27 04       BEQ   $F4EF
@@ -777,31 +777,31 @@ F52A: 32 61       LEAS  $0001,S
 F52C: 39          RTS   
 
 
-*** Timer thing, I guess
+*** Timer 2: Re-load #$1388 (400 times per second), and IER = #$A6
 unknown2:
-F52D: CC 13 88    LDD   #$1388
-F530: F7 E2 08    STB   $E208          ;restart VIA Timer 2
-F533: B7 E2 09    STA   $E209
-F536: 86 A6       LDA   #$A6
-F538: B7 E2 0E    STA   $E20E          ;VIA int enab reg
-F53B: CC 80 38    LDD   #$8038
-F53E: 1F 8B       TFR   A,DP
+F52D: CC 13 88    LDD   #$1388         ; A = $13 B = $88
+F530: F7 E2 08    STB   $E208          ; restart VIA Timer 2, put $88 in VIA Timer 2 counter LSB
+F533: B7 E2 09    STA   $E209          ; Put $13 in VIA Timer 2 counter MSB
+F536: 86 A6       LDA   #$A6           ;
+F538: B7 E2 0E    STA   $E20E          ;VIA int enab reg, now with value 1100_0110
+F53B: CC 80 38    LDD   #$8038         ; A= $80, B = $38
+F53E: 1F 8B       TFR   A,DP           ; DP = $80, return
 F540: 39          RTS   
 
 
-*** Seems to re-init some HW
+*** Seems to re-init UART
 unknown3:
-F541: 86 7F       LDA   #$7F
-F543: B7 E2 0E    STA   $E20E          ;VIA int enab reg
-F546: 86 03       LDA   #$03
-F548: B7 E1 00    STA   $E100          ;UART command reg
-F54B: 7F E2 00    CLR   $E200
-F54E: 12          NOP   
-F54F: 12          NOP   
-F550: 86 30       LDA   #$30
-F552: B7 E2 00    STA   $E200          ;VIA data reg 2
-F555: 86 18       LDA   #$18
-F557: B7 E2 0F    STA   $E20F          ;VIA int enab reg
+F541: 86 7F       LDA   #$7F           ; 0111_1111         | Bit 7 set means each "1" in bits 0-6 disables the corresponding interrupt 
+F543: B7 E2 0E    STA   $E20E          ; stored in VIA IER | 
+F546: 86 03       LDA   #$03           ; 0000_0011
+F548: B7 E1 00    STA   $E100          ; stored in UART command reg, this is a UART reset
+F54B: 7F E2 00    CLR   $E200          ; clear PORT B
+F54E: 12          NOP                  ; wait
+F54F: 12          NOP                  ;     until the VIA is done
+F550: 86 30       LDA   #$30           ; 0011_000 Q-Chip Sync, and FD Enable
+F552: B7 E2 00    STA   $E200          ;  in VIA PORT B
+F555: 86 18       LDA   #$18           ; 0001_1000 (PA4 ANODE1_, and PA3=ANODE2_) 
+F557: B7 E2 0F    STA   $E20F          ; ANODE1_ and ANODE2_ are set to 1: SEG A (top) of both displays is seleced.
 F55A: 39          RTS   
 
 
