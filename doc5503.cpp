@@ -1,171 +1,87 @@
 // license:BSD-3-Clause
 // copyright-holders:R. Belmont
-/*
-Adapted from  ES5503 - Ensoniq ES5503 "DOC" emulator v2.1.1
-  By R. Belmont.
-  Copyright R. Belmont.
-For use with Teensyduino, modified  by Alessandro Fasan July 2020
-
-DAC E408 to E41F
-
-00 to 07: ILLEGAL: 4051s CANNOT BE BOTH ON AT THE SAME TIME!
-08 to 0F: Resonance
-10 to 17: Cut off
-18 to 1F: Filters OFF
-
-We may consider including managing the filters as part of this model.
-
-CA3 CA2 CA1 CA0 **** CHANNEL ASSIGNMENT ****
-Final voice Multiplexor
-16 channels are possible, 8 are normally used
 
 
-OSCILLATOR MODE
-M2 	M1      MODE 
-0	0   - Free Run
-0	1   - Address One cycle, reset OSC accumulator, set Halt bit
-1	0   - Sync OSC2 to OSC1, or Amplitude Modulate OSC1 by OSC0
-1 	1   -  Address One cycle, reset OSC accumulator, set Halt bit then reset Halt bit
+//Adapted from  ES5503 - Ensoniq ES5503 "DOC" emulator v2.1.1
+// By R. Belmont.
+// Copyright R. Belmont.
+// For use with Teensyduino, modified  by Alessandro Fasan July 2020
 
-M1 * H = 1 causes the oscillator to reset: This  needs to be evaluated during doc_wreg!
+//CA3 CA2 CA1 CA0 **** CHANNEL ASSIGNMENT ****
+//Final voice Multiplexer
+//16 channels are possible, The Mirage uses 8. CA3 is used to synchronize operations (See PB5 VIA6522).
+// 
+// CLK = 8Mhz is the clock frequency of the DOC in the Ensoniq Mirage
+//
+// SAMPLE RATE SR
+// SR = CLK / ((OSC + 2) * 8)
+// CLK is input clock
+// OSC is number of total oscillators enabled
+// Fundamental Output Frequency = [ SR / 2 ^(17 + RES)] * FC
+// where FC is Frequency High and Frequency Low registers concatenated
+// The waveform fundamental frequency length is equal to on page of memory
 
-E4_0001_0000 (E410) to E4_0001_0111 (E417): CUT OFF
-E4_0000_1000 (E408) to E4_0000_1111 (E40F): Resonance
-E418 ==> E4_0001_1000 --> FILTERS OFF
-This is what OS3.2 does:
-E418 1_1000 - FILTERS OFF
-E410 1_0000 - F -> 0
-E418 1_1000 - FILTERS OFF
-E408 0_1000 - Q -> 0
-E419 1_1001 - FILTERS OFF
-E411 1_0001 - F -> 1
-E419 1_1001 - Filters OFF
-E409 0_1001 - Q -> 1
-E41A 1_1010 - FILTERS OFF
-E412 1_0010 - F->2
-E41A 1_1010 - FILTERS OFF
-E40A 0_1010 - Q -> 2
-E41B 1_1011 - FILTERS OFF
-E413 1_0011 - F -> 3
-E41B 1_1011 - FILTERS OFF
-E40B 0_1011 - Q -> 3
-E41C 1_1100 - FILTERS OFF
-E414 1_0100 - F -> 4
-E41C 1_1100 - FILTERS OFF
-E40C 0_1100 - Q -> 4
-E41D 1_1101 - FILTERS OFF
-E415 1_0101 - F -> 5
-E41D 1_1101 - FILTERS OFF
-E40D 0_1101 - Q -> 5
-E41E 1_1110 - FILTERS OFF
-E416 1_0110 - F -> 6
-E41E 1_1110 - FILTERS OFF
-E40E 0_1110 - Q -> 6
-E41F 1_1111 - FILTERS OFF
-E417 1_0111 - F -> 7
-E41F 1_1111 - FILTERS OFF
-E40F 0_1111 - Q -> 7
- --> after these operations, IRQ Fired address AE40, which will be serviced later
- --> write to DOC value 03 A0 to A3: 0000_0011; Voice 0  IE = 0;  {M2,M1} = {0,1}; H = 1;
- --> write to DOC value 13 A4 to A7: 0001_0011; Voice 1
- --> write to DOC value 23 A8 to AB: 0010_0011; Voice 2
- --> write to DOC value 33 AC to AF: 0011_0011; Voice 3
- --> after these operations, write to DOC value 43 B0 to B3: 0100_0011; Voice 4 
- --> after these operations, write to DOC value 53 B4 to B7: 0101_0011; Voice 5
- --> after these operations, write to DOC value 63 B8 to B9: 0110_0011; Voice 6a?
- --> after these operations, write to DOC value e3 BA to BB: 1110_0011; Voice 6b?
- --> after these operations, write to DOC value f3 BC to BF: 1111_0011: Voice 7
- --> Then PORTB 10 (DOC CA3 = 0)
-Then it goes into the calibrating routing swponfilter (which I patched)
-E418 -> FF
-E408 -> FF -> MAX  VALUE RESONANCE channel 0
-E418 -> B0
-E410 -> B0 -> CUTOFF channel 0
-E408 -> 00
--> VIA PORTB <- 0001_0000
+//OSCILLATOR MODES
+// M2 	M1      MODE 
+// 0	  0   - Free Run
+// 0	  1   - Address One cycle, reset OSC accumulator, set Halt bit
+// 1	  0   - Sync OSC2 to OSC1, or Amplitude Modulate OSC1 by OSC0
+// 1  	1   -  Address One cycle, reset OSC accumulator, set Halt bit then reset Halt bit
+//
+// M1 * H = 1 causes the oscillator to reset: This  needs to be evaluated during doc_wreg!
+// 
+// The Mirage initializes the Oscillator Control Register with:
+// Oscillators  0-3 : value 0000_0011 (03)
+//                  CA3, CA2, CA1, CA0 = 0000
+// Oscillators  4-7 : value 0001_0011 (13)
+//                  CA3, CA2, CA1, CA0 = 0001
+// Oscillators  8-11: value 0010_0011 (23)
+//                  CA3, CA2, CA1, CA0 = 0010
+// Oscillators 12-15: value 0011_0011 (33)
+//                  CA3, CA2, CA1, CA0 = 0011
+// Oscillators 16-19: value 0100_0011 (43)
+//                  CA3, CA2, CA1, CA0 = 0100
+// Oscillators 20-23: value 0101_0011 (53)
+//                  CA3, CA2, CA1, CA0 = 0101
+// Oscillators 24-25: value 0110_0011 (63)
+//                  CA3, CA2, CA1, CA0 = 0110
+// Oscillators 26-27: value 1110_0011 (e3)
+//                  CA3, CA2, CA1, CA0 = 1110
+// Oscillators 28-31: value 1111_0011 (f3)
+//                  CA3, CA2, CA1, CA0 = 1111
+//  All the 32 Oscillator Control Registers are set with:
+//                  Interrupt Enable --->: Disabled
+//                  OSCILLATOR MODE ---->: ONE-SHOT
+//                  Halt Bit ----------->: Enabled
 
-E419 -> FF
-E409 -> FF -> MAX  VALUE RESONANCE channel 0
-E419 -> B0
-E411 -> B0 -> CUTOFF channel 0
-E409 -> 00
--> VIA PORTB <- 0001_0000
+//
+// We may consider including the filters as part of this model
+// E4_0001_0000 (E410) to E4_0001_0111 (E417): CUT OFF
+// E4_0000_1000 (E408) to E4_0000_1111 (E40F): Resonance
 
-E41A -> FF
-E40A -> FF -> MAX  VALUE RESONANCE channel 0
-E41A -> B0
-E412 -> B0 -> CUTOFF channel 0
-E40A -> 00
--> VIA PORTB <- 0001_0000
-
-E41B -> FF
-E40B -> FF -> MAX  VALUE RESONANCE channel 0
-E41B -> B0
-E413 -> B0 -> CUTOFF channel 0
-E40B -> 00
--> VIA PORTB <- 0001_0000
-
-E41C -> FF
-E40C -> FF -> MAX  VALUE RESONANCE channel 0
-E41C -> B0
-E414 -> B0 -> CUTOFF channel 0
-E40C -> 00
--> VIA PORTB <- 0001_0000
-
-E41D -> FF
-E40D -> FF -> MAX  VALUE RESONANCE channel 0
-E41D -> B0
-E415 -> B0 -> CUTOFF channel 0
-E40D -> 00
--> VIA PORTB <- 0001_0000
-
-E41E -> FF
-E40E -> FF -> MAX  VALUE RESONANCE channel 0
-E41E -> B0
-E416 -> B0 -> CUTOFF channel 0
-E40E -> 00
--> VIA PORTB <- 0001_0000
-
-E41F -> FF
-E40F -> FF -> MAX  VALUE RESONANCE channel 0
-E41F -> B0
-E417 -> B0 -> CUTOFF channel 0
-E40F -> 00
--> VIA PORTB <- 0001_1000 *PITCH WHEEL* SELECTED
-Read 4 times from the A/D, maybe to average the A2D read?
-Then:
-*** VIA6522 READ: via_rreg IFR = a0
-Reading from VIA 6522 register 0c a0
-Writing to VIA 6522 register 000c a0
-*** VIA6522 WRITE:  pcr<=a0
-Writing to VIA 6522 register 000c ae
-*** VIA6522 WRITE:  pcr<=ae
-*** VIA6522 READ: via_rreg read shift register unhandled
-Reading from VIA 6522 register 0a 00
-
-Loop begin
-***  IRQ INTERRUPT ROUTINE ENTRY POINT ***  IRQ INTERRUPT ROUTINE ENTRY POINT ***   IRQ INTERRUPT ROUTINE ENTRY POINT  ***
-*** VIA6522 READ: via_rreg IER = 26     IER = 0010_0110
-Reading from VIA 6522 register 0d 26
-DOC5503 READ INTERRUPT STATUS:  ff
-Loop End
-
-*/
-
+#define DOC5503_DEBUG 1
 
 #include "Arduino.h"
 #include "log.h"
 #include "doc5503.h"
 
+extern uint8_t WAV_RAM[4][WAV_END - WAV_START+1]; 
+extern uint8_t PRG_RAM[RAM_END - RAM_START+1];  // we will remove once we know it works
+
+extern unsigned long get_cpu_cycle_count();
+unsigned long doc_cycles;
+
 DOC5503Osc oscillators[32];
 
+uint32_t altram;
 uint8_t  oscsenabled;      // # of oscillators enabled
 uint8_t     regE0, regE1, regE2;            // contents of register 0xe0
 
 uint8_t m_channel_strobe;
-
-int output_channels;
+uint32_t CLK = 8000000; // 8Mhz
 uint32_t output_rate;
+int output_channels;
+
 
 uint8_t doc_irq;
 
@@ -173,18 +89,19 @@ uint8_t doc_irq;
 static constexpr uint16_t wavesizes[8] = { 256, 512, 1024, 2048, 4096, 8192, 16384, 32768 }; // T2, T1, T0
 static constexpr uint32_t wavemasks[8] = { 0x1ff00, 0x1fe00, 0x1fc00, 0x1f800, 0x1f000, 0x1e000, 0x1c000, 0x18000 };
 static constexpr uint32_t accmasks[8]  = { 0xff, 0x1ff, 0x3ff, 0x7ff, 0xfff, 0x1fff, 0x3fff, 0x7fff };
-static constexpr int    resshifts[8] = { 9, 10, 11, 12, 13, 14, 15, 16 };
-
-uint8_t doc5503_irq() {
-// 
-return(doc_irq);
-}
+static constexpr int      resshifts[8] = { 9, 10, 11, 12, 13, 14, 15, 16 };
 
 void doc_init() {
   
     regE0 = 0xff;
     regE1 = 0;
-    regE2 = 0x82; //rom.asm comparing between $90 and $70 (144 and 112)
+    regE2 = 0x82; //A/D converter: rom.asm comparing between $90 and $70 (144 and 112)
+
+    doc_irq = 0;
+    oscsenabled = 1;
+    m_channel_strobe = 0;
+    output_rate = CLK / ((32 +2) *8);  // 1 cycle per 32 oscillators + 2 refresh cycles = 34 cycles = 29,412 Hz
+                                     // for 16 oscillators -> 8Mhz/ (18*8) = 55,5556 Hz
 
   for (auto & elem : oscillators)
   {
@@ -199,45 +116,59 @@ void doc_init() {
     elem.accumulator = 0;
     elem.irqpend = 0;
   }
-
-  oscsenabled = 1;
-
-  m_channel_strobe = 0;
-
-
-
-  //output_rate = (clock()/8)/34;   // (input clock / 8) / # of oscs. enabled + 2
-
+  
 return;
 }
 
+// *************************************************
+// ******************* DOC RUN  ********************
+// *************************************************
 void doc_run(CPU6809* cpu) {
-  // this function will update the audio stream, one day...
-  // check
-  //  https://github.com/mamedev/mame/blob/master/src/devices/sound/es5503.cpp
-  // for implementation ideas
+  // this function will append to each audio queue the new associated sample
+  // In the Mirage, the DOC runs at 8MHz, while the 6809 runs at 1MHz
+  // so for every clock cycle, the DOC calculates for each oscillator the sample to append to the relative queue
+
+  if (get_cpu_cycle_count() < doc_cycles) {
+          //log_debug(" DOC WAITS - %ld\n", get_cpu_cycle_count());
+          return; // not ready yet
+  }
+  //log_debug(" DOC DID NOT WAIT - %ld\n", get_cpu_cycle_count());
+  doc_cycles = get_cpu_cycle_count() + 2;
+
+  if(doc_irq==1) cpu->irq();
+// for each oscillator
+//          is the oscillator HALT bit set? -> skip to next oscillator
+//              else
+//          compute the next sample
+//          assign the sample to the queue identified by m_channel_strobe
+
 return;
 }
 
+// *************************************************
+// ******************* HALT OSC ********************
 // halt_osc: handle halting an oscillator
 // chip = chip ptr
 // onum = oscillator #
 // type = 1 for 0 found in sample data, 0 for hit end of table size
-void halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
-  /*
-	ES5503Osc *pOsc = &oscillators[onum];
-	ES5503Osc *pPartner = &oscillators[onum^1];
-	int mode = (pOsc->control>>1) & 3;
+// *************************************************
+void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
+  
+	DOC5503Osc *pOsc = &oscillators[onum];
+	DOC5503Osc *pPartner = &oscillators[onum^1];
+  
+	int mode = (pOsc->control>>1) & 3; // {M2,M1}
 
-	// if 0 found in sample data or mode is not free-run, halt this oscillator
-	if ((mode != MODE_FREE) || (type != 0))
+	// if 0 found in sample data or mode is not free-run, instruct the oscillator to HALT
+	if ((mode != MODE_FREE) || (type != 0)) 
 	{
-		pOsc->control |= 1;
+		pOsc->control |= 1;   // HALT
 	}
 	else    // preserve the relative phase of the oscillator when looping
 	{
 		uint16_t wtsize = pOsc->wtsize - 1;
-		uint32_t altram = (*accumulator) >> resshift;
+//		uint32_t altram = (*accumulator) >> resshift;
+    altram = (*accumulator) >> resshift;
 
 		if (altram > wtsize)
 		{
@@ -259,24 +190,113 @@ void halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
 	}
 
 	// IRQ enabled for this voice?
-	if (pOsc->control & 0x08) // 0000_1000 D3 is IE
-	//                           if IE is set it will cause an interrupt
+	if (pOsc->control & 0x08) //  0000_1000 D3 is bit IE of the Control register of the oscillator.
+	//                            If IE is set it will cause an interrupt to be passed to the Ocillator Interrupt Register (0xE0) when it completes a cycle, which in turn will interrupt the processor.
+  //                            If IE is clear, then the interrupt will be put into the oscillator interrupt table, but not passed to the OIR.
+  //                            When more than one oscillator interrupt occurs, the interrupt stack will retain the status and pass interrupts to the OIR as they are serviced by the processor.
+  //                            If the interrupt has been stored into the interrupt table while IE = 0, when IE is changed to a 1 the IRQ will be passed to the OIR.
 	{
 		pOsc->irqpend = 1;
 		doc_irq = 1;
 	}
- */
+ 
 }
 
+// ************************************************************
+// ******************* AUDIO UPDATE ********************
+// ************************************************************
+void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_sample_t **outputs, int samples) {
+  int32_t *mixp;
+  int osc, snum, i;
+  uint32_t ramptr;
+  
+  int samples = 256; // int samples = outputs[0].samples(); THIS IS THE LENGTH OF THE QUEUE
 
-//void sound_stream_update (sound_stream &stream, stream_sample_t **inputs, stream_sample_t **outputs, int samples) {
-//AF 11/1/2020 we will have to develop this
-//}
+ // assert(samples < (44100/50));
+ // std::fill_n(&m_mix_buffer[0], samples*output_channels, 0);
 
-//----------------------------------------------------------
-// Put this back on after fixing the issue with doc5503_run
-//----------------------------------------------------------
+  for (int chan = 0; chan < output_channels; chan++)
+  {
+    for (osc = 0; osc < (oscsenabled+1); osc++)
+    {
+      DOC5503Osc *pOsc = &oscillators[osc];
 
+      if (!(pOsc->control & 1) && ((pOsc->control >> 4) & (output_channels - 1)) == chan)
+      {
+        
+        uint32_t wtptr = pOsc->wavetblpointer & wavemasks[pOsc->wavetblsize], altram;
+        uint32_t acc = pOsc->accumulator;
+        uint16_t wtsize = pOsc->wtsize - 1;
+        uint8_t ctrl = pOsc->control;
+        uint16_t freq = pOsc->freq;
+        int16_t vol = pOsc->vol;
+        int8_t data = -128;
+        int resshift = resshifts[pOsc->resolution] - pOsc->wavetblsize;
+        uint32_t sizemask = accmasks[pOsc->wavetblsize];
+ //     mixp = &m_mix_buffer[0] + chan;
+        
+        for (snum = 0; snum < samples; snum++)
+        {
+          altram = acc >> resshift;
+          ramptr = altram & sizemask;
+
+          acc += freq;
+
+          // channel strobe is always valid when reading; this allows potentially banking per voice
+          m_channel_strobe = (ctrl>>4) & 0xf;
+ //       data = (int32_t)read_byte(ramptr + wtptr) ^ 0x80;
+ //       data = (int32_t) WAV_RAM[BANK][ramptr + wtptr] ^ 0x80;
+          data = (int32_t) WAV_RAM[0][ramptr + wtptr] ^ 0x80;
+
+//        if (WAV_RAM[BANK][ramptr + wtptr] == 0x00)
+          if (WAV_RAM[0][ramptr + wtptr] == 0x00)
+          {
+            doc_halt_osc(osc, 1, &acc, resshift);
+          }
+          else
+          {
+            *mixp += data * vol;
+            mixp += output_channels;
+
+            if (altram >= wtsize)
+            {
+              doc_halt_osc(osc, 0, &acc, resshift);
+            }
+          }
+
+          // if oscillator halted, we've got no more samples to generate
+          if (pOsc->control & 1)
+          {
+            ctrl |= 1;
+            break;
+          }
+        }
+
+        pOsc->control     = ctrl;
+        pOsc->accumulator = acc;
+        pOsc->data        = data ^ 0x80;
+      }
+    }
+  }
+
+/*
+
+  mixp = &m_mix_buffer[0];
+  
+  for (int chan = 0; chan < output_channels; chan++)
+  {
+    for (i = 0; i < outputs[chan].samples(); i++)
+    {
+      outputs[chan].put_int(i, *mixp++, 32768*8);
+    }
+  }
+*/
+
+}
+
+// ************************************************************
+// ******************* DOC READ REGISTERS  ********************
+// ************************************************************
 uint8_t doc_rreg(uint8_t reg) {
   uint8_t retval;
   int i;
@@ -292,25 +312,27 @@ uint8_t doc_rreg(uint8_t reg) {
       case 0x00:     // freq lo
         log_debug("DOC5503 READ: Freq LOW %02x  value = %02x\n", reg, oscillators[osc].freq & 0xff);
         return (oscillators[osc].freq & 0xff);
+        break;
       case 0x20:      // freq hi
         log_debug("DOC5503 READ: Freq HIGH %02x  value = %02x\n", reg, (oscillators[osc].freq>>8) );
         return (oscillators[osc].freq >> 8);
+        break;
       case 0x40:  // volume
         log_debug("DOC5503 READ: Volume %02x  value = %02x\n", reg, oscillators[osc].vol);
         return oscillators[osc].vol;
-
+        break;
       case 0x60:  // data
         log_debug("DOC5503 READ: Data %02x  value = %02x\n", reg, oscillators[osc].data);
         return oscillators[osc].data;
-
+        break;
       case 0x80:  // wavetable pointer
        log_debug("DOC5503 READ: Wavetable Pointer %02x  value = %02x\n", reg, (oscillators[osc].wavetblpointer >> 8) & 0xff );
-	return ((oscillators[osc].wavetblpointer>>8) & 0xff);
-
+	     return ((oscillators[osc].wavetblpointer>>8) & 0xff);
+       break;
       case 0xa0:  // oscillator control
         log_debug("DOC5503 READ: Oscillator Control %02x  value = %02x\n", reg, oscillators[osc].control);
         return oscillators[osc].control;
-
+        break;
       case 0xc0:  // / N.U. 1bit / Bank Select 1bit / Wavetable Size 3bits / Resolution 3bits/
         log_debug("DOC5503 READ: Remember to implement 4 banks 32Kbytes each. ");
         retval = 0;
@@ -323,6 +345,7 @@ uint8_t doc_rreg(uint8_t reg) {
         retval |= oscillators[osc].resolution;
         log_debug("DOC5503 READ: Bank Select %02x  value = %02x\n", reg, retval);
         return retval;
+        break;
     }
   }
   else     // global registers
@@ -330,7 +353,7 @@ uint8_t doc_rreg(uint8_t reg) {
     switch (reg)
     {
       case 0xe0:  // interrupt status
-        log_debug("DOC5503 READ INTERRUPT STATUS: ");
+        log_debug("DOC5503 READ INTERRUPT STATUS: %x", regE0);
         retval = regE0;
 
         doc_irq = 0; // clear DOC interrupt
@@ -357,28 +380,34 @@ uint8_t doc_rreg(uint8_t reg) {
           if (oscillators[i].irqpend)
           {
             log_debug("DOC5503 -> GENERATE IRQ!!! ");
-            doc_irq = 1; // generate interrupt
+            doc_irq=1;
+            //cpu->irq();
             break;
           }
         }
         log_debug(" %02x\n", retval);
         return retval;
-
+        break;
       case 0xe1:  // oscillator enable
-        log_debug("DOC5503 READ OSCILLATOR ENABLE\n");
+#if DOC5503_DEBUG 
+        log_debug("DOC5503 READ OSCILLATOR ENABLE REGISTER%0x\n", oscsenabled<<1);
+#endif        
         return oscsenabled<<1;
-
+        break;
       case 0xe2:  //A/D converter: reads from: pitch/mod wheel, output signal path, and line-in (sampling) 
         log_debug("DOC5503 READ A/D Converter, faking %d value\n", regE2);
-        return(regE2); 
+        return(regE2);
+        break; 
     }
   }
 }
 
-
+// *************************************************************
+// ******************* DOC WRITE REGISTERS  ********************
+// *************************************************************
 void doc_wreg(uint8_t reg, uint8_t val) {
 uint8_t osc;
-
+uint16_t verifyaddr, verifycol;
  // here MAME performs a m_stream->update();
 
 
@@ -423,7 +452,27 @@ if (reg < 0xe0)
         }
 
         oscillators[osc].control = val;
+#if DOC5503_DEBUG 
         log_debug("DOC5503 WRITE: Oscillator Control Register %02x with value = %02x\n", reg, val);
+        log_debug("DOC5503        (CA3, CA2, CA1, CA0) = %x%x%x%x\n", ((val & 0xFF) >> 7) & 0x01, ((val & 0xFF) >> 6) & 0x01, ((val & 0xFF) >> 5) & 0x01,  ((val & 0xFF) >> 4) & 0x01  );
+        log_debug("DOC5503        Interrupt Enable is %s\n", ((val & 0x08) == 0x08) ? "Enabled" : "Disabled");
+        switch((val& 0x06)>>1) {
+          case 0x0: log_debug("DOC5503        OSCILLATOR MODE: FREE RUN\n");
+          break;
+          case 0x1: log_debug("DOC5503        OSCILLATOR MODE: ONE-SHOT\n");
+          break;
+          case 0x2: log_debug("DOC5503        OSCILLATOR MODE: SYNC/AM \n");
+          break;
+          case 0x3: log_debug("DOC5503        OSCILLATOR MODE: SWAP MODE\n");
+          break;
+        }
+          log_debug("DOC5503        Halt Bit is %s\n", ((val & 0x01) == 0x01) ? "Enabled" : "Disabled");
+//        if ( reg == 0xbf) { // take advantage of this to check if we can access correctly PRGM_RAM from here
+//          for(verifyaddr=0; verifyaddr < 1024; verifyaddr++) {
+//             log_debug("%X , %X, %X, %X, %X, %X, %X, %X, %X , %X, %X, %X, %X, %X, %X, %X\n", PRG_RAM[verifyaddr*16 + 0c], PRG_RAM[verifyaddr*16 + 1] ,PRG_RAM[verifyaddr*16 + 2], PRG_RAM[verifyaddr*16 + 3],PRG_RAM[verifyaddr*16 + 4],PRG_RAM[verifyaddr*16 + 05],PRG_RAM[verifyaddr*16 + 6],PRG_RAM[verifyaddr*16 + 7],PRG_RAM[verifyaddr*16 + 8],PRG_RAM[verifyaddr*16 + 9],PRG_RAM[verifyaddr*16 + 10],PRG_RAM[verifyaddr*16 + 11],PRG_RAM[verifyaddr*16 + 12],PRG_RAM[verifyaddr*16 + 13],PRG_RAM[verifyaddr*16 + 14],PRG_RAM[verifyaddr*16 + 15]);
+//            }
+//        }
+#endif
         break;
 
       case 0xc0:  // bank select / wavetable size / resolution
@@ -457,15 +506,19 @@ if (reg < 0xe0)
        *  e.g.,  to  enable all  oscillators, load register with a  62.
        */
       {
-        oscsenabled = (val>>1) & 0x1f;
-        log_debug("DOC5503 WRITE: Oscillator Enable Register %02x with value = %02x -> %02x\n", reg, val, oscsenabled);
+        oscsenabled = (val>>1) & 0x1f; //[H H E4 E3 E2 E1 E0 H] >> 1 -> [ X H H E4 E3 E2 E1 E0] & 0x1F -> [0 0 0 E4 E3 E2 E1 E0]
+        output_rate = (CLK / 8) / (2 + oscsenabled);
+        
+#if DOC5503_DEBUG  
+        log_debug("DOC5503 WRITE: Oscillator Enable Register [H H E4 E3 E2 E1 E0 H] %02x with value = %02x -> oscenabled = %d\n", reg, val, oscsenabled);
+        log_debug("DOC5503 WRITE: Updated output rate value = %ld (Hz)\n", output_rate);
+#endif
 	// The number of oscillators selected will cause changes to the output_rate and sampling rate
 	// as such this will cause a change in timer that we will use to sample the data out
-        //output_rate = (clock()/8)/(2+oscsenabled);
-        //m_stream->set_sample_rate(output_rate);
+        //m_stream->set_sample_rate(output_rate);  // how will output_rate affect the pjrc audio library? 
 
-        //attotime update_rate = output_rate ? attotime::from_hz(output_rate) : attotime::never;
-        //m_timer->adjust(update_rate, 0, update_rate);
+        //attotime update_rate = output_rate ? attotime::from_hz(output_rate) : attotime::never;  // This may not be necessary with the pjrc audio lib
+        //m_timer->adjust(update_rate, 0, update_rate);                                           // This may not be necessary with the pjrc audio lib
         break;
       }
 

@@ -32,7 +32,7 @@ gototrack2 EQU $F4A4
 enablefd EQU $F4C6
 disablefd EQU $F4D6
 timer2int EQU $F4DF
-unknown1 EQU $F514
+DOCPhaseCompute EQU $F514
 unknown2 EQU $F52D
 unknown3 EQU $F541
 copybytes EQU $F55B
@@ -52,6 +52,9 @@ ORG $F000
 *** Ensoniq Mirage DSK ROM
 *** listing by Tim Victor, Jul 4-6 1999
 *** mailto:TimVictor@aol.com
+*** augmented by Alessandro Fasan, Dec 2020
+*** mailto: alex@fasan.us 
+*** Github: Alfa95139
 *** ------------------------
 *** Read sector from current track
 *** sector number in $8003, data addr in X
@@ -270,7 +273,7 @@ F146: 96 01       LDA   $01
 F148: B7 80 02    STA   $8002          ;copy fdc track reg
 F14B: 86 A6       LDA   #$A6
 F14D: B7 E2 0E    STA   $E20E          ;VIA intr enab reg
-F150: 86 95       LDA   #$95
+F150: 86 95       LDA   #$95		   ;	
 F152: B7 E1 00    STA   $E100          ;UART control reg
 F155: 86 30       LDA   #$30
 F157: B7 E2 00    STA   $E200
@@ -497,41 +500,41 @@ F33B: 39          RTS
 
 *** Display error msg on LEDs
 showerrcode:
-F33C: FC BF 8A    LDD   $BF8A          ;16-bit msg data
-F33F: B7 BF 88    STA   $BF88
-F342: F7 BF 89    STB   $BF89
-F345: 5F          CLRB  
-F346: F7 BF 87    STB   $BF87
-F349: 1F 98       TFR   B,A
-F34B: 8A 18       ORA   #$18
-F34D: C6 80       LDB   #$80           ;check for "1" bits in data
-F34F: F5 BF 86    BITB  $BF86
-F352: 26 05       BNE   $F359
-F354: 78 BF 88    ASL   $BF88
-F357: 20 07       BRA   $F360
-
-F359: 78 BF 88    ASL   $BF88
-F35C: 24 02       BCC   $F360
-F35E: 84 F7       ANDA  #$F7
-F360: C6 80       LDB   #$80
-F362: F5 BF 86    BITB  $BF86
-F365: 26 05       BNE   $F36C
-F367: 78 BF 89    ASL   $BF89
-F36A: 20 07       BRA   $F373
-
-F36C: 78 BF 89    ASL   $BF89
-F36F: 24 02       BCC   $F373
-F371: 84 EF       ANDA  #$EF
-F373: B7 E2 01    STA   $E201          ;multiplexed, two segs at a time
-F376: 10 8E 01 00 LDY   #$0100
-F37A: 31 3F       LEAY  $FFFF,Y
-F37C: 26 FC       BNE   $F37A          ;pause
-F37E: 7C BF 86    INC   $BF86
-F381: F6 BF 87    LDB   $BF87
-F384: 5C          INCB                 ;next bit position
-F385: C1 07       CMPB  #$07
-F387: 10 23 FF BB LBLS  $F346
-F38B: 39          RTS   
+F33C: FC BF 8A    LDD   $BF8A			; 16-bit msg data
+F33F: B7 BF 88    STA   $BF88			; the MSB of $BF8A go to A
+F342: F7 BF 89    STB   $BF89			; the LSB of $BF8A go to B
+F345: 5F          CLRB					; clear B
+F346: F7 BF 87    STB   $BF87			; put in B the value of $B787   ---<--+
+F349: 1F 98       TFR   B,A				;                                     |
+F34B: 8A 18       ORA   #$18			;
+F34D: C6 80       LDB   #$80			;	check for "1" bits in data
+F34F: F5 BF 86    BITB  $BF86			;	
+F352: 26 05       BNE   $F359			;
+F354: 78 BF 88    ASL   $BF88			;                                     |
+F357: 20 07       BRA   $F360			;  ----------<---+                    ^
+										;                |                    |
+F359: 78 BF 88    ASL   $BF88			;                ^
+F35C: 24 02       BCC   $F360			;                |
+F35E: 84 F7       ANDA  #$F7			;                |
+F360: C6 80       LDB   #$80			; 1000_000	--<--+
+F362: F5 BF 86    BITB  $BF86			;                                     |
+F365: 26 05       BNE   $F36C			;   ->--+
+F367: 78 BF 89    ASL   $BF89			;       |
+F36A: 20 07       BRA   $F373			;   -->-----+                         |
+										;       |   |                         ^
+F36C: 78 BF 89    ASL   $BF89			;    -<-+   |                         |
+F36F: 24 02       BCC   $F373			;	---->---+
+F371: 84 EF       ANDA  #$EF			; 1110_1111 |
+F373: B7 E2 01    STA   $E201           ;   ----<---+      multiplexed, two segs at a time
+F376: 10 8E 01 00 LDY   #$0100			;           
+F37A: 31 3F       LEAY  $FFFF,Y			;   ---<--+
+F37C: 26 FC       BNE   $F37A			;   --->--+    pause
+F37E: 7C BF 86    INC   $BF86			;
+F381: F6 BF 87    LDB   $BF87			;
+F384: 5C          INCB					; next bit position
+F385: C1 07       CMPB  #$07			; 0000_0111                            |
+F387: 10 23 FF BB LBLS  $F346			; ------->-----------------------------+
+F38B: 39          RTS					;
 
 
 *** Prepare for disk transfer
@@ -755,11 +758,12 @@ F511: DD 34       STD   $34
 F513: 3B          RTI   
 
 
-*** Perform some kind of lookup using table at $F94D-$FB4C
+*** Perform lookup using table at $F94D-$FB4C: THIS IS THE PITCH CONVERSION TABLE
+*** See FIG 1 "Pitch Computation in the MIRAGE" by R.H. Lord, TransoniQ Hacker #17
 *** B reg has offset (in 16-bit words) into table
 *** A reg has multiplier/shift value (0-7)
 *** 16-bit result returned in A & B (D) register
-unknown1:
+DOCPhaseCompute:
 F514: 40          NEGA  
 F515: 8B 09       ADDA  #$09
 F517: 34 02       PSHS  A
@@ -768,13 +772,13 @@ F51C: 3A          ABX
 F51D: 3A          ABX   
 F51E: EC 84       LDD   ,X
 F520: 6D E4       TST   ,S
-F522: 2B 06       BMI   $F52A
-F524: 44          LSRA  
-F525: 56          RORB  
-F526: 6A E4       DEC   ,S
-F528: 2A FA       BPL   $F524
-F52A: 32 61       LEAS  $0001,S
-F52C: 39          RTS   
+F522: 2B 06       BMI   $F52A		;   ------->-----+
+F524: 44          LSRA				; ---<-------+   |
+F525: 56          RORB				;            |   |
+F526: 6A E4       DEC   ,S			;            |   |
+F528: 2A FA       BPL   $F524		; ----->-----+   |
+F52A: 32 61       LEAS  $0001,S		; -------<-------+
+F52C: 39          RTS               ; Return the value that will be sent to the DOC5503
 
 
 *** Timer 2: Re-load #$1388 (400 times per second), and IER = #$A6
@@ -905,9 +909,9 @@ F5ED: E7 C8 EF    STB   -$11,U      ; Store in the location of U-$11, which is d
 F5F0: 39          RTS               ; This will loop until all the filters DACs are reset.
 
 
-*** Another QChip dealie
+*** Another QChip dealie *** TO VALIDATE: Programs DOC oscillator with the phase from DOCPhaseCompute
 unknown8:
-F5F1: 1A 50       ORCC  #$50
+F5F1: 1A 50       ORCC  #$50		; 0101_0000 Disable IRQ and FIRQ
 F5F3: 35 40       PULS  U
 F5F5: 35 06       PULS  A,B
 F5F7: E7 88 83    STB   -$7D,X
@@ -980,7 +984,7 @@ F880: 66 68 6A 6C 6E 70 72 74 75 76 77 78 79 7A 79 78
 F890: 77 76 75 74 72 70 6E 6C 6A 68 66 64 62 60 5E 5C 
 F8A0: 5A 58 56 54 52 50 4E 4C 4A 48 46 44 42 40 3E 3C 
 F8B0: 3A 38 36 34 32 30 2E 2C 2A 28 26 24 22 20 1E 1C 
-F8C0: 1A 18 16 14 12 10 0E 0C 0A 08 06 04 02 00 FE FC 
+F8C0: 1A 18 16 14 12 10 0E 0C 0A 08 06 04 02 00 FE FC ;  $F8CD
 F8D0: FA F8 F6 F4 F2 F0 EE EC EA E8 E6 E4 E2 E0 DE DC 
 F8E0: DA D8 D6 D4 D2 D0 CE CC CA C8 C6 C4 C2 C0 BE BC 
 F8F0: BA B8 B6 B4 B2 B0 AE AC AA A8 A6 A4 A2 A0 9E 9C 
@@ -988,39 +992,39 @@ F900: 9A 98 96 94 92 90 8E 8C 8B 8A 89 88 87 86 87 88
 F910: 89 8A 8B 8C 8E 90 92 94 96 98 9A 9C 9E A0 A2 A4 
 F920: A6 A8 AA AC AE B0 B2 B4 B6 B8 BA BC BE C0 C2 C4 
 F930: C6 C8 CA CC CE D0 D2 D4 D6 D8 DA DC DE E0 E2 E4 
-F940: E6 E8 EA EC EE F0 F2 F4 F6 F8 FA FC FE 49 11 49 
-F950: 44 49 76 49 A9 49 DC 4A 10 4A 43 4A 77 4A AA 4A 
-F960: DE 4B 12 4B 46 4B 7B 4B AF 4B E3 4C 18 4C 4D 4C 
-F970: 82 4C B7 4C EC 4D 22 4D 57 4D 8D 4D C3 4D F9 4E 
-F980: 2F 4E 65 4E 9B 4E D2 4F 09 4F 40 4F 77 4F AE 4F 
-F990: E5 50 1D 50 54 50 8C 50 C4 50 FC 51 34 51 6C 51 
-F9A0: A5 51 DE 52 16 52 4F 52 89 52 C2 52 FB 53 35 53 
-F9B0: 6F 53 A9 53 E3 54 1D 54 57 54 92 54 CC 55 07 55 
-F9C0: 42 55 7E 55 B9 55 F4 56 30 56 6C 56 A8 56 E4 57 
-F9D0: 20 57 5D 57 99 57 D6 58 13 58 50 58 8E 58 CB 59 
-F9E0: 09 59 47 59 84 59 C3 5A 01 5A 3F 5A 7E 5A BD 5A 
-F9F0: FC 5B 3B 5B 7A 5B BA 5B F9 5C 39 5C 79 5C BA 5C 
-FA00: FA 5D 3A 5D 7B 5D BC 5D FD 5E 3E 5E 80 5E C1 5F 
-FA10: 03 5F 45 5F 87 5F C9 60 0C 60 4F 60 91 60 D4 61 
-FA20: 18 61 5B 61 9F 61 E2 62 26 62 6B 62 AF 62 F3 63 
-FA30: 38 63 7D 63 C2 64 07 64 4D 64 92 64 D8 65 1E 65 
-FA40: 64 65 AB 65 F1 66 38 66 7F 66 C6 67 0D 67 55 67 
-FA50: 9D 67 E4 68 2D 68 75 68 BD 69 06 69 4F 69 98 69 
-FA60: E1 6A 2B 6A 75 6A BE 6B 09 6B 53 6B 9D 6B E8 6C 
-FA70: 33 6C 7E 6C C9 6D 15 6D 61 6D AD 6D F9 6E 45 6E 
-FA80: 91 6E DE 6F 2B 6F 78 6F C6 70 13 70 61 70 AF 70 
-FA90: FD 71 4C 71 9A 71 E9 72 38 72 88 72 D7 73 27 73 
-FAA0: 77 73 C7 74 17 74 68 74 B9 75 0A 75 5B 75 AC 75 
-FAB0: FE 76 50 76 A2 76 F4 77 47 77 9A 77 ED 78 40 78 
-FAC0: 93 78 E7 79 3B 79 8F 79 E4 7A 38 7A 8D 7A E2 7B 
-FAD0: 37 7B 8D 7B E3 7C 39 7C 8F 7C E5 7D 3C 7D 93 7D 
-FAE0: EA 7E 41 7E 99 7E F1 7F 49 7F A1 7F FA 80 53 80 
-FAF0: AC 81 05 81 5F 81 B9 82 13 82 6D 82 C7 83 22 83 
-FB00: 7D 83 D9 84 34 84 90 84 EC 85 48 85 A5 86 01 86 
-FB10: 5E 86 BC 87 19 87 77 87 D5 88 33 88 92 88 F1 89 
-FB20: 50 89 AF 8A 0E 8A 6E 8A CE 8B 2F 8B 8F 8B F0 8C 
-FB30: 51 8C B3 8D 14 8D 76 8D D8 8E 3B 8E 9E 8F 01 8F 
-FB40: 64 8F C7 90 2B 90 8F 90 F4 91 58 91 BD 
+F940: E6 E8 EA EC EE F0 F2 F4 F6 F8 FA FC FE 49 11 49 ; **** START $F94D (to $FB4C) PITCH CONVERSION TABLE
+F950: 44 49 76 49 A9 49 DC 4A 10 4A 43 4A 77 4A AA 4A ; * PITCH CONVERSION TABLE
+F960: DE 4B 12 4B 46 4B 7B 4B AF 4B E3 4C 18 4C 4D 4C ; * PITCH CONVERSION TABLE
+F970: 82 4C B7 4C EC 4D 22 4D 57 4D 8D 4D C3 4D F9 4E ; * PITCH CONVERSION TABLE
+F980: 2F 4E 65 4E 9B 4E D2 4F 09 4F 40 4F 77 4F AE 4F ; * PITCH CONVERSION TABLE
+F990: E5 50 1D 50 54 50 8C 50 C4 50 FC 51 34 51 6C 51 ; * PITCH CONVERSION TABLE
+F9A0: A5 51 DE 52 16 52 4F 52 89 52 C2 52 FB 53 35 53 ; * PITCH CONVERSION TABLE
+F9B0: 6F 53 A9 53 E3 54 1D 54 57 54 92 54 CC 55 07 55 ; * PITCH CONVERSION TABLE
+F9C0: 42 55 7E 55 B9 55 F4 56 30 56 6C 56 A8 56 E4 57 ; * PITCH CONVERSION TABLE
+F9D0: 20 57 5D 57 99 57 D6 58 13 58 50 58 8E 58 CB 59 ; * PITCH CONVERSION TABLE
+F9E0: 09 59 47 59 84 59 C3 5A 01 5A 3F 5A 7E 5A BD 5A ; * PITCH CONVERSION TABLE
+F9F0: FC 5B 3B 5B 7A 5B BA 5B F9 5C 39 5C 79 5C BA 5C ; * PITCH CONVERSION TABLE
+FA00: FA 5D 3A 5D 7B 5D BC 5D FD 5E 3E 5E 80 5E C1 5F ; * PITCH CONVERSION TABLE
+FA10: 03 5F 45 5F 87 5F C9 60 0C 60 4F 60 91 60 D4 61 ; * PITCH CONVERSION TABLE
+FA20: 18 61 5B 61 9F 61 E2 62 26 62 6B 62 AF 62 F3 63 ; * PITCH CONVERSION TABLE
+FA30: 38 63 7D 63 C2 64 07 64 4D 64 92 64 D8 65 1E 65 ; * PITCH CONVERSION TABLE
+FA40: 64 65 AB 65 F1 66 38 66 7F 66 C6 67 0D 67 55 67 ; * PITCH CONVERSION TABLE
+FA50: 9D 67 E4 68 2D 68 75 68 BD 69 06 69 4F 69 98 69 ; * PITCH CONVERSION TABLE
+FA60: E1 6A 2B 6A 75 6A BE 6B 09 6B 53 6B 9D 6B E8 6C ; * PITCH CONVERSION TABLE
+FA70: 33 6C 7E 6C C9 6D 15 6D 61 6D AD 6D F9 6E 45 6E ; * PITCH CONVERSION TABLE
+FA80: 91 6E DE 6F 2B 6F 78 6F C6 70 13 70 61 70 AF 70 ; * PITCH CONVERSION TABLE
+FA90: FD 71 4C 71 9A 71 E9 72 38 72 88 72 D7 73 27 73 ; * PITCH CONVERSION TABLE
+FAA0: 77 73 C7 74 17 74 68 74 B9 75 0A 75 5B 75 AC 75 ; * PITCH CONVERSION TABLE
+FAB0: FE 76 50 76 A2 76 F4 77 47 77 9A 77 ED 78 40 78 ; * PITCH CONVERSION TABLE
+FAC0: 93 78 E7 79 3B 79 8F 79 E4 7A 38 7A 8D 7A E2 7B ; * PITCH CONVERSION TABLE
+FAD0: 37 7B 8D 7B E3 7C 39 7C 8F 7C E5 7D 3C 7D 93 7D ; * PITCH CONVERSION TABLE
+FAE0: EA 7E 41 7E 99 7E F1 7F 49 7F A1 7F FA 80 53 80 ; * PITCH CONVERSION TABLE
+FAF0: AC 81 05 81 5F 81 B9 82 13 82 6D 82 C7 83 22 83 ; * PITCH CONVERSION TABLE
+FB00: 7D 83 D9 84 34 84 90 84 EC 85 48 85 A5 86 01 86 ; * PITCH CONVERSION TABLE
+FB10: 5E 86 BC 87 19 87 77 87 D5 88 33 88 92 88 F1 89 ; * PITCH CONVERSION TABLE
+FB20: 50 89 AF 8A 0E 8A 6E 8A CE 8B 2F 8B 8F 8B F0 8C ; * PITCH CONVERSION TABLE
+FB30: 51 8C B3 8D 14 8D 76 8D D8 8E 3B 8E 9E 8F 01 8F ; * PITCH CONVERSION TABLE
+FB40: 64 8F C7 90 2B 90 8F 90 F4 91 58 91 BD		  ; *** END OF PITCH CONVERSION TABLE
 
 
 *** LED display patterns for hexadecimal 0-F
@@ -1095,8 +1099,8 @@ FC91: 86 02       LDA   #$02
 FC93: B7 80 03    STA   $8003
 FC96: 86 7F       LDA   #$7F
 FC98: B7 80 01    STA   $8001
-FC9B: CC FD B7    LDD   #$FDB7         ;flash ".O.S" message
-FC9E: FD BF 8A    STD   $BF8A
+FC9B: CC FD B7    LDD   #$FDB7         ;flash ".O.S" message  1111_1101_1011_0111
+FC9E: FD BF 8A    STD   $BF8A	       ; this is the location used by showerrorcode	
 FCA1: BD F3 3C    JSR   showerrcode
 FCA4: 7A 80 01    DEC   $8001
 FCA7: B6 80 01    LDA   $8001

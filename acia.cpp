@@ -76,7 +76,8 @@ void acia_run(CPU6809* cpu) {
        
        acia_cycles = get_cpu_cycle_count() + ACIA_CLK;        // nudge timer
 
-/*
+/* ***** These are interfering with the serial debug in Teensyduino evnvironment
+   ***** We will re-introduce these once we implement the MIDI interface (either serial, or USB)
        // read a character? 
        if (Serial.available()){
               buf = Serial.read();

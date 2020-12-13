@@ -21,6 +21,24 @@
 // Bxxxxyyyy      : Dump memory from xxxx to yyyy as raw binary data preceded by a "$" marker
 
 
+// Mirage Hardware Memory Map
+//0000-7FFF Bank of Wavetable RAM. There are four banks of 32K selected by lines on the Port 8 output of the VIA. This RAM appears to the Q-chip's DMA as two 64K banks.
+//8000-BFFF Operating system RAM. Where OS is loaded.
+//C000-DFFF Expansion slot space. Where Input Sampling Filter or Sequencer Expansion RAM appear.
+//B800-BFFF Where short sequences are loaded.
+//B800-DFFF Where long sequences are loaded.
+//E100  MIDI interface UART control/status
+//E101  MIDI interface UART data
+//E200-E20F Versatile Interface Adapter (VIA)
+//E408-E41F VFC parameters for Osc. 1-8
+//E408-E40F Filter cut-off frequency
+//E410-E417 Filter Resonance
+//E418-E41F Multiplexer address pre-set (no output)
+//E800-E803 Floppy disk controller
+//EC00-ECEF Ensoniq Q-chip registers
+//F000-FFFF Bootstrap ROM (contains disk I/O, pitch and controller parameter tables and Q-chip drivers)
+
+
 ////////////////////////////////////////////////////////////////////
 // Monitor Code
 ////////////////////////////////////////////////////////////////////
@@ -64,6 +82,7 @@
 #define firqvec         0x800B
 #define osvec           0x800E // location of osentry
 #define irqentry        0x893C // IRQ service routine in OS 3.2
+#define servDocfromIRQ  0x8962 // DOC service routine called within irqentry
 #define firqentry       0xA151 // FIRQ Service Routine
 #define osentry         0xB920 // OS 3.2 OS Entry point
 #define AF_1            0x828C //
@@ -77,6 +96,7 @@
 #define somehousekeep   0xB900 // don't know yet 
 #define docctrlregs     0x8844 // Write ctrl registers a0, 1a, ext w value 03
 #define writeaciasr     0xA13D // subroutine that ends with loading $B5 (1011_0101) in the ACIA Status Register
+#define readfdinOS      0xA736 // trying to determine where the OS is loading the WAV data
 #define fdcreadsector   0xF000
 #define fdcskipsector   0xF013
 #define fdcwritesector  0xF024
@@ -127,12 +147,14 @@ const char* address_name(uint16_t address) {
   if (address == monitorPrintStr)     return "MONITOR ROM printstring Routine";
   if (address == monitorsendch1)      return "MONITOR ROM sendch1 Routine";
   if (address == loadopsys)           return "LOAD OS IN PRG RAM";
-  if (address == osentry)             return "OS ENTRY";
+  if (address == osentry)             return "*OS ENTRY";
   if (address == irqentry)            return "IRQ INTERRUPT ROUTINE ENTRY POINT";
+  if (address == servDocfromIRQ)      return "*DOC Service Routine from within IRQ INTERRUPT ROUTINE"; 
   if (address == firqentry)           return "*FIRQ INTERRUPT ROUTINE ENTRY POINT";
   if (address == firqvec)             return "*firqvec";
-  //if (address == irqvec)              return "irqvec";
+  //if (address == irqvec)            return "irqvec";
   if (address == osvec)               return "osvec"; 
+  if (address ==readfdinOS)           return "*readfdinOS -> This is one of the floppy disk reads from within the OS";
   if (address == fdcreadsector)       return "fdcreadsector"; 
   if (address == fdcskipsector)       return "fdcskipsector"; 
   if (address == fdcwritesector)      return "fdcwritesector"; 
@@ -170,7 +192,7 @@ const char* address_name(uint16_t address) {
   if (address == AF_2)                return "AF_2";
   if (address == AF_3)                return "AF_3";
   if (address == AF_4)                return "AF_4";
-  if (address == AF_5)                return "*AF_5";
+  if (address == AF_5)                return "AF_5";
   if (address == firstOSjmp)          return "firstOSjmp";
   if (address == tunefiltpitchw )     return "tunefiltpitchw";
   if (address == keypadscan)          return "keypadscan";
@@ -221,7 +243,7 @@ void CPU6809::write(uint16_t address, uint8_t data) {
     // WAV RAM
     page = via_rreg(0) & 0b0011;
     WAV_RAM[page][address - WAV_START] = data;
-    log_debug("Writing to WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, data);
+//    log_debug("Writing to WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, data);
   } else if ( (address & 0xFF00) == VIA6522) {
     set_log("via");
     via_wreg(address & 0xFF, data);

@@ -9,7 +9,8 @@ void doc_init();
 void doc_run(CPU6809* cpu);
 uint8_t doc_rreg(uint8_t reg);
 void doc_wreg(uint8_t reg, uint8_t val);
-
+void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift);
+void audio_update ();
 
 enum {
 	MODE_FREE = 0,
@@ -33,5 +34,7 @@ typedef struct
   uint32_t accumulator;
   uint8_t  irqpend;
 } DOC5503Osc;
+
+
 
 #endif
