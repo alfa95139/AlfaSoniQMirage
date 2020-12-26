@@ -25,6 +25,8 @@
 uint8_t via_rreg(uint8_t reg);
 void via_wreg(uint8_t reg, uint8_t val);
 void via_run(CPU6809* cpu);
+void via_irq_callback();//CPU6809* cpu);
+void fire_via_irq(); //CPU6809* cpu);
 void via_init();
 
 #endif

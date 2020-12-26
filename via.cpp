@@ -180,6 +180,7 @@ struct {
   uint8_t ier, ifr;
   uint8_t acr;
   uint8_t pcr;
+  uint8_t sr;
 
 } via;
 
@@ -219,15 +220,22 @@ The boot rom sets both DDRA and DDRB to 0001_1111 => 0x1F
 
 
 */
+
+// CA1 is +5Vcc per DMS-1 schematic. CA2 is floating.
+// CB1 is +5Vcc per DMS-1 schematic. CB2 is floating
+
+
 extern unsigned long get_cpu_cycle_count();
 unsigned long via_cycles, via_t2=0;
+
+
 
 void via_init() {
   via_t2 = 0;
     
   via.orb = 0x00;
   via.irb = 0x00;
-  via.ora = 0x00; 
+  via.ora = 0xE0; // no keys pressed
   via.ira = 0x00;
   via.ddra = 0x00; 
   via.ddrb = 0x00;
@@ -236,13 +244,14 @@ void via_init() {
   via.ier = 0x00; 
   via.ifr = 0x00;
   via.pcr = 0x00;
+  via.sr =  0xff;
 }
 
 
 //***********************************************************
 // * Purpose of via_irq is to model the VIA IRQ based on T2 *
 //***********************************************************
-uint8_t via_irq() {
+ uint8_t via_irq() {
   if (via.ier & 0x20) // if T2 Interrupt Enable
   	if (!(via.ifr & 0x20)) 
   		via.ifr &= (0xef); // clear IRQ
@@ -250,6 +259,29 @@ uint8_t via_irq() {
   return((via.ifr & 0x80) == 0x80);  // mask 1000_0000 for bit 7, IRQ 
 }
 
+
+ 
+/*
+void via_irq_callback(){
+ if (via.ier & 0x20) { // mask is 0010_0000, so we are checking bit 5 of IER, which is Timer 2
+     via.ifr |= 0xa0;    // the OR mask is 1010_0000, IRQ and timer 2 interrupt interrupt flag
+                        // at this point the IRQ has been set. 
+  }
+ 
+ if (via.ier & 0x20) // if T2 Interrupt Enable
+    if (!(via.ifr & 0x20)) 
+      via.ifr &= (0xef); // clear IRQ
+
+  if((via.ifr & 0x80) == 0x80)  // mask 1000_0000 for bit 7, IRQ 
+      fire_via_irq();
+}
+
+void fire_via_irq() { //(CPU6809* cpu) {
+  //cpu->irq();
+  log_debug("FIRED VIA T2 INTERRUPT ");
+  return;
+}
+*/
 
 //************************************************************************
 // * Purpose of via_run is to generate the irq when T2 finishes counting *
@@ -275,13 +307,15 @@ void via_run(CPU6809* cpu) {
   via_cycles = get_cpu_cycle_count() + (via_t2)>>1;  // half, because the clock frequency is 2MHz
 
   // The portion of the model that clears timer 2 will also need to clear IRQ
-  if (via_irq()) {
+   if (via_irq()) {
       cpu->irq();
       }  
 // AF 120920 TODO: Implement T2 IRQ using TeensyTimerTool
-// Timer t1;  // generate a timer from the pool (Pool: 2xGPT, 16xTMR(QUAD), 20xTCK)
+// Timer T2;  // generate a timer from the pool (Pool: 2xGPT, 16xTMR(QUAD), 20xTCK)
+// Timer Tsr;  // generate a timer for the shift register
 //...
-// t1.beginPeriodic( cpu->irq, 2.5); 2.5 milliseconds (1 / 400Hz = 2.5 millis)
+// T2.beginPeriodic( T2_irq(), 2.5);  //2.5 milliseconds (1 / 400Hz = 2.5 millis)
+// Tsr.beginPeriodic( Tsr_irq(), 3.125 );  //3.125 milliseconds, 320 characters per second
 // ...
 //
       
@@ -297,64 +331,72 @@ uint8_t via_rreg(uint8_t reg) {
     case 0x00:
       //val = via.orb;
 #if VIA6522_DEBUG 
-   //   Serial.printf("VIA 6522 READ FROM PORT B: TO DO - MAY NEED TO IMPLEMENT CA3 SYNC with DOC5503 \n");
+    //  log_debug("VIA 6522 READ FROM PORT B: TO DO - MAY NEED TO IMPLEMENT CA3 SYNC with DOC5503 \n");
 #endif
-      val = (via.orb & 0x1f) | 0x40; // fake disk ready, but I could check whether I have an *.img in the SD Card...
-//TODO: clear IFR flags according to documentation
+      val = (via.orb & 0x1f) | 0x40; // fake disk ready, but I could check whether I have an *.img in the SD Card....  
+#if VIA6522_DEBUG 
+      if ((val & 0x00100000) == 0x00100000) log_debug("VIA 6522: Received synchronization signal CA3 from DOC"); 
+#endif
       break;
     case 0x01:
+    val =  via.ora; // 
 #if VIA6522_DEBUG
-      log_debug("VIA read  port A");
+      log_error("*** VIA6522 >READ<: PoRT A =%0x TODO Add Display emulation \n", val);
 #endif
-      val =  via.ora;
      break;
     case 0x02:
+#if VIA6522_DEBUG
+      log_debug("VIA read  Direction Register A");
+#endif
       val = via.ddra;
      break;
     case 0x03:
+#if VIA6522_DEBUG
+      log_debug("VIA read  Direction Register B");
+#endif
       val = via.ddrb;
      break;
     case 0x04: // T1 Low-Order Counter
 #if VIA6522_DEBUG
-      log_debug("VIA read  T1 Low Order COUNTER - UNHANDLED\n");
+      log_debug("***** VIA read  T1 Low Order COUNTER - UNHANDLED\n");
 #endif
       val = 0;
      break;
     case 0x05: //T1 High-Order COUNTER t1HC
 #if VIA6522_DEBUG
-      log_debug("VIA read  T1 High Order COUNTER - UNHANDLED\n");
+      log_debug("***** VIA read  T1 High Order COUNTER - UNHANDLED\n");
 #endif
       val = 0;
      break;
     case 0x06:  //T1 Low-Order Latches t1LL  
 #if VIA6522_DEBUG
-      log_debug("VIA read  T1 Low Order Latches - UNHANDLED\n");
+      log_debug("***** VIA read  T1 Low Order Latches - UNHANDLED\n");
 #endif
       val = 0;
      break;
     case 0x07:  // T1 High-Order Latches t1HL
 #if VIA6522_DEBUG
-      log_debug("VIA read  T1 High Order Latches - UNHANDLED\n");
+      log_debug("***** VIA read  T1 High Order Latches - UNHANDLED\n");
 #endif
       val = 0;
      break;
     case 0x08: //T2 Low-Order Counter t2LC
 #if VIA6522_DEBUG
-      log_debug("VIA read  T2 Low Order COUNTER - UNHANDLED\n");
+      log_debug("VIA read  T2 Low Order COUNTER");
 #endif
-      val = 0;
+      val = via.t2l;
      break;
     case 0x09: //  T2 High-Order Counter  t2HC  
 #if VIA6522_DEBUG
-      log_debug("VIA read  T2 High Order COUNTER - UNHANDLED\n");
+      log_debug("VIA read  T2 High Order COUNTER");
 #endif
-      val = 0;
+      val = via.t2h;
      break;
     case 0x0A:
 #if VIA6522_DEBUG
-      log_debug("VIA read Shift Register - UNHANDLED (MIDI only, Mirage keyboard disconnected)\n");
+      log_debug("VIA read Shift Register %0X -UNHANDLED (MIDI only, Mirage keyboard disconnected)\n", via.sr);
 #endif
-      val = 0;
+      val = via.sr;
       break;
     case 0x0B:
 #if VIA6522_DEBUG 
@@ -381,12 +423,12 @@ uint8_t via_rreg(uint8_t reg) {
 //      In this implementation we will not use them.
 //----------------------------------------------------- 
       log_debug("VIA Read PCR = %02X\n", via.pcr);
-      log_debug("         PCR: CB2 Control   {CB2ctrl_2, CB2ctrl_1, CB2ctrl_0} = %0X\n", (via.pcr & 0xE0) >> 5);
+      log_debug("         PCR: CB2 Control{CB2ctr_2, CB2ctr_1, CB2ctr_0} = [%0X%0X%0x]\n", (((via.pcr & 0xE0) >> 7) & 0x01), (((via.pcr & 0xE0) >> 6) & 0x01), (((via.pcr & 0xE0) >> 5) & 0x01) );
       log_debug("         PCR: CB1 Interrupt Control = %0X\n", via.pcr & 0x10 );
 //-----------------------------------------------------
 //NOTE: The Sync jack on the back panel was intended to sync the Mirage's sequencer to an external clock source; 
 //      Since the sequencer is all but useless, the Sync jack and circuitry were dropped on the later DSK-1.      
-      log_debug("         PCR: CA2 Control   {CA1_2,     CA2_2,     CA2_0}     = %0X\n", (via.pcr & 0x0E)>>1);
+      log_debug("         PCR: CA2 Control {CA1_2,CA2_1,CA2_0}     = [%0X%0x%0x]\n", (((via.pcr & 0x0E)>>3) & 0x01), (((via.pcr & 0x0E)>>2) &0x01), (((via.pcr & 0x0E)>>1) &0x01) );
       log_debug("         PCR: CA1 Interrupt Control = %0X\n",  via.pcr & 0x01);
 //------------------------------------------------------
 #endif
@@ -406,8 +448,8 @@ uint8_t via_rreg(uint8_t reg) {
 #endif
       break;  
      case 0x0F:       
-     log_debug("VIA read  PORT A (no handshake - keypad read)***\n");
-     val = via.ora;
+     val = via.ora;  
+     log_debug("VIA read  PORT A (NO HNDSHKE) = %0x TODO Add Keypad/Display emulation=====\n", val);
      break;
     default:
 #if VIA6522_DEBUG
@@ -425,20 +467,20 @@ void via_wreg(uint8_t reg, uint8_t val) {
 
   switch(reg) {
     case 0x00: // PORT B
+#if VIA6522_DEBUG
     log_debug("VIA write portb <- %02x (Page = %0X)", val, val & 0x03);
  
- #if VIA6522_DEBUG
       bc = val ^ via.orb;
-      log_debug("VIA write portb <- %02x Previous value: %02x. bc is %02x. val & 0x10 = %x", val, via.orb, bc, val & 0x10);
+      log_debug("VIA write portb <- %02x Previous value: %02x. bc is %02x. (val & 0x10) = %x", val, via.orb, bc, val & 0x10);
       if (bc == 0) log_debug("      No change");
       if (bc & 0x01) log_debug("      Bank = %s \n",    (val & 0x01) ?   "0"    : "1");
       if (bc & 0x02) log_debug("      Half = %s \n",    (val & 0x02) ?  "Lower" : "Upper");
       if (bc & 0x04) log_debug("      Input = %s \n",   (val & 0x04) ?  "Line"  : "Mic");
       if (bc & 0x08) // if line (meaning playing)
           log_debug("****  %swheel selected\n", (val &0x04) ? "Mod" : "Pitch");
-      if (bc & 0x10) log_debug("      FDC = %s \n",     (val & 0x10) ?  "Off"   : "On");
-      if (bc & 0x20) log_debug("***** DOC CA3 synchro = %s \n", (val & 0x20) ? "1" : "0");
-      if (bc & 0x40) log_debug("      Disc = %s \n",    (val & 0x40) ? "Loaded" : "Not Loaded");
+        if (bc & 0x10) log_debug("      FDC = %s \n",     (val & 0x10) ?  "Off"   : "On");          
+     // if (bc & 0x20) log_debug("      DOC CA3 synchro = %s \n", (val & 0x20) ? "1" : "0");        // It does not make sense to report writing this value, it is driven by DOC 5503
+     // if (bc & 0x40) log_debug("      Disc = %s \n",    (val & 0x40) ? "Loaded" : "Not Loaded");   // It does not make sense to report writing this value, it is written from external devices
 #endif
 
 //TODO: clear IFR flags according to documentation
@@ -448,38 +490,38 @@ void via_wreg(uint8_t reg, uint8_t val) {
  //#if VIA6522_DEBUG
        log_error("*** VIA6522 >WRITE<: TODO Add Display emulation===========================\n");
  //#endif
-       via.ora = val;
+       via.ora = val | 0xE0; // fake No Kyes are pressed
       break;
     case 0x02:
  #if VIA6522_DEBUG
-      log_debug("VIA write ddrb <- %02x", val);
+      log_debug("VIA write ddrb <- %02x", val);  // writes 0x1F 0001_1111 during Boot so PB7, PB6 and PB5 are inputs  (PB7 is SERCLK, PB6 is DSTAT_ from floppy, PB5 is CA3 from DOC5503)
  #endif
       via.ddrb = val;
       break;
     case 0x03:
 #if VIA6522_DEBUG  
-      log_debug("VIA write ddra <- %02x", val);
+      log_debug("VIA write ddra <- %02x", val);  // writes 0x1F 0001_1111 during Boot so PA7, PA6 and PA5 are inputs (ROW2, ROW1 and ROW0 for the keypads)
 #endif
       via.ddra = val;
       break;
     case 0x04: // T1 Low-Order Latches 
 #if VIA6522_DEBUG
-    //  log_debug("VIA write T1 Low-Order Latches - UNHANDLED %02x <= %02x\n", reg, val);
+      log_debug("***** VIA write T1 Low-Order Latches - UNHANDLED Register %02x <= %02x\n", reg, val);
 #endif
     break;
     case 0x05: // T1 High-Order Counter     
 #if VIA6522_DEBUG
-    //  log_debug("VIA write T1 High-Order Counter - UNHANDLED %02x <= %02x\n", reg, val);
+      log_debug("***** VIA write T1 High-Order Counter - UNHANDLED Register %02x <= %02x\n", reg, val);
 #endif
     break;
     case 0x06: //T1 Low-Order Latches    
 #if VIA6522_DEBUG   
-    //  log_debug("VIA write T1 Low-Order Latches - UNHANDLED %02x <= %02x\n", reg, val);
+      log_debug("***** VIA write T1 Low-Order Latches - UNHANDLED Register %02x <= %02x\n", reg, val);
 #endif
     break;
     case 0x07: //T1 High-Order Latches    
 #if VIA6522_DEBUG   
-    //  log_debug("VIA write T1 High-Order Latches  - UNHANDLED %02x <= %02x\n", reg, val);
+      log_debug("***** VIA write T1 High-Order Latches  - UNHANDLED Register %02x <= %02x\n", reg, val);
 #endif
       break;
     case 0x08: // T2 Low-Order Latches FOLLOWING CODE IS SUSPICIOUS: 0x08 register is for latches, not counter
@@ -495,15 +537,16 @@ void via_wreg(uint8_t reg, uint8_t val) {
       via_t2 = via.t2l | (via.t2h<<8);
       via_cycles = get_cpu_cycle_count() + (via_t2>>2);  // half, because the clock frequency is 2MHz
       via.ifr = (via.ifr & 0x11011111); // Clear IFR5, which is Timer2
-//#if VIA6522_DEBUG
+#if VIA6522_DEBUG
       log_debug("VIA write reg9 t2 <- %04x\n", (int) via_t2);
       log_debug("      WRITING IN T2H CLEARS THE INTERRUPT FLAG ****\n");
-//#endif
+#endif
       break;
     case 0x0A:  // 0xE20A
 #if VIA6522_DEBUG  
-      log_debug("VIA write sr <- %02x\n",  val);
+      log_debug("VIA write sr <- %02x ******* NOT EXPECTED\n",  val);
 #endif
+      via.sr = val;
       break;
     case 0x0B:  // 0xE20B
 #if VIA6522_DEBUG  
@@ -517,7 +560,12 @@ void via_wreg(uint8_t reg, uint8_t val) {
 //----------------------------------------------------------------------------------------------------------------
      log_debug("VIA write acr <- %02x\n", val);
      if( (val & 0x0C) == 0x0C) log_debug("VIA ACR - Shift Register Control CB2 Shift under control of External Clock CB1\n");
-          else log_debug("VIA ACR - Shift Register Control for CB1/CB2 is set up in an unexpected way\n");
+          else log_debug("VIA ACR - THIS MODE IS NOT SUPPORTED IN THiS MIRAGE MODEL (Shift Register control)\n");
+     if( (val & 0xC0) == 0xC0) {
+                      log_debug("**** VIA ACR - Free Running Mode. Output to PB7 is enabled\n");
+                      log_debug("**** T1 Latches are CLR from the BOOT ROM: PB7 is toggling at 1MHz (half the speed of the VIA), this is the CLOCK of the UART\n");
+            }  
+          else log_debug("VIA ACR - THIS MODE IS NOT SUPPORTED IN THiS MIRAGE MODEL (PB7 Free Running Mode)\n");
 #endif
       via.acr = val;
       break;
@@ -556,11 +604,11 @@ void via_wreg(uint8_t reg, uint8_t val) {
       break;
     case 0x0F:  // 0xE20F
 #if VIA6522_DEBUG  
-      log_debug("VIA write ORA <- %02x\n",  val);
+      log_debug("VIA write ORA (NO HNDSHKE) <- %02x\n",  val);
       log_debug("      Check for rotating 1s for segments/columns and anodes\n");
  //     log_debug("      TODO: Here is where to add Display & Keypad emulation\n");
 #endif
-      via.ora = val;
+      via.ora = val | 0xE0; // Fake no keys are pressed
       break;
     default:  
     log_warning("VIA write >>>STILL UNMANAGED<<< via_wreg(%d, 0x%02x)\n", reg, val);

@@ -1,4 +1,4 @@
-; updated on 12/1/2020
+; updated on 12/15/2020
 irqvec EQU $8008
 firqvec EQU $800B
 osvec EQU $800E
@@ -148,7 +148,7 @@ osvec:
 8011:	 00 32 02 1E 40 00 22 A0 00 30 00 01 01 01 7E 
     ;  0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
 8020: 01 00 00 02 00 00 60 01 00 00 00 32 00 00 00 00 ; 8023 is here. 8025 is 0 at first. 8025 is used to determine if a key has been pressed during the IRQ
-8030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; 8038 is here 
+8030: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; 8037, 8038 is here 
 8040: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 8050: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 B2 BE 
 8060: 00 00 00 00 00 FF FF FF 00 00 00 00 00 00 32 00 ; $8060 is a variable used to loop through DOC oscillators
@@ -179,12 +179,12 @@ osvec:
 81F0: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 
 8200: 00 00 00 00 00 00 00 01 00 10 20 00 02 00 01 04 
 8210: 08 0C 05 09 0D 06 0A 0E 07 0B 0F 80 81 82 83 00 
-8220: 00 00 08 03 00 00 00 00 00 00 00 00 00 00 00 00 
+8220: 00 00 08 03 00 00 00 00 00 00 00 00 00 00 00 00 ; 8225, 
 8230: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 ; 8235, 8236, 8237, 8238 are used by ACIA 
 8240: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
 8250: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
 8260: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
-8270: FF FF FF FF FF FF FF FF 82 80 82 7C 10 11 01 0A 
+8270: FF FF FF FF FF FF FF FF 82 80 82 7C 10 11 01 0A ; 8278 (82), 827A (82) are here
 8280: 00 00 00 00 00 00 00 00 00 00 00 00 
 
 ; AF_1 $828C
@@ -458,10 +458,10 @@ osvec:
 8499: BD 8A 78    JSR   $8A78
 849C: 1A 10       ORCC  #$10
 849E: 6C A8 19    INC   $19,Y
-84A1: 31 A8 37    LEAY  $37,Y
+84A1: 31 A8 37    LEAY  $37,Y			; 8037
 84A4: 8D 1F       BSR   $84C5
 84A6: 32 62       LEAS  $0002,S
-84A8: 31 A8 C9    LEAY  -$37,Y
+84A8: 31 A8 C9    LEAY  -$37,Y			; 8037
 84AB: AE 2A       LDX   $000A,Y
 84AD: A6 0B       LDA   $000B,X
 84AF: 27 03       BEQ   $84B4
@@ -871,8 +871,8 @@ osvec:
 87D8: CE 85 7F    LDU   #$857F
 87DB: 20 F6       BRA   $87D3
 
-87DD: CE 86 7B    LDU   #$867B
-87E0: 20 15       BRA   $87F7
+87DD: CE 86 7B    LDU   #$867B	; value of U
+87E0: 20 15       BRA   $87F7	;
 
 87E2: CE 86 A0    LDU   #$86A0
 87E5: 20 10       BRA   $87F7
@@ -882,10 +882,10 @@ osvec:
 
 87EC: 1F 31       TFR   U,X
 87EE: CE 85 B9    LDU   #$85B9
-87F1: 30 88 C9    LEAX  -$37,X
+87F1: 30 88 C9    LEAX  -$37,X	;	8037
 87F4: A6 88 19    LDA   $19,X
-87F7: 34 01       PSHS  CC
-87F9: 1A 50       ORCC  #$50
+87F7: 34 01       PSHS  CC		;
+87F9: 1A 50       ORCC  #$50	; DISABLE IRQ AND FIRQ
 87FB: BD 88 1F    JSR   $881F
 87FE: 9E 5B       LDX   $5B
 8800: 27 05       BEQ   $8807
@@ -908,8 +908,8 @@ osvec:
 8822: 26 10       BNE   $8834
 8824: 34 56       PSHS  U,X,B,A
 8826: BD 9F 60    JSR   $9F60
-8829: BD 9F 6F    JSR   $9F6F
-882C: 1A 50       ORCC  #$50
+8829: BD 9F 6F    JSR   $9F6F	; Call to 0x9F6F #4 (12/15/2020)
+882C: 1A 50       ORCC  #$50	; DISABLE IRQ AND FIRQ
 882E: 0A 38       DEC   $38
 8830: 35 56       PULS  A,B,X,U
 8832: 20 EB       BRA   $881F
@@ -935,14 +935,18 @@ osvec:
 885A: A7 A8 24    STA   $24,Y
 885D: 39          RTS   
 
-885E: 9E 5E       LDX   $5E
-8860: 10 EF 81    STS   ,X++
-8863: 8C B2 C6    CMPX  #$B2C6
-8866: 25 03       BCS   $886B
-8868: 8E B2 BE    LDX   #$B2BE          ; 
-886B: 9F 5E       STX   $5E
-886D: 10 EE 84    LDS   ,X
-8870: 39          RTS                   ; 
+; I get here with:						A= 00, B=41, U=AB2A, S=AF2F, X i did not check, Y=ec9f, DP=80,	CC=88
+; the second time I get here with:		A= 00, B=41, U=AB2A, S=AFCB, X=B2C2,			Y=EC9F, DP=80,	CC=81
+; the third time I get here with:		A= 00, B=41, U=AB2A, S=B04F, X=B2C4,			Y=E9CF,	DP=80,	CC=85
+; X is a counter from B2C0 to B2C6 (included), step of 2, so 3 total values
+885E: 9E 5E       LDX   $5E				;	In 805E i have B2C0, so X is 0xB2C0
+8860: 10 EF 81    STS   ,X++			;	Store AF2F in B2C0, in X I have B2C2
+8863: 8C B2 C6    CMPX  #$B2C6			;	X goes from B2C0 to B2C6 
+8866: 25 03       BCS   $886B			;--->---+
+8868: 8E B2 BE    LDX   #$B2BE          ;       |	THE THIRD TIME X IS SET TO 0xB2BE
+886B: 9F 5E       STX   $5E				;       +--> store in address $805E the value 0xB2C2 the first time, 0xB2C4 the second time
+886D: 10 EE 84    LDS   ,X				;			THE THIRD TIME [$805E <= 0xB2BE			
+8870: 39          RTS                   ; --> return to 9E5D the first time, the second time return to ACA1, the third time 901D
 
 ; DOC INTERRUPT SERVICE ROUTINE
 8871: 4F          CLRA  						; Clear Accumulator. What is the value of D when I enter????	---<--------+
@@ -1036,16 +1040,17 @@ irqentry:
 893C: 1A 40       ORCC  #$40     	; Disable FIRQ
 893E: B6 E2 0D    LDA   $VIA_IFR	; load the IFR register (value is $A0=1010_0000 which is negative, then stuck $26=0010_1010 which is positive)
 8941: 2A 1F       BPL   $8962 		; if not generated from the VIA (IRQ=1 is negative), check the DOC
-8943: 85 04       BITA  #$04 	 	; 0000_0100 is the Shift Register interrupt
-8945: 27 03       BEQ   $894A 		; if it's not it, check for next source
-8947: 7E 89 89    JMP   $8989 		; manage keyboard, keys pressed info from 6511 
+8943: 85 04       BITA  #$04 	 	; 0000_0100 is the SHIFT REGISTER interrupt. BITA returns "1" if the correspoding result is a bit match.
+
+8945: 27 03       BEQ   $894A 		; (BEQ is Branch if Equal to 0, so the Z flag is high if the result is 0) if not go to 894A and check for next source
+8947: 7E 89 89    JMP   $8989 		; if it is, manage keyboard, keys pressed info from 6511 
 
 894A: 85 20       BITA  #$20 		; 0010_0000 Timer 2
 894C: 27 03       BEQ   $8951		; if it is not timer 2, go to see if SYNC
 894E: 7E F4 DF    JMP   timer2int	; service timer 2 (Note that timer2int finishes with RTS, so the IRQ will be fully serviced)
 
 ; CA1 (SYNC)
-8951: 85 02       BITA  #$02 		; 0000_0010 CA1, SYNC input - Not implemented in ALFASoniQ 
+8951: 85 02       BITA  #$02 		; 0000_0010 CA1, SYNC input - NOT IMPLEMENTED in ALFASoniQ (nor in DMS-1 or DMS-8) 
 8953: 27 0D       BEQ   $8962 		; if it is not SYNC, check interrupt from DOC              
 8955: B6 E2 01    LDA   $VIA_PORTA	; if it was from SYNC we are reading from PORTA
 8958: 96 25       LDA   $25  		; we are comparing with $8025
@@ -1068,19 +1073,19 @@ irqentry:
 8975: 39          RTS   
 
 ; Manages the VIA PCR (Peripheral Control Register)
-8976: 34 01       PSHS  CC			; 
-8978: 1A 50       ORCC  #$50		; Disable IRQ and FIRQ
-897A: B6 E2 0C    LDA   $VIA_PCR	; Load the VIA PCR in A
-897D: 84 FD       ANDA  #$FD		; 1111_1011  
-897F: B7 E2 0C    STA   $VIA_PCR	;			-> CB2 High Output, CB1 positive active edge, CA2 Pulse Output, CA1 Positive active edge
-8982: 8A 0E       ORA   #$0E		; 0000_1110
-8984: B7 E2 0C    STA   $VIA_PCR	;			-> CB2 Input Neg Active edge, CB1 negaive active edge, CA2 High Output, CA1 Negaive active edge
-8987: 35 81       PULS  CC,PC 		;(PUL? PC=RTS), equivalent to RTS, go back to $896D
+8976: 34 01       PSHS  CC				; 
+8978: 1A 50       ORCC  #$50			; Disable IRQ and FIRQ
+897A: B6 E2 0C    LDA   $VIA_PCR		; Load the VIA PCR in A
+897D: 84 FD       ANDA  #$FD			; 1111_1011  
+897F: B7 E2 0C    STA   $VIA_PCR		;			-> CB2 High Output, CB1 positive active edge, CA2 Pulse Output, CA1 Positive active edge
+8982: 8A 0E       ORA   #$0E			; 0000_1110
+8984: B7 E2 0C    STA   $VIA_PCR		;			-> CB2 Input Neg Active edge, CB1 negative active edge, CA2 High Output, CA1 Negative active edge
+8987: 35 81       PULS  CC,PC 			;(PUL? PC=RTS), equivalent to RTS, go back to $896D
 
 ; Manage keyboard from 6511
 8989: F6 E2 0A    LDB   $VIA_SHIFTReg	; 
-898C: 1C BF       ANDCC #$BF			; 1011_1111
-898E: AD 9F 80 61 JSR   [$8061,X]		; index depends on voice?
+898C: 1C BF       ANDCC #$BF			; 1011_1111 Enable IRQ
+898E: AD 9F 80 61 JSR   [$8061,X]		; index depends on voice? What's in $8061, and what is the range of X?
 8992: 1A 50       ORCC  #$50			; Disable IRQ and FIRQ
 8994: 96 5D       LDA   $5D				; what's in $805D?
 8996: 81 04       CMPA  #$04			;
@@ -1189,10 +1194,10 @@ irqentry:
 
 8A5D: 39          RTS   
 
-8A5E: 8E B0 52    LDX   #$B052  ; save the stack in X
-8A61: 10 8E EC 7F LDY   #$EC7F  ; last from DOC Waveform Data Sample
-8A65: CE E4 18    LDU   #$E418  ; disable 4051s for Res & Cutoff - CBA = 000
-8A68: 8D 23       BSR   $8A8D
+8A5E: 8E B0 52    LDX   #$B052  ;	save the stack in X
+8A61: 10 8E EC 7F LDY   #$EC7F  ;	last from DOC Waveform Data Sample
+8A65: CE E4 18    LDU   #$E418  ;	disable 4051s for Res & Cutoff - CBA = 000
+8A68: 8D 23       BSR   $8A8D	;	--->
 8A6A: 30 88 4D    LEAX  $4D,X
 8A6D: 31 24       LEAY  $0004,Y
 8A6F: 8C B2 BA    CMPX  #$B2BA
@@ -1213,9 +1218,9 @@ irqentry:
 8A8A: 35 60       PULS  Y,U
 8A8C: 39          RTS   
 
-8A8D: 1A 50       ORCC  #$50
-8A8F: EC 88 1A    LDD   $1A,X
-8A92: 6E 98 1C    JMP   [$1C,X]
+8A8D: 1A 50       ORCC  #$50	; DISABLE IRQ, FIRQ
+8A8F: EC 88 1A    LDD   $1A,X	; X+[801A]
+8A92: 6E 98 1C    JMP   [$1C,X] -> Jumps to 8AD7
 
 8A95: E3 88 1E    ADDD  $1E,X
 8A98: 25 05       BCS   $8A9F
@@ -1226,33 +1231,34 @@ irqentry:
 8AA5: A6 88 20    LDA   $20,X
 8AA8: 5F          CLRB  
 8AA9: ED 88 1A    STD   $1A,X
-8AAC: 20 29       BRA   $8AD7
+8AAC: 20 29       BRA   $8AD7	; --> 
 
 8AAE: A3 88 21    SUBD  $21,X
 8AB1: 25 05       BCS   $8AB8
 8AB3: A1 88 23    CMPA  $23,X
 8AB6: 22 0A       BHI   $8AC2
-8AB8: CC 8A D7    LDD   #$8AD7
+8AB8: CC 8A D7    LDD   #$8AD7	; points to code
 8ABB: ED 88 1C    STD   $1C,X
 8ABE: A6 88 23    LDA   $23,X
 8AC1: 5F          CLRB  
 8AC2: ED 88 1A    STD   $1A,X
-8AC5: 20 10       BRA   $8AD7
+8AC5: 20 10       BRA   $8AD7	; --->
 
-8AC7: A3 88 24    SUBD  $24,X
+;;;
+8AC7: A3 88 24    SUBD  $24,X			;
 8ACA: 24 08       BCC   $8AD4
 8ACC: CC 8A D7    LDD   #$8AD7
 8ACF: ED 88 1C    STD   $1C,X
 8AD2: 4F          CLRA  
 8AD3: 5F          CLRB  
 8AD4: ED 88 1A    STD   $1A,X
-8AD7: 1C AF       ANDCC #$AF
+8AD7: 1C AF       ANDCC #$AF			; 1010_0000 ENABLE IRQ, FIRQ   <<<<---
 8AD9: A1 88 27    CMPA  $27,X
 8ADC: 23 03       BLS   $8AE1
 8ADE: A6 88 27    LDA   $27,X
 8AE1: E6 88 28    LDB   $28,X
-8AE4: BD F5 E7    JSR   setfilterdac
-8AE7: 1A 50       ORCC  #$50
+8AE4: BD F5 E7    JSR   setfilterdac	; <<<<
+8AE7: 1A 50       ORCC  #$50			; DISABLE IRQ, FIRQ
 8AE9: EC 88 29    LDD   $29,X
 8AEC: 6E 98 2B    JMP   [$2B,X]
 
@@ -1296,7 +1302,7 @@ irqentry:
 8B44: ED 88 29    STD   $29,X
 8B47: 20 38       BRA   $8B81
 
-8B49: A3 88 33    SUBD  $33,X
+8B49: A3 88 33    SUBD  $33,X	;;;
 8B4C: 25 03       BCS   $8B51
 8B4E: 4D          TSTA  
 8B4F: 26 17       BNE   $8B68
@@ -1395,10 +1401,10 @@ irqentry:
 8C07: 30 07       LEAX  $0007,X
 8C09: 8C 80 7D    CMPX  #$807D
 8C0C: 25 F2       BCS   $8C00
-8C0E: 10 8E B0 52 LDY   #$B052
-8C12: 0C 4E       INC   $4E			;		----<---+ From B052 to B2BA? step 4E? We have seen this before
+8C0E: 10 8E B0 52 LDY   #$B052		; Y is now top of stack?
+8C12: 0C 4E       INC   $4E			;		----<---+ INCrement the value in $804E
 8C14: BD 8C 34    JSR   $8C34		;				|
-8C17: 31 A8 4D    LEAY  $4D,Y		;				|
+8C17: 31 A8 4D    LEAY  $4D,Y		;				|	Adds the value in [$804D] to Y
 8C1A: 34 20       PSHS  Y			;				|
 8C1C: BD 82 8C    JSR   $828C		;				|
 8C1F: 10 AE E4    LDY   ,S			;				^
@@ -1435,7 +1441,8 @@ irqentry:
 8C61: 3D          MUL				;           |
 8C62: 40          NEGA				;           |
 8C63: 20 01       BRA   $8C66		;    ---->--|---+
-									;           |   |
+
+; Invoked by 8c14 (eventually)		;           |   |
 8C65: 3D          MUL				;  -----<---+   |
 8C66: 1F 89       TFR   A,B         ;  ----<--------+
 8C68: 1D          SEX   
@@ -1451,7 +1458,7 @@ irqentry:
 8C7F: 39          RTS   
 
 8C80: 10 8E B0 52 LDY   #$B052	; pointer to structure?
-8C84: CC 8A D7    LDD   #$8AD7	;
+8C84: CC 8A D7    LDD   #$8AD7	;	pointer to code
 8C87: ED A8 1C    STD   $1C,Y
 8C8A: 6F A8 1A    CLR   $1A,Y
 8C8D: CC 8B BE    LDD   #$8BBE
@@ -1873,21 +1880,21 @@ irqentry:
 ;      0  1  2  3  4  5  6  7  8  9  A  B  C  D  E 
 9000: 7F 00 09 12 1B 24 2D 36 3F 40 00 00 00 00 00 
 
-900F: 96 2F       LDA   $2F
-9011: 2A 07       BPL   $901A
-9013: 0C 2F       INC   $2F
-9015: BD 8A 5E    JSR   $8A5E
-9018: 20 03       BRA   $901D
+900F: 96 2F       LDA   $2F		; ---<--+        value in 802F
+9011: 2A 07       BPL   $901A	;	----|-->-+   The first time is 0, so it jumps. It seems like we are stuck here until the value in $802F is negative
+9013: 0C 2F       INC   $2F		;		|    |   if $802F is negative, increment
+9015: BD 8A 5E    JSR   $8A5E	;		^    v	 
+9018: 20 03       BRA   $901D	; ->-+	|    |
+								;	 |	|    |
+901A: BD 88 5E    JSR   $885E	;	 |	| -<-+		another jump to subroutine $885E (exploring stuck issue 12/15/2020), backtraced up to here.
+901D: 20 F0       BRA   $900F	; ---+--+
 
-901A: BD 88 5E    JSR   $885E
-901D: 20 F0       BRA   $900F
-
-901F: BD 88 5E    JSR   $885E
+901F: BD 88 5E    JSR   $885E	;								
 9022: 96 30       LDA   $30
 9024: 2A F9       BPL   $901F
 9026: 0F 30       CLR   $30
-9028: BD 90 39    JSR   $9039
-902B: BD 88 5E    JSR   $885E
+9028: BD 90 39    JSR   $9039			; At some point this trigger the routine that will get me stuck (12/15/2020) 
+902B: BD 88 5E    JSR   $885E			; 
 902E: 96 30       LDA   $30
 9030: 2A F9       BPL   $902B
 9032: 0F 30       CLR   $30
@@ -1895,21 +1902,21 @@ irqentry:
 9037: 20 E6       BRA   $901F
 
 9039: 1A 50       ORCC  #$50			;	Disable IRQ and FIRQ
-903B: B6 E2 00    LDA   $VIA_PORTB		;	get the value from PORTB
-903E: 84 FB       ANDA  #$FB			; 1111_1011
-9040: 8A 08       ORA   #$08			; 0000_1000
-9042: B7 E2 00    STA   $VIA_PORTB		;
-9045: 1C AF       ANDCC #$AF
-9047: B6 EC E1    LDA   $DOC_OscEnableR
-904A: B6 EC E2    LDA   $DOC_A2D
-904D: BD 88 5E    JSR   $885E
+903B: B6 E2 00    LDA   $VIA_PORTB		;	get the value from PORTB: 0x58 (0101_1000), 
+903E: 84 FB       ANDA  #$FB			;	1111_1011
+9040: 8A 08       ORA   #$08			;	0000_1000 
+9042: B7 E2 00    STA   $VIA_PORTB		;   => A1 = 1, A0 = 0 => PITCH WHEEL
+9045: 1C AF       ANDCC #$AF            ;	Enable IRQ and FIRQ
+9047: B6 EC E1    LDA   $DOC_OscEnableR	;   It seems like every time DOC needs to read from A2D it requires a LDA of OscEnable Register
+904A: B6 EC E2    LDA   $DOC_A2D		;	Read from A2D
+904D: BD 88 5E    JSR   $885E			;
 9050: 1A 50       ORCC  #$50			;	Disable IRQ and FIRQ
-9052: F6 EC E2    LDB   $DOC_A2D		;
+9052: F6 EC E2    LDB   $DOC_A2D		;	Read from A2D
 9055: B6 E2 00    LDA   $VIA_PORTB		;
-9058: 8A 0C       ORA   #$0C 		   ; 0000_1100 PB3=1 slider volume, PB2=1, mod wheel 
-905A: B7 E2 00    STA   $VIA_PORTB     ; so AN1 = 1 & AN0 = 1 => MOD WHEEL
-905D: 1C AF       ANDCC #$AF           ; 1010_1111
-905F: F7 90 0C    STB   $900C          ; is this the value of the mod wheel?		; * IDENTICAL FROM $B958
+9058: 8A 0C       ORA   #$0C 			; 0000_1100 PB3=1 slider volume, PB2=1, mod wheel 
+905A: B7 E2 00    STA   $VIA_PORTB		; so AN1 = 1 & AN0 = 1 => MOD WHEEL
+905D: 1C AF       ANDCC #$AF			; Enable IRQ and FIRQ
+905F: F7 90 0C    STB   $900C			; is this the value of the mod wheel?		; * IDENTICAL FROM $B958
 9062: 4F          CLRA																; *
 9063: FB 90 0D    ADDB  $900D														; *
 9066: 89 00       ADCA  #$00														; *
@@ -1928,13 +1935,13 @@ irqentry:
 9080: 5F          CLRB						;
 9081: 20 05       BRA   $9088				;
 
-9083: C0 08       SUBB  #$08
+9083: C0 08       SUBB  #$08				; we get here if the value of the Pitch Wheel is positive
 9085: 2A 01       BPL   $9088
 9087: 5F          CLRB  
-9088: CB 40       ADDB  #$40
-908A: 28 02       BVC   $908E
-908C: C6 7F       LDB   #$7F
-908E: 2A 01       BPL   $9091
+9088: CB 40       ADDB  #$40				;
+908A: 28 02       BVC   $908E				; ->-+
+908C: C6 7F       LDB   #$7F				;    |
+908E: 2A 01       BPL   $9091				; -<-+
 9090: 5F          CLRB  
 9091: F1 90 09    CMPB  $9009
 9094: 27 0D       BEQ   $90A3
@@ -1944,17 +1951,17 @@ irqentry:
 909F: 8D 1F       BSR   $90C0
 90A1: DD 69       STD   $69
 90A3: FC 90 0C    LDD   $900C
-90A6: FD 90 0D    STD   $900D
-90A9: F6 EC E2    LDB   $DOC_A2D		; again sample from A2D
-90AC: 54          LSRB  
-90AD: F1 90 0B    CMPB  $900B
-90B0: 27 0D       BEQ   $90BF
-90B2: F7 90 0B    STB   $900B
-90B5: D7 68       STB   $68
-90B7: D7 6C       STB   $6C
-90B9: BD A0 E2    JSR   $A0E2
-90BC: BD AD B2    JSR   $ADB2
-90BF: 39          RTS   
+90A6: FD 90 0D    STD   $900D			;
+90A9: F6 EC E2    LDB   $DOC_A2D		; again sample from A2D <<<<					  
+90AC: 54          LSRB					; Logical Shift Right	<<<      after LSR:		B is 0x41,
+90AD: F1 90 0B    CMPB  $900B			;												$900B is 0,
+90B0: 27 0D       BEQ   $90BF			;		---------------->-----------+
+90B2: F7 90 0B    STB   $900B			; $900B <= B (A2D value read) 		|   
+90B5: D7 68       STB   $68				; $8068	<= B (A2D value read)		| +-----+ $8068 <= 0 
+90B7: D7 6C       STB   $6C				; $806C	<= B (A2D value read)		|         $806C <= 0     +---------------------------------------------+------------+
+90B9: BD A0 E2    JSR   $A0E2			; This is the routing where we eventually get stuck          | A=82, B=41, X=B2C0, Y=ec9f, S=af2f, U=fb4d  | First pass |
+90BC: BD AD B2    JSR   $ADB2			; we come back here after putting 0xB5 in the ACIA 3 times   |
+90BF: 39          RTS					; --> will return to 902B	---<----+
 
 90C0: 86 AB       LDA   #$AB
 90C2: C0 40       SUBB  #$40
@@ -2017,24 +2024,25 @@ irqentry:
 ; 0x15	Play Seq
 ; 0x16	Load Seq
 ; 0x17	Save Seq
+; 0x18  ?
 
 ; *********************
 90E9: 96 AE       LDA   $AE		; load keyval
-90EB: 81 0A       CMPA  #$0A	; px0A	Enter/Start
+90EB: 81 0A       CMPA  #$0A	; 0x0A	Enter/Start
 90ED: 24 04       BCC   $90F3	; if it's not Enter/Start, load the next keyval
 90EF: BD 92 58    JSR   $9258	; if it is, jump here... This subroutine is only called once
 90F2: 39          RTS   
 
-90F3: 96 AE       LDA   $AE    ; load keyval
-90F5: 81 10       CMPA  #$10   ; 0x10 	Load Upper
-90F7: 25 08       BCS   $9101
-90F9: 81 17       CMPA  #$17   ; 0x17	Save Seq
-90FB: 22 04       BHI   $9101
-90FD: BD 94 3B    JSR   $943B
+90F3: 96 AE       LDA   $AE     ; load keyval
+90F5: 81 10       CMPA  #$10    ; 0x10 	Load Upper
+90F7: 25 08       BCS   $9101	; if Carry Set (the first time is not)
+90F9: 81 17       CMPA  #$17    ; 0x17	Save Seq
+90FB: 22 04       BHI   $9101	; jumps if previous operation caused NEITHER C or Z.
+90FD: BD 94 3B    JSR   $943B	; ---> $943B
 9100: 39          RTS   
 
 9101: 96 AE       LDA   $AE    ; load keyval
-9103: 81 18       CMPA  #$18   ; 0x18 ?????
+9103: 81 18       CMPA  #$18   ; 0x18 ????? - there are 0x18 values in total
 9105: 25 04       BCS   $910B  ; yes, go below
 9107: BD 95 F0    JSR   $95F0  ; no, jump quite a bit below
 910A: 39          RTS   
@@ -2046,7 +2054,7 @@ irqentry:
 9113: 27 D4       BEQ   $90E9
 9115: 39          RTS   
 
-9116: 96 AE       LDA   $AE 	; load keyval
+9116: 96 AE       LDA   $AE 	; load keyval			
 9118: 81 0B       CMPA  #$0B 	; 0x0B	Cancel/Stop
 911A: 26 08       BNE   $9124
 911C: BD AB 90    JSR   $AB90
@@ -2082,12 +2090,12 @@ irqentry:
 9156: 20 12       BRA   $916A
 
 9158: 81 0F       CMPA  #$0F	; 0x0F	Down Arrow
-915A: 10 26 00 3A LBNE  $9198
+915A: 10 26 00 3A LBNE  $9198	; goes to ORIGIN of ORIGIN...
 915E: 0D 83       TST   $83
 9160: 27 E0       BEQ   $9142
 9162: 97 88       STA   $88
-9164: 86 80       LDA   #$80
-9166: 97 84       STA   $84
+9164: 86 80       LDA   #$80	;
+9166: 97 84       STA   $84		; $8084 <= 0x80
 9168: 20 00       BRA   $916A
 
 916A: 86 C8       LDA   #$C8
@@ -2116,7 +2124,7 @@ irqentry:
 
 9197: 39          RTS   
 
-9198: 81 0A       CMPA  #$0A	; 0x0A	Enter/Start
+9198: 81 0A       CMPA  #$0A	; 0x0A	Enter/Start  (ORIGIN OF ORIGIN of CALL 1 - of 2 - to $A0F2)
 919A: 10 26 00 A9 LBNE  $9247
 919E: 96 82       LDA   $82     ; compare $8082 with
 91A0: 81 04       CMPA  #$04	;	                 4
@@ -2137,7 +2145,7 @@ irqentry:
 91BE: 39          RTS   
 
 91BF: 81 08       CMPA  #$08	; 0x08	8
-91C1: 26 10       BNE   $91D3
+91C1: 26 10       BNE   $91D3	;;;
 91C3: BD 9F B4    JSR   $9FB4
 91C6: 0D BA       TST   $BA
 91C8: 2B 06       BMI   $91D0
@@ -2147,21 +2155,21 @@ irqentry:
 91D0: 0F BA       CLR   $BA
 91D2: 39          RTS   
 
-91D3: 81 01       CMPA  #$01
-91D5: 26 1A       BNE   $91F1
-91D7: 0D 8C       TST   $8C
-91D9: 27 16       BEQ   $91F1
-91DB: 96 90       LDA   $90
-91DD: C6 03       LDB   #$03
-91DF: 3D          MUL   
-91E0: 34 04       PSHS  B
-91E2: D6 8C       LDB   $8C
-91E4: 5A          DECB  
-91E5: EB E0       ADDB  ,S+
-91E7: 8E 82 09    LDX   #$8209
-91EA: 96 91       LDA   $91
-91EC: EA 86       ORB   A,X
-91EE: BD A0 F2    JSR   $A0F2
+91D3: 81 01       CMPA  #$01		;
+91D5: 26 1A       BNE   $91F1		;
+91D7: 0D 8C       TST   $8C			;
+91D9: 27 16       BEQ   $91F1		;
+91DB: 96 90       LDA   $90			;
+91DD: C6 03       LDB   #$03		;
+91DF: 3D          MUL				;
+91E0: 34 04       PSHS  B			;
+91E2: D6 8C       LDB   $8C			;
+91E4: 5A          DECB				;
+91E5: EB E0       ADDB  ,S+			;
+91E7: 8E 82 09    LDX   #$8209		;
+91EA: 96 91       LDA   $91			;
+91EC: EA 86       ORB   A,X			;
+91EE: BD A0 F2    JSR   $A0F2		;;; call 1 (of 2) -> THIS is invoked *after* the second round of 2 $9E14 calls, before UART $A13D
 91F1: BD 9E 83    JSR   $9E83
 91F4: 7D 80 07    TST   fdcerr
 91F7: 27 07       BEQ   $9200
@@ -2442,9 +2450,9 @@ irqentry:
 93EE: DD A7       STD   $A7
 93F0: BD 8E CF    JSR   $8ECF
 93F3: 1A 50       ORCC  #$50	; Disable IRQ and FIRQ
-93F5: BD 87 5E    JSR   $875E
-93F8: 1C AF       ANDCC #$AF
-93FA: D6 AE       LDB   $AE
+93F5: BD 87 5E    JSR   $875E	; initialization routine (memory structures, DOC)
+93F8: 1C AF       ANDCC #$AF	; Enable IRQ and FIRQ
+93FA: D6 AE       LDB   $AE		; isn't his keyval?
 93FC: 5A          DECB  
 93FD: 0D 16       TST   $16
 93FF: 27 04       BEQ   $9405
@@ -2457,7 +2465,7 @@ irqentry:
 940B: 20 02       BRA   $940F
 
 940D: CB 2C       ADDB  #$2C
-940F: BD A0 F2    JSR   $A0F2	;                     |
+940F: BD A0 F2    JSR   $A0F2	;;; call 2 (of 2)
 9412: 81 06       CMPA  #$06    ; is value 6? ---<----+ 
 9414: 26 1A       BNE   $9430   ; --------------------+
 9416: 96 AE       LDA   $AE		; Load Keyval
@@ -2513,19 +2521,19 @@ irqentry:
 9450: 86 02       LDA   #$02    ;													|
 9452: 97 82       STA   $82     ; $8082 is now $02									|
 9454: 86 1C       LDA   #$1C    ; A <- $1C											|
-9456: D6 AE       LDB   $AE		;													|
+9456: D6 AE       LDB   $AE		;	We store in B the previous value of KeyVal		|
 9458: C1 10       CMPB  #$10    ; LOAD UPPER										|
 945A: 27 09       BEQ   $9465	;  ----->-------+									|
 945C: C6 1C       LDB   #$1C	;               |									|
 945E: DD B3       STD   $B3		;               | ; #80B3 <- A (MSB) $1C (LSB) $1C	v
 9460: 0F 91       CLR   $91		;               v									|
-9462: 7E 95 DD    JMP   $95DD	;				|									|
+9462: 7E 95 DD    JMP   $95DD	; (JSR   $9431, RTS)								|
 								;				|									|
 9465: C6 7C       LDB   #$7C	;          -<---+									|
-9467: DD B3       STD   $B3     ;                 ; in $80B3, LSB $7C				|
+9467: DD B3       STD   $B3     ;                 ; in $80B3, LSB is $7C 0111_1100	|
 9469: 86 01       LDA   #$01	;													|
 946B: 97 91       STA   $91		; $8091 is $1										|
-946D: 7E 95 DD    JMP   $95DD	;													|		
+946D: 7E 95 DD    JMP   $95DD	; (JSR   $9431, RTS)								|		
 								;													|
 9470: 96 91       LDA   $91		;				------<-----------------------------+
 9472: 81 02       CMPA  #$02	; compare $8091 with $2
@@ -2552,7 +2560,7 @@ irqentry:
 9492: DD B3       STD   $B3		;	$80B3 <- 0x1CEE
 9494: 86 02       LDA   #$02	;	
 9496: 97 91       STA   $91		;	$8091 <- 0x2
-9498: 7E 95 DD    JMP   $95DD	;   
+9498: 7E 95 DD    JMP   $95DD	;   (JSR   $9431, RTS)
 
 ;***********************************************************
 ;*  Sampling keys are checked, sampling display is setup   *
@@ -2562,7 +2570,7 @@ irqentry:
 949D: 81 12       CMPA  #$12  ; 0001_0010 Sample Upper / bank 0
 949F: 27 06       BEQ   $94A7 ; yes, go sample
 94A1: 81 13       CMPA  #$13  ; 0001_0011 Sample Upper / bank 1
-94A3: 10 26 00 86 LBNE  $952D ; No, check other keys
+94A3: 10 26 00 86 LBNE  $952D ; No, check other keys (if Rec Seq or Save Seq jumps back right away)
 94A7: 96 AE       LDA   $AE   ; load kyval
 94A9: 81 12       CMPA  #$12  ; 0001_0010 Sample Upper?
 94AB: 26 08       BNE   $94B5 ; yes, go sample
@@ -2573,7 +2581,7 @@ irqentry:
 
 94B5: C6 1C       LDB   #$1C
 94B7: 0F A4       CLR   $A4
-94B9: 86 B6       LDA   #$B6
+94B9: 86 B6       LDA   #$B6		; A <= [$80B6]
 94BB: DD B3       STD   $B3
 94BD: 86 03       LDA   #$03
 94BF: 97 85       STA   $85
@@ -2588,32 +2596,32 @@ irqentry:
 94D2: BD 9F 60    JSR   $9F60
 94D5: BD 97 00    JSR   $9700
 94D8: BD 97 4E    JSR   $974E
-94DB: C6 1F       LDB   #$1F       	; 0001_1111
-94DD: F7 E2 01    STB   $VIA_PORTA
-94E0: 1E 89       EXG   A,B
-94E2: 1E 89       EXG   A,B
+94DB: C6 1F       LDB   #$1F       	; 0001_1111: CAD2,CAD1,CAD0 = (1,1,1):=> DP=0 !!!, COL, ANODE2_ = 1, ANODE1_ = 1: => DISPLAYS OFF;
+94DD: F7 E2 01    STB   $VIA_PORTA	;  DP=0 options could be SAMPLE LOWER, ENTER, CANCEL
+94E0: 1E 89       EXG   A,B			; \
+94E2: 1E 89       EXG   A,B			; / two of these do not do anything: B contains the value of $VIA_PORTA
 94E4: F6 E2 01    LDB   $VIA_PORTA	; 
-94E7: C4 C0       ANDB  #$C0		; 1100_0000
-94E9: C1 40       CMPB  #$40        ; 0100_0000     PA6 is ROW 1 of Keypad
-94EB: 26 06       BNE   $94F3		; if it is not, check ROW 2            -->-+ 
+94E7: C4 C0       ANDB  #$C0		; 1100_0000		We will be checking the last two rows
+94E9: C1 40       CMPB  #$40        ; 0100_0000     PA6 is ROW 1 (the middle row, COL1) of Keypad: possible values:3,6,9,5,8,0,2,ENTER
+94EB: 26 06       BNE   $94F3		; if Z is still 0, check ROW 2         -->-+ 
 94ED: 86 02       LDA   #$02		;  Store $02                               |
 94EF: 97 93       STA   $93			;			in $8093					   |
-94F1: 20 0E       BRA   $9501		;  ???                                     |
-									;                                          |
-94F3: C1 80       CMPB  #$80		; 1000_0000		PA7 is ROW 2 of Keypad  -<-+
-94F5: 27 05       BEQ   $94FC		; 
-94F7: B7 E2 01    STA   $VIA_PORTA
-94FA: 20 DC       BRA   $94D8
-
-94FC: BD 97 95    JSR   $9795
+94F1: 20 0E       BRA   $9501		;  ------------------------------>------------------+
+									;                                          |		|
+94F3: C1 80       CMPB  #$80		; 1000_0000		PA7 is ROW 2 of Keypad  -<-+		|
+94F5: 27 05       BEQ   $94FC		;		----->--+									|
+94F7: B7 E2 01    STA   $VIA_PORTA	;				|									v
+94FA: 20 DC       BRA   $94D8		;				|									|
+									;				|									|
+94FC: BD 97 95    JSR   $9795		;		------<-+									|	
 94FF: 97 93       STA   $93			; whatever returned from the prior subroutine, store value of A in $8093
-9501: BD 9F 6F    JSR   $9F6F
+9501: BD 9F 6F    JSR   $9F6F		; Call to 0x9F6F #3 (12/15/2020)	-----<----------+
 9504: BD 92 49    JSR   $9249		; this is a sort of clear variables routine
 9507: CE FB 4D    LDU   #$FB4D		; led patterns
-950A: 96 93       LDA   $93			; Get $8093
+950A: 96 93       LDA   $93			; Get $8093: 
 950C: 27 0D       BEQ   $951B		; if it is equal to 0 (no keys pressed?) go to $951B 
 950E: 81 01       CMPA  #$01		; if it is not equal to 1 go to $9525
-9510: 26 13       BNE   $9525
+9510: 26 13       BNE   $9525		;
 9512: CC 2A B6    LDD   #$2AB6
 9515: DD B3       STD   $B3
 9517: BD 94 31    JSR   $9431
@@ -2625,8 +2633,8 @@ irqentry:
 9522: 97 83       STA   $83
 9524: 39          RTS   
 
-9525: 86 0B       LDA   #$0B		; get $800B
-9527: 97 AE       STA   $AE			; THIS IS KEYVAL!!! at $80AE
+9525: 86 0B       LDA   #$0B		; load value 0x0B (CANCEL/STOP)
+9527: 97 AE       STA   $AE			; Store it in  KEYVAL at $80AE
 9529: BD 91 16    JSR   $9116		;
 952C: 39          RTS   
 ; ************************
@@ -2655,12 +2663,12 @@ irqentry:
 ; ********************
 952D: 96 AE       LDA   $AE		; Load Keyval
 952F: 81 14       CMPA  #$14	; 0x14	Rec Seq
-9531: 10 25 00 AB LBCS  $95E0
+9531: 10 25 00 AB LBCS  $95E0	;-> RTS (Long Branch)
 9535: 81 17       CMPA  #$17	; 0x17	Save Seq
-9537: 10 22 00 A5 LBHI  $95E0
-953B: 96 AE       LDA   $AE
+9537: 10 22 00 A5 LBHI  $95E0	; -> RTS (Long Branch Higher)
+953B: 96 AE       LDA   $AE		; Load keyval
 953D: 81 15       CMPA  #$15	; 0x15	Play Seq
-953F: 26 3B       BNE   $957C
+953F: 26 3B       BNE   $957C	; go play the seq
 9541: 86 04       LDA   #$04
 9543: 97 85       STA   $85
 9545: 96 E7       LDA   $E7		; $80E7
@@ -2696,18 +2704,18 @@ irqentry:
 
 957A: 20 5D       BRA   $95D9
 
-957C: 81 14       CMPA  #$14
+957C: 81 14       CMPA  #$14	;
 957E: 26 2F       BNE   $95AF
-9580: 86 04       LDA   #$04
-9582: 97 85       STA   $85
-9584: 96 E7       LDA   $E7
+9580: 86 04       LDA   #$04	;	A <= 0x04
+9582: 97 85       STA   $85		; $8085 <= -x04
+9584: 96 E7       LDA   $E7		
 9586: 81 04       CMPA  #$04
 9588: 26 0E       BNE   $9598
 958A: BD AB 53    JSR   $AB53
-958D: 86 04       LDA   #$04	; 
+958D: 86 04       LDA   #$04	;	A <= 0x04
 958F: 97 82       STA   $82		; $8082 is set to $4
-9591: 0F 8A       CLR   $8A
-9593: 0F 89       CLR   $89
+9591: 0F 8A       CLR   $8A		; $808A <= 0x00
+9593: 0F 89       CLR   $89		; $8089 <= 0x00
 9595: 39          RTS   
 
 9596: 20 09       BRA   $95A1
@@ -2724,7 +2732,7 @@ irqentry:
 95AB: 86 0A       LDA   #$0A
 95AD: 20 2A       BRA   $95D9
 
-95AF: 81 16       CMPA  #$16
+95AF: 81 16       CMPA  #$16	;
 95B1: 26 0C       BNE   $95BF
 95B3: 86 03       LDA   #$03	;
 95B5: 97 82       STA   $82		; $8082 is set to $3
@@ -2744,19 +2752,19 @@ irqentry:
 
 95CF: C6 03       LDB   #$03	;
 95D1: D7 82       STB   $82		; $8082 is set to $3
-95D3: 86 06       LDA   #$06
-95D5: 97 85       STA   $85
-95D7: 86 B6       LDA   #$B6
-95D9: C6 B6       LDB   #$B6
-95DB: DD B3       STD   $B3
-95DD: BD 94 31    JSR   $9431
+95D3: 86 06       LDA   #$06	;
+95D5: 97 85       STA   $85		; [$8085]	<=	0x06
+95D7: 86 B6       LDA   #$B6	; A			<=	0xB6
+95D9: C6 B6       LDB   #$B6	; B			<=	0xB6
+95DB: DD B3       STD   $B3		; [$80B3]	<=	0xB6B6
+95DD: BD 94 31    JSR   $9431	; (returns A=0x01, B=0x80, clear locations $8083,$8089, $808A)
 95E0: 39          RTS   
 
 95E1: BD AB 43    JSR   $AB43
 95E4: 86 57       LDA   #$57
 95E6: 97 8B       STA   $8B
 95E8: 86 0D       LDA   #$0D
-95EA: 97 AE       STA   $AE
+95EA: 97 AE       STA   $AE		;;; Store in KEYVAL the value 0x0D (equivalent to press the VALUE key)
 95EC: BD 91 16    JSR   $9116
 95EF: 39          RTS   
 
@@ -2770,7 +2778,7 @@ irqentry:
 95FF: 81 1A       CMPA  #$1A	; 0x1A	?
 9601: 10 26 00 0A LBNE  $960F
 9605: 86 0C       LDA   #$0C
-9607: 97 AE       STA   $AE
+9607: 97 AE       STA   $AE		;;; store in KEYVAL the value 0x0C (which is the PARAM key)
 9609: BD 91 16    JSR   $9116
 960C: 16 00 E4    LBRA  $96F3	; it's the RTS
 
@@ -2798,7 +2806,7 @@ irqentry:
 963B: 39          RTS   
 
 963C: 86 0C       LDA   #$0C
-963E: 97 AE       STA   $AE
+963E: 97 AE       STA   $AE		; PARAM Key in KEYVAL
 9640: BD 91 16    JSR   $9116
 9643: 39          RTS   
 
@@ -2829,7 +2837,7 @@ irqentry:
 9676: 81 1E       CMPA  #$1E
 9678: 26 09       BNE   $9683
 967A: 86 0B       LDA   #$0B
-967C: 97 AE       STA   $AE
+967C: 97 AE       STA   $AE		; CANCEL/STOP in KEYVAL
 967E: BD 91 16    JSR   $9116
 9681: 20 70       BRA   $96F3	; it's the RTS
 
@@ -2860,7 +2868,7 @@ irqentry:
 96AC: 97 85       STA   $85
 96AE: D7 82       STB   $82
 96B0: 86 0A       LDA   #$0A
-96B2: 97 AE       STA   $AE
+96B2: 97 AE       STA   $AE		;;;  Store in KEYVAL the value 0x0A (ENTER/START)
 96B4: 8E 80 23    LDX   #$8023
 96B7: A6 84       LDA   ,X
 96B9: 34 12       PSHS  X,A
@@ -2912,7 +2920,7 @@ irqentry:
 
 96FE: FF 18 1A    STU   $181A
 9701: 50          NEGB  
-9702: 86 14       LDA   #$14		; 0001_0100: Disk, PB3=0, PB2=1, Volume is set to 0
+9702: 86 14       LDA   #$14		; 0001_0100: Disk, UART_CLK= 0, PB3=0 (Volume is set to 0), PB2=1,  (0,1) => LINE
 9704: B7 E2 00    STA   $VIA_PORTB
 9707: BD AE 17    JSR   $AE17       ; This is the routine the resets the filters and the data structure
 970A: 8E E4 1F    LDX   #$E41F		; Reg X is filters: E410-17 cutoff, E4_0000_1000-E41F resonance
@@ -2926,8 +2934,8 @@ irqentry:
 971F: BD F0 A7    JSR   countdown
 9722: D6 19       LDB   $19
 9724: 26 05       BNE   $972B
-9726: 86 10       LDA   #$10		; 0001_0000: Disk On
-9728: B7 E2 00    STA   $VIA_PORTB
+9726: 86 10       LDA   #$10		; 0001_0000: Disk Enable
+9728: B7 E2 00    STA   $VIA_PORTB	;
 972B: BD 98 58    JSR   $9858
 972E: 5F          CLRB  
 972F: 96 17       LDA   $17
@@ -3018,33 +3026,33 @@ irqentry:
 97CF: 26 E8       BNE   $97B9
 97D1: BD 8E CF    JSR   $8ECF
 97D4: BD 98 6C    JSR   $986C
-97D7: 2B 14       BMI   $97ED
-97D9: 96 9B       LDA   $9B
-97DB: B7 E2 00    STA   $VIA_PORTB
+97D7: 2B 14       BMI   $97ED		; ------+ 
+97D9: 96 9B       LDA   $9B			;		| 
+97DB: B7 E2 00    STA   $VIA_PORTB	;	what's in 809B???
 97DE: 5D          TSTB  
 97DF: 2A 09       BPL   $97EA
-97E1: C4 7F       ANDB  #$7F
-97E3: B7 E2 00    STA   $VIA_PORTB
+97E1: C4 7F       ANDB  #$7F		;	0111_1111
+97E3: B7 E2 00    STA   $VIA_PORTB	;
 97E6: 96 9C       LDA   $9C
 97E8: 20 01       BRA   $97EB
 
 97EA: 4F          CLRA  
 97EB: 20 0C       BRA   $97F9
-
-97ED: 84 7F       ANDA  #$7F
+									;		|
+97ED: 84 7F       ANDA  #$7F		;----<--+
 97EF: 97 94       STA   $94
-97F1: 96 9C       LDA   $9C
-97F3: B7 E2 00    STA   $VIA_PORTB
+97F1: 96 9C       LDA   $9C			; 1001_1100 PB7 = UART CLK;  PB4 = DISK ENABLE; PB3 = SAMPLE/PLAY; PB2 = Mic/Line In (1,1 MOD WHEEL)
+97F3: B7 E2 00    STA   $VIA_PORTB	;
 97F6: C4 7F       ANDB  #$7F
 97F8: 4F          CLRA  
-97F9: F7 98 47    STB   $9847
-97FC: 9E 94       LDX   $94
-97FE: C6 28       LDB   #$28
-9800: E7 2B       STB   $000B,Y
-9802: CE EC E2    LDU   #$DOC_A2D
-9805: 0F 99       CLR   $99
-9807: 10 8E 00 01 LDY   #$0001
-980B: 31 21       LEAY  $0001,Y
+97F9: F7 98 47    STB   $9847		; reset location 9847
+97FC: 9E 94       LDX   $94			;
+97FE: C6 28       LDB   #$28		;
+9800: E7 2B       STB   $000B,Y		;
+9802: CE EC E2    LDU   #$DOC_A2D		; we are reading MOD WHEEL value?
+9805: 0F 99       CLR   $99			;
+9807: 10 8E 00 01 LDY   #$0001		;
+980B: 31 21       LEAY  $0001,Y		;
 980D: 26 03       BNE   $displaykeypad2
 980F: 86 01       LDA   #$01
 9811: 39          RTS   
@@ -3086,13 +3094,14 @@ irqentry:
 9856: 4F          CLRA  
 9857: 39          RTS   
 
+; this code seems to manage WAV memory (upper/lower bank, bank0/bank1)
 9858: B6 E2 00    LDA   $VIA_PORTB  ; load in accumulator the value of PORTB
-985B: 84 FC       ANDA  #$FC        ; 1111_1100
-985D: D6 A4       LDB   $A4         ; $80A4
-985F: 27 02       BEQ   $9863       ; go to 9863 if equal
-9861: 8A 02       ORA   #$02        ; otherwise OR with 0000_0010
-9863: 97 9B       STA   $9B         ; store result in $9B 
-9865: 4C          INCA              ; increment A (the value that we just stored in $9B)
+985B: 84 FC       ANDA  #$FC        ; 1111_1100	keep bits: SERCLK, DSTAT_, CA3, DSEL, AN1, AN0 - IGNORE BS0,BS1 (wave memory)
+985D: D6 A4       LDB   $A4         ; B <- $80A4
+985F: 27 02       BEQ   $9863       ; go to 9863 if equal tp 0
+9861: 8A 02       ORA   #$02        ; otherwise OR with 0000_0010 and keep the result in A
+9863: 97 9B       STA   $9B         ; store result in $809B 
+9865: 4C          INCA              ; increment A (the value that we just stored in $809B bank0 = 1, bank1 = 0)
 9866: 97 9C       STA   $9C         ; store the result in $809C
 9868: B7 E2 00    STA   $VIA_PORTB  ; use the value stored in $809C for PORTB and return
 986B: 39          RTS   
@@ -3109,12 +3118,12 @@ irqentry:
 987D: 96 9B       LDA   $9B
 987F: 20 06       BRA   $9887
 
-9881: 30 89 80 00 LEAX  fdccmd,X
-9885: 96 9C       LDA   $9C
-9887: B7 E2 00    STA   $VIA_PORTB
-988A: 33 41       LEAU  $0001,U
-988C: E6 84       LDB   ,X
-988E: 39          RTS   
+9881: 30 89 80 00 LEAX  fdccmd,X	;
+9885: 96 9C       LDA   $9C			; 1001_1100 UART CLK, DISK ENABLE, AN1 = 1, AN= 1 --? MOD WHEEL
+9887: B7 E2 00    STA   $VIA_PORTB	;
+988A: 33 41       LEAU  $0001,U		;
+988C: E6 84       LDB   ,X			;
+988E: 39          RTS				;
 
 988F: 1F 21       TFR   Y,X
 9891: B6 E2 00    LDA   $VIA_PORTB
@@ -3302,9 +3311,9 @@ irqentry:
 9A0C: 0D 84       TST   $84
 9A0E: 10 27 00 55 LBEQ  $9A67
 9A12: 34 26       PSHS  Y,B,A
-9A14: 1A 50       ORCC  #$50
-9A16: BD 87 5E    JSR   $875E
-9A19: 1C AF       ANDCC #$AF
+9A14: 1A 50       ORCC  #$50	; Disable IRQ, FIRQ
+9A16: BD 87 5E    JSR   $875E	;	initialization routine (memory structures, DOC)
+9A19: 1C AF       ANDCC #$AF	; Enable IRQ, FIRQ
 9A1B: 35 26       PULS  A,B,Y
 9A1D: 16 00 2D    LBRA  $9A4D
 
@@ -3333,15 +3342,15 @@ irqentry:
                                 ;                                                              |
 ; called from many places                                                                      |
 9A4D: 96 8B       LDA   $8B		; ; what is $808B?		         -------------<----------------+
-9A4F: 81 2D       CMPA  #$2D	; Compare with $2D parameter? 45
+9A4F: 81 2D       CMPA  #$2D	; Compare with 0x2D parameter? 45
 9A51: 25 07       BCS   $9A5A	;   ----------------------->--------------------------+
-9A53: 81 31       CMPA  #$31	;                                                     |
+9A53: 81 31       CMPA  #$31	;  Compare with 0x31                                  |
 9A55: 22 03       BHI   $9A5A	;                                                     | 
 9A57: BD 9D 41    JSR   $9D41	;                                                     |
 9A5A: 96 8B       LDA   $8B		;   -----------------------<--------------------------+
-9A5C: 81 37       CMPA  #$37	;
+9A5C: 81 37       CMPA  #$37	;	compare $808B with 0x37
 9A5E: 25 07       BCS   $9A67	;
-9A60: 81 3B       CMPA  #$3B	;
+9A60: 81 3B       CMPA  #$3B	;	compare $808B with 0x3B
 9A62: 22 03       BHI   $9A67	;
 9A64: BD 9D 41    JSR   $9D41	;
 9A67: 8E A0 57    LDX   #$A057	;
@@ -3449,16 +3458,16 @@ irqentry:
 9B2C: 7E 9C C1    JMP   $9CC1	; DISPLAY PARAMETER
 
 9B2F: 96 8B       LDA   $8B
-9B31: 81 51       CMPA  #$51
+9B31: 81 51       CMPA  #$51	; compare w 0x51
 9B33: 25 60       BCS   $9B95
 9B35: 81 58       CMPA  #$58
 9B37: 22 5C       BHI   $9B95
-9B39: 81 51       CMPA  #$51
+9B39: 81 51       CMPA  #$51	; compare w 0x51
 9B3B: 26 05       BNE   $9B42
 9B3D: 8E 80 20    LDX   #$8020
 9B40: 20 50       BRA   $9B92
 
-9B42: 81 52       CMPA  #$52
+9B42: 81 52       CMPA  #$52	; compare w 0x52
 9B44: 26 0B       BNE   $9B51
 9B46: 86 01       LDA   #$01
 9B48: 97 A3       STA   $A3
@@ -3466,23 +3475,23 @@ irqentry:
 9B4C: 8E 80 21    LDX   #$8021
 9B4F: 20 41       BRA   $9B92
 
-9B51: 81 53       CMPA  #$53
+9B51: 81 53       CMPA  #$53	; compare w 0x53
 9B53: 26 05       BNE   $9B5A
 9B55: 8E 80 22    LDX   #$8022
 9B58: 20 38       BRA   $9B92
 
-9B5A: 81 54       CMPA  #$54
+9B5A: 81 54       CMPA  #$54	; compare w 0x54
 9B5C: 26 07       BNE   $9B65
 9B5E: 8E 80 23    LDX   #$8023
 9B61: D7 A0       STB   $A0
 9B63: 20 2D       BRA   $9B92
 
-9B65: 81 55       CMPA  #$55
+9B65: 81 55       CMPA  #$55	; compare w 0x55
 9B67: 26 05       BNE   $9B6E
 9B69: 8E 80 24    LDX   #$8024
 9B6C: 20 24       BRA   $9B92
 
-9B6E: 81 56       CMPA  #$56
+9B6E: 81 56       CMPA  #$56	; compare w 0x56
 9B70: 26 05       BNE   $9B77
 9B72: 8E 80 25    LDX   #$8025
 9B75: 20 1B       BRA   $9B92
@@ -3769,10 +3778,11 @@ irqentry:
 
 9D4A: 00 
 
-9D4B: B6 9D 4A    LDA   $9D4A
+;;
+9D4B: B6 9D 4A    LDA   $9D4A ;
 9D4E: 81 00       CMPA  #$00
 9D50: 26 36       BNE   $9D88
-9D52: BD 9D D7    JSR   $9DD7
+9D52: BD 9D D7    JSR   $9DD7 ;
 9D55: 96 AF       LDA   $AF
 9D57: 81 0B       CMPA  #$0B
 9D59: 27 04       BEQ   $9D5F
@@ -3794,7 +3804,7 @@ irqentry:
 9D79: 10 8E FB 68 LDY   #$FB68
 9D7D: D6 AD       LDB   $AD
 9D7F: A6 A5       LDA   B,Y
-9D81: 97 AE       STA   $AE
+9D81: 97 AE       STA   $AE	;;; FIGURE OUT WHAT STORES IN KEYVAL
 9D83: 39          RTS   
 
 9D84: 20 CC       BRA   $9D52
@@ -3821,20 +3831,20 @@ irqentry:
 9DAB: 20 27       BRA   $9DD4
 
 9DAD: 81 02       CMPA  #$02
-9DAF: 26 23       BNE   $9DD4
-9DB1: BD 9D D7    JSR   $9DD7
+9DAF: 26 23       BNE   $9DD4	; just one instruction above
+9DB1: BD 9D D7    JSR   $9DD7	; this one
 9DB4: 96 AF       LDA   $AF
 9DB6: 91 AD       CMPA  $AD
 9DB8: 26 0C       BNE   $9DC6
 9DBA: 10 8E FB 68 LDY   #$FB68
 9DBE: A6 A6       LDA   A,Y
-9DC0: 97 AE       STA   $AE
+9DC0: 97 AE       STA   $AE		; Figure out what stores in KEYVAL
 9DC2: 20 0F       BRA   $9DD3
 
 9DC4: 20 0D       BRA   $9DD3
 
 9DC6: 86 0D       LDA   #$0D
-9DC8: 97 AE       STA   $AE
+9DC8: 97 AE       STA   $AE		; Store in KEYVAL the value of 0x0D (VALUE key)
 9DCA: 86 05       LDA   #$05
 9DCC: 97 31       STA   $31
 9DCE: 86 01       LDA   #$01
@@ -3843,16 +3853,17 @@ irqentry:
 
 9DD4: 16 FF 7B    LBRA  $9D52
 
-9DD7: DC B3       LDD   $B3
-9DD9: 0D 83       TST   $83
+;;; multiple calls to here
+9DD7: DC B3       LDD   $B3					; $80B3  A=MSB[$80B3], B=LSB[$80B3]
+9DD9: 0D 83       TST   $83					; $8083
 9DDB: 2B 06       BMI   $9DE3
 9DDD: 26 03       BNE   $9DE2
 9DDF: 4C          INCA  
 9DE0: 20 01       BRA   $9DE3
 
-9DE2: 5C          INCB  
-9DE3: 97 B5       STA   $B5
-9DE5: D7 B6       STB   $B6
+9DE2: 5C          INCB						; from here, $80B5 and $80B6 have same value
+9DE3: 97 B5       STA   $B5					; [$80B5] <=    
+9DE5: D7 B6       STB   $B6					; [$80B6] <=
 9DE7: 5F          CLRB  
 9DE8: 86 F0       LDA   #$F0
 9DEA: 97 AF       STA   $AF
@@ -3867,55 +3878,62 @@ irqentry:
 9DFC: 08 B5       ASL   $B5
 9DFE: 20 06       BRA   $9E06
 
-9E00: 08 B5       ASL   $B5
-9E02: 24 02       BCC   $9E06
-9E04: 84 F7       ANDA  #$F7
-9E06: 0D 89       TST   $89
-9E08: 27 0A       BEQ   $displaykeypad1
-9E0A: C6 80       LDB   #$80
-9E0C: D5 33       BITB  $33
-9E0E: 26 04       BNE   $displaykeypad1
-9E10: 08 B6       ASL   $B6
-9E12: 20 06       BRA   $9E1A
+9E00: 08 B5       ASL   $B5					; Arithmetic shift left of $80B5, result in A
+9E02: 24 02       BCC   $9E06				;
+9E04: 84 F7       ANDA  #$F7				; AND w 1111_0111
+9E06: 0D 89       TST   $89					; set N and Z bits according to what is stored in $8089
+9E08: 27 0A       BEQ   $displaykeypad1		; if Z is set, go to displaypad1
+9E0A: C6 80       LDB   #$80				; B<=0x80
+9E0C: D5 33       BITB  $33					; bit comparison with what's stored in $8033
+9E0E: 26 04       BNE   $displaykeypad1		;
+9E10: 08 B6       ASL   $B6					;	aritmetic shift left of $80B6, which is a multiply x 2
+9E12: 20 06       BRA   $9E1A				;
 
-;*******************************
-;* displaykeypad1:
-;*******************************
-9E14: 08 B6       ASL   $B6	; This routine access the display and keypad with $VIA6522_PORT_A
-9E16: 24 02       BCC   $9E1A
-9E18: 84 EF       ANDA  #$EF
-9E1A: 1F 89       TFR   A,B
-9E1C: CA 18       ORB   #$18    ; 0001_1000
-9E1E: F7 E2 0F    STB   $VIA6522_PORT_A ; Register F
-9E21: 1E 12       EXG   X,Y
-9E23: 1E 12       EXG   X,Y
-9E25: F6 E2 0F    LDB   $VIA6522_PORT_A ; Register F
-9E28: C4 E0       ANDB  #$E0
-9E2A: C1 E0       CMPB  #$E0
-9E2C: 26 02       BNE   $9E30
-9E2E: C6 0F       LDB   #$0F
-9E30: D7 B1       STB   $B1
-9E32: B7 E2 0F    STA   $VIA6522_PORT_A ; Register F
+	||
+	\/
+
+;***********************************************************************************
+;* displaykeypad1: This routine access the display and keypad with $VIA6522_PORT_A
+;**********************************************************************************
+; we are entering the first time with  $80B6 = 0x60		A=10, B=0x00,	X=b2c2,		Y= EC9F,	U = E420, S= AFCD
+;                     second time with $80B6 = 0xC0		A=11, B=0x80,	X=B2C2,		Y= EC9F,	U = FB4D, S= AFCF
+;					  third time with  $80B6 = ?		A=11, B=,		X=,			Y=		,	U = ,		S= 
+;					  third time with  $80B6 = 0x00		A=13, B=03,		X=B2C2,		Y=B186 ,	U = 8C7F, S= AFCD 
+9E14: 08 B6       ASL   $B6	;	what's in $80B6? First time is 0x60. There is a value that we keep shifting 
+9E16: 24 02       BCC   $9E1A	;	-->-+		and if the Carry is CLEAR we skip to the next instruction
+9E18: 84 EF       ANDA  #$EF	;		|		otherwise we AND it with 1110_1111
+9E1A: 1F 89       TFR   A,B		;	--<-+		TRANSFER REGISTER TO REGISTER A->B We make a copy of A in B. B is also 0x10 now.
+9E1C: CA 18       ORB   #$18    ; 0001_1000		OR with B with AN1=1; AN0=1, wjch means the displays are off.  Result is in B.
+9E1E: F7 E2 0F    STB   $VIA6522_PORT_A ; Register F	we are outputting to read keys? Values are: 0x18 (000), 0x19(001), 0x1A (010), 0x1B (011) ...
+9E21: 1E 12       EXG   X,Y				;															the emulator loops before processing 100,101,110, 111                 
+9E23: 1E 12       EXG   X,Y				;
+9E25: F6 E2 0F    LDB   $VIA6522_PORT_A ; Register F	we are reading back from PORT A, 0xF8, 0xF9, 0xFA, 0xFB
+9E28: C4 E0       ANDB  #$E0		;	1110_0000 (this should be when no keys are pressed)
+9E2A: C1 E0       CMPB  #$E0		;	1110_0000 (this should be when no keys are pressed)
+9E2C: 26 02       BNE   $9E30		; ----->----+ The first time the jump does not occur (Z=1 because of CMP, BNE jumps if Z==0)
+9E2E: C6 0F       LDB   #$0F		;			|		and 
+9E30: D7 B1       STB   $B1			; -----<----+   we store the value $0F in 80B1 (0000_1111)
+9E32: B7 E2 0F    STA   $VIA6522_PORT_A ; Register F	we are sending out A: 0x10, 0x01, 0x0A, 0x13
 9E35: 86 01       LDA   #$01
-9E37: 97 37       STA   $37		; load #$01 in $8037, used in timer interrupt routine
-9E39: BD 88 5E    JSR   $885E
-9E3C: BD A4 1A    JSR   $A41A
-9E3F: 24 15       BCC   $9E56
-9E41: 97 AE       STA   $AE		;  $AE (0x80AE) is Keyval
-9E43: 86 01       LDA   #$01
-9E45: B7 82 08    STA   $8208
-9E48: BD 90 E9    JSR   $90E9		; this is the routine the interprets the value of $AE
-9E4B: 7F 82 08    CLR   $8208
-9E4E: 86 0F       LDA   #$0F
-9E50: 97 B1       STA   $B1
-9E52: 86 F0       LDA   #$F0
-9E54: 97 AF       STA   $AF
-9E56: 0D 37       TST   $37
-9E58: 27 05       BEQ   $9E5F
-9E5A: BD 88 5E    JSR   $885E
-9E5D: 20 F7       BRA   $9E56
-
-9E5F: 96 B1       LDA   $B1
+9E37: 97 37       STA   $37			;	load #$01 in $8037, used below ----here	--+-------------------------+
+9E39: BD 88 5E    JSR   $885E		;		885E routine													|
+9E3C: BD A4 1A    JSR   $A41A		;		A41A routine	(uses variables 827A and 8278)					|
+9E3F: 24 15       BCC   $9E56		;	If carry set go    ------ here--------------------------------------+
+9E41: 97 AE       STA   $AE			;	OTHERWISE WE JUST HAVE THE NEW VALUE OF $AE (0x80AE)  Keyval		| (goes from 0x10 to 0x11
+9E43: 86 01       LDA   #$01		;
+9E45: B7 82 08    STA   $8208		;	[$8208] <= 0x01
+9E48: BD 90 E9    JSR   $90E9		;	this is the routine the interprets the value of $AE					|
+9E4B: 7F 82 08    CLR   $8208		;	
+9E4E: 86 0F       LDA   #$0F		;	00001111	0x0F							|
+9E50: 97 B1       STA   $B1			;	STORE 0x0F in $80B1
+9E52: 86 F0       LDA   #$F0		;   11110000	0xF0	System Exclusive		???						|
+9E54: 97 AF       STA   $AF			;	STORE 0xF0 in $80AF													|		
+9E56: 0D 37       TST   $37     ;  ---<--+		; what's in 0x8037?	It is a flag				----<-------+
+9E58: 27 05       BEQ   $9E5F   ;    ----|----->----+
+9E5A: BD 88 5E    JSR   $885E	; ...    |			|   <<< I am coming back here from 12/15/2020 so far this is the top
+9E5D: 20 F7       BRA   $9E56	; ---->- +			|
+								;					|
+9E5F: 96 B1       LDA   $B1		;		---<--------+
 9E61: 81 0F       CMPA  #$0F
 9E63: 27 14       BEQ   $9E79
 9E65: 86 02       LDA   #$02
@@ -3974,26 +3992,26 @@ irqentry:
 9EC2: 86 06       LDA   #$06
 9EC4: 20 34       BRA   $9EFA
 
-9EC6: 81 05       CMPA  #$05
-9EC8: 26 04       BNE   $9ECE
-9ECA: 86 07       LDA   #$07
-9ECC: 20 06       BRA   $9ED4
-
-9ECE: 81 06       CMPA  #$06
-9ED0: 26 0A       BNE   $9EDC
-9ED2: 86 08       LDA   #$08
-9ED4: F6 82 22    LDB   $8222
-9ED7: F7 82 1F    STB   $821F
-9EDA: 20 1E       BRA   $9EFA
-
-9EDC: 81 07       CMPA  #$07
-9EDE: 26 09       BNE   $9EE9
-9EE0: C6 03       LDB   #$03
-9EE2: F7 82 1F    STB   $821F
-9EE5: 86 0A       LDA   #$0A
-9EE7: 20 11       BRA   $9EFA
-
-9EE9: 81 09       CMPA  #$09
+9EC6: 81 05       CMPA  #$05	;UP TO HERE COMPARES A with 1, 2, 5
+9EC8: 26 04       BNE   $9ECE	;--->-------+
+9ECA: 86 07       LDA   #$07	;			|
+9ECC: 20 06       BRA   $9ED4	;	---->---|---+
+								;			|	|
+9ECE: 81 06       CMPA  #$06	;	---<----+	|
+9ED0: 26 0A       BNE   $9EDC	;--->-------+	v
+9ED2: 86 08       LDA   #$08	;			|	|
+9ED4: F6 82 22    LDB   $8222	;	-----<------+
+9ED7: F7 82 1F    STB   $821F	;			v
+9EDA: 20 1E       BRA   $9EFA	;			|
+								;			|
+9EDC: 81 07       CMPA  #$07	;	---<----+
+9EDE: 26 09       BNE   $9EE9	;  --->-----+
+9EE0: C6 03       LDB   #$03	;			|
+9EE2: F7 82 1F    STB   $821F	;			|
+9EE5: 86 0A       LDA   #$0A	;			v
+9EE7: 20 11       BRA   $9EFA	;			|
+								;			|
+9EE9: 81 09       CMPA  #$09	;	---<----+
 9EEB: 26 05       BNE   $9EF2
 9EED: 86 0B       LDA   #$0B
 9EEF: 5F          CLRB  
@@ -4005,20 +4023,20 @@ irqentry:
 
 9EFA: D6 8C       LDB   $8C
 9EFC: F1 82 1F    CMPB  $821F
-9EFF: 23 08       BLS   $9F09
-9F01: 86 0E       LDA   #$0E
-9F03: B7 80 07    STA   fdcerr
-9F06: 7E 9F 1B    JMP   $9F1B
-
-9F09: FD 82 20    STD   $8220
-9F0C: BD 9F 60    JSR   $9F60
-9F0F: FC 82 20    LDD   $8220
-9F12: BD A4 35    JSR   $A435
-9F15: 25 04       BCS   $9F1B
-9F17: BD 9F 6F    JSR   $9F6F
-9F1A: 39          RTS   
-
-9F1B: BD 9F 6F    JSR   $9F6F
+9EFF: 23 08       BLS   $9F09	;	--->----+
+9F01: 86 0E       LDA   #$0E	;			|
+9F03: B7 80 07    STA   fdcerr	;			V
+9F06: 7E 9F 1B    JMP   $9F1B	;	--------|--->---+
+								;			|		|
+9F09: FD 82 20    STD   $8220	;	---<----+		|
+9F0C: BD 9F 60    JSR   $9F60	;					|
+9F0F: FC 82 20    LDD   $8220	; A= MSB[8220] B=LSB[8220]
+9F12: BD A4 35    JSR   $A435	;					|
+9F15: 25 04       BCS   $9F1B	;	-->--+			v
+9F17: BD 9F 6F    JSR   $9F6F	;		 |			|	Call to 0x9F6F #1 (12/15/2020) generated from 0x9F09 (called by 9EFA>9EF2>9EE9
+9F1A: 39          RTS			;		 v			|
+								|		 |			|
+9F1B: BD 9F 6F    JSR   $9F6F	;	---<-+	----<---+	Call to 0x9F6F #2 (12/15/2020) also generated from 0x9F09
 9F1E: B6 80 07    LDA   fdcerr
 9F21: 27 3B       BEQ   $9F5E
 9F23: 81 01       CMPA  #$01
@@ -4063,12 +4081,13 @@ irqentry:
 9F6B: BD F5 41    JSR   unknown3	; this routine writes to VIA IER
 9F6E: 39          RTS   
 
+;; DO I GET HERE -NOT (12/15/2020)
 9F6F: 1A 50       ORCC  #$50		; 0101_0000 Disable IRQ and FIRQ
 9F71: BD F5 41    JSR   unknown3	; set IER, display
 9F74: BD F5 2D    JSR   unknown2	; via, UART reset
-9F77: BD 87 5E    JSR   $875E		; also called from osentry
-9F7A: BD 89 6B    JSR   $896B		; this looks at keys pressed from keyboard
-9F7D: BD A0 7E    JSR   $A07E
+9F77: BD 87 5E    JSR   $875E		; also called from osentry, initialization routine (memory structures, DOC)
+9F7A: BD 89 6B    JSR   $896B		; this looks at keys pressed from keyboard, managed by the shift register
+9F7D: BD A0 7E    JSR   $A07E		; This important, but we do not execute it (12/15/2020)
 9F80: 86 CC       LDA   #$CC
 9F82: B7 E2 0B    STA   $E20B
 9F85: 7F E2 06    CLR   $E206
@@ -4141,18 +4160,18 @@ A043: 09 81 0F 81 03 81 81 09 81 81 00 81 81 00 00 00
 A053: 00 40 20 40 01 63 63 63 FC 7C C6 A0 04 07 00 01 
 A063: 1F 1F 1F 1F 1F 7C 7C 7C 7C 7C 1F 1F 1F 1F 1F 7C 
 A073: 7C 7C 7C 7C 01 07 FF 3F C6 C6 3C 
-
+;;;;; IMPORTANT
 A07E: 86 03       LDA   #$03	; code 03 in UART register
-A080: B7 E1 00    STA   $E100	; UART_csr
-A083: 86 95       LDA   #$95	; code 149 in UART register
+A080: B7 E1 00    STA   $E100	; UART_csr	MASTER RESET
+A083: 86 95       LDA   #$95	; code 149 in UART register 1001_0101   Receiver Interrupt Enable, Trasmitter control disabled, 8bits,No parity, 1 stop bit, Divide by 16
 A085: B7 E1 00    STA   $E100	; UART_csr
 A088: CC 82 25    LDD   #$8225	; The value is 0x8225
 A08B: DD BC       STD   $BC		; store in $80BC the value 0x8225
 A08D: DD BE       STD   $BE		; store in $B0BE the value 0x8225
-A08F: CC A1 BC    LDD   #$A1BC	; Content of $A1BC 
-A092: DD C6       STD   $C6		;					is stored in $80C6
+A08F: CC A1 BC    LDD   #$A1BC	; Content is $A1BC	
+A092: DD C6       STD   $C6		;					is stored in $80C6: LOCATION OF UART DATA OUT!!!
 A094: CC A2 4A    LDD   #$A24A	; The value $A24A
-A097: DD C0       STD   $C0		;					is stored in $80C0
+A097: DD C0       STD   $C0		;					is stored in $80C0:	RTS 
 A099: 7F 82 35    CLR   $8235	; what is 8235? Used by ACIA
 A09C: 7F 82 36    CLR   $8236	; what is 8236? Used by ACIA
 A09F: 7F 82 37    CLR   $8237	; what is 8237? Used by ACIA
@@ -4172,38 +4191,39 @@ A0B5: 35 C6       PULS  A,B,U,PC ;(PUL? PC=RTS)
 
 A0B7: 8D EA       BSR   $A0A3
 A0B9: 34 01       PSHS  CC
-A0BB: 1A 50       ORCC  #$50
-A0BD: DD C2       STD   $C2
-A0BF: C6 90       LDB   #$90
-A0C1: 20 5F       BRA   $A122
+A0BB: 1A 50       ORCC  #$50	; DISABLE IRQ and FIRQ
+A0BD: DD C2       STD   $C2		; associated with BRA A122
+A0BF: C6 90       LDB   #$90	
+A0C1: 20 5F       BRA   $A122	;
 
 A0C3: 8D DE       BSR   $A0A3
 A0C5: 34 01       PSHS  CC
-A0C7: 1A 50       ORCC  #$50
-A0C9: DD C2       STD   $C2
+A0C7: 1A 50       ORCC  #$50	; DISABLE IRQ and FIRQ
+A0C9: DD C2       STD   $C2		; associated with BRA A122
 A0CB: C6 80       LDB   #$80
-A0CD: 20 53       BRA   $A122
+A0CD: 20 53       BRA   $A122	;
 
 A0CF: 34 01       PSHS  CC
-A0D1: 1A 50       ORCC  #$50
+A0D1: 1A 50       ORCC  #$50	; DISABLE IRQ and FIRQ
 A0D3: 4F          CLRA  
 A0D4: DD C2       STD   $C2
 A0D6: C6 E0       LDB   #$E0
 A0D8: 20 12       BRA   $A0EC
 
 A0DA: 34 01       PSHS  CC
-A0DC: 1A 50       ORCC  #$50
+A0DC: 1A 50       ORCC  #$50	; DISABLE IRQ and FIRQ
 A0DE: 86 40       LDA   #$40
 A0E0: 20 06       BRA   $A0E8
 
-A0E2: 34 01       PSHS  CC
-A0E4: 1A 50       ORCC  #$50 ; mask 0101_0000 (SEIF): disable both IRQ and FIRQ at once.
+;;; This is the routing where we evenually get stuck
+A0E2: 34 01       PSHS  CC		; what is D prior to get here?
+A0E4: 1A 50       ORCC  #$50	; DISABLE IRQ and FIRQ
 A0E6: 86 01       LDA   #$01
-A0E8: DD C2       STD   $C2
+A0E8: DD C2       STD   $C2		; associated with BRA A122
 A0EA: C6 B0       LDB   #$B0
-A0EC: 96 23       LDA   $23
+A0EC: 96 23       LDA   $23		;	D = [$8023]B0
 A0EE: 27 44       BEQ   $A134
-A0F0: 20 30       BRA   $A122
+A0F0: 20 30       BRA   $A122	;
 
 A0F2: 1A 50       ORCC  #$50    ;  mask 0101_0000 (SEIF): disable both IRQ and FIRQ at once.
 A0F4: 96 23       LDA   $23     ; 
@@ -4219,7 +4239,7 @@ A106: 8D 30       BSR   $A138   ;                                               
 A108: 35 04       PULS  B       ;                                                         |
 A10A: 8D 2C       BSR   $A138   ;                                                         |          
 A10C: 1C AF       ANDCC #$AF    ;   mask 1010_1111: enable both IRQ and FIRQ at once --<--+ From now on Interrupts are enabled
-A10E: DC BC       LDD   $BC		;	--<--+   What's in $80BC and in $80BE?
+A10E: DC BC       LDD   $BC		;	--<--+   What's in $80BC (822a) and in $80BE (8225)
 A110: 10 93 BE    CMPD  $BE		;        |   12/08/20 I am stuck here. T2 IRQ keeps happening while looping here.
 A113: 26 F9       BNE   $A10E	;	-->--+
 A115: 39          RTS   
@@ -4227,79 +4247,85 @@ A115: 39          RTS
 A116: 34 01       PSHS  CC      ; save context
 A118: 1A 50       ORCC  #$50	; disable interrupt
 A11A: C6 F8       LDB   #$F8    ; load $F8 in B
-A11C: D7 BB       STB   $BB	    ; then put $F8 in $00BB
+A11C: D7 BB       STB   $BB	    ; then put $F8 in $80BB
 A11E: 8D 18       BSR   $A138	; branch to A138
 A120: 35 81       PULS  CC,PC 	; (PUL? PC=RTS) ; is this equivalent to RTS?
 
-A122: DA 21       ORB   $21
-A124: D1 BB       CMPB  $BB
-A126: 27 04       BEQ   $A12C
-A128: D7 BB       STB   $BB
-A12A: 8D 0C       BSR   $A138
-A12C: D6 C2       LDB   $C2
-A12E: 8D 08       BSR   $A138
-A130: D6 C3       LDB   $C3
-A132: 8D 04       BSR   $A138
-A134: DC C2       LDD   $C2
-A136: 35 81       PULS  CC,PC 	;(PUL? PC=RTS)
-
-A138: 96 22       LDA   $22		;	put the content of $8022 in A
-A13A: 27 01       BEQ   $A13D	;	if 0 goes to A13D
+; B is $80, $90 (maybe $B0)
+; check entry values of this next - check values of A and B *****
+;
+;
+A122: DA 21       ORB   $21		;
+A124: D1 BB       CMPB  $BB		;
+A126: 27 04       BEQ   $A12C	;
+A128: D7 BB       STB   $BB		;
+A12A: 8D 0C       BSR   $A138	;	---------------------->---------------------+ This is the first call to A13D: B = value in 0x80BB (b0)
+A12C: D6 C2       LDB   $C2		;												v Return here after the first time A13D is called, B is now 0x01 (content of 0x80C2)
+A12E: 8D 08       BSR   $A138	;	---------------------->---------------------+
+A130: D6 C3       LDB   $C3		;												v The second time it gets here. B is now 0x41 (content of 0x80C3)
+A132: 8D 04       BSR   $A138	;	---------------------->---------------------+
+A134: DC C2       LDD   $C2		;		THIS IS LDD, CHECK for A and B			v The third time it gets here. D is 0141 (content of 0x80C2)
+A136: 35 81       PULS  CC,PC 	;(PUL? PC=RTS)									|	==> GOES TO PC = 90BC: !!!
+								;												|
+A138: 96 22       LDA   $22		;	put the content of $8022 in A	----<-------+ 
+A13A: 27 01       BEQ   $A13D	;	if [$8022] is 0 goes to A13D. 
 A13C: 39          RTS   		;	otherwise we are done
 
-A13D: 9E BC       LDX   $BC     ; Does something with the ACIA status register at the end
-A13F: E7 80       STB   ,X+     ;
+;*** first time enters with	:	A = 0xb0 B = 0xb0, DP = 0x80, X = 0xB2C0, S = 0xAF2A, U = 0xFB4D
+
+A13D: 9E BC       LDX   $BC     ; 0x80C is a counter: it goes from 0x8025 to 0x8234 (included)
+A13F: E7 80       STB   ,X+     ; store b0 in $8225, then X = $8226                                
 A141: 8C 82 35    CMPX  #$8235	; compare with the value 0x8235
 A144: 25 03       BCS   $A149   ; ------------------------------>------+
 A146: 8E 82 25    LDX   #$8225  ; X <- 0x8225                          |
 A149: 9F BC       STX   $BC     ; $80BC <- 82 $80BD <- 25              +->-- $80BC <-   $80BD <-
-A14B: 86 B5       LDA   #$B5	; 1011_0101           
+A14B: 86 B5       LDA   #$B5	; 1011_0101      Transmitter Interrupt Enabled, Transmitter control enabled, 8bits, no parity, 1 stop bit, divide by 16     
 A14D: B7 E1 00    STA   $E100	; UART_csr
-A150: 39          RTS   
+A150: 39          RTS			; [A12C, A130, A134, A108, A10C]
 
 firqentry:
 A151: 34 76       PSHS  U,Y,X,B,A
-A153: B6 E1 00    LDA   $E100 ; UART_csr
-A156: 2A 51       BPL   $A1A9 ; Expect negative if Interrupt is on. So if the value of status register is positive, we get out of here.
-A158: 85 30       BITA  #$30  ; compare with Empty and Data carrier not detected
-A15A: 27 1D       BEQ   $A179 ; ..
-A15C: B6 82 37    LDA   $8237	; compare value in $8237
-A15F: 27 02       BEQ   $A163	;				with 0xA163
-A161: 97 CE       STA   $CE		; if it is not equal $80CE <- 0xA163
-A163: BD A0 94    JSR   $A094	; $80C0 gets 0xA24A, clear $8235, $8236, $8237
-A166: B6 E1 01    LDA   $E101	; UART_data -> get the data that generated the interrupt
-A169: 8E 80 76    LDX   #$8076  ; X is 0x8076
-A16C: 6F 03       CLR   $0003,X ;
-A16E: BD 87 DD    JSR   $87DD	; no idea
-A171: 8E 80 76    LDX   #$8076	; X is 0x8076 again
-A174: BD 87 E2    JSR   $87E2	;
-A177: 20 30       BRA   $A1A9	;
+A153: B6 E1 00    LDA   $E100		; UART_csr
+A156: 2A 51       BPL   $A1A9		; Expect negative if Interrupt is on. So if the value of status register is positive, we get out of here.
+A158: 85 30       BITA  #$30		; compare with Empty and Data carrier not detected (0011_0000)
+A15A: 27 1D       BEQ   $A179		; Branch if Equal to Zero
+A15C: B6 82 37    LDA   $8237		; compare value in $8237
+A15F: 27 02       BEQ   $A163		;				with 0xA163
+A161: 97 CE       STA   $CE			; if it is not equal $80CE <- 0xA163
+A163: BD A0 94    JSR   $A094		; $80C0 gets 0xA24A, clear $8235, $8236, $8237
+A166: B6 E1 01    LDA   $E101		; UART_data -> get the data that generated the interrupt
+A169: 8E 80 76    LDX   #$8076		; X is 0x8076
+A16C: 6F 03       CLR   $0003,X		;
+A16E: BD 87 DD    JSR   $87DD		; no idea: goes there with A the data from the UART, X is 8079 I think
+A171: 8E 80 76    LDX   #$8076		; X is 0x8076 again
+A174: BD 87 E2    JSR   $87E2		;
+A177: 20 30       BRA   $A1A9		; DONE	(PULS  A,B,X,Y,U , RTI)
 
-A179: 85 01       BITA  #$01	; a parity error has been detected
-A17B: 27 28       BEQ   $A1A5
-A17D: 8D 5C       BSR   $A1DB
-A17F: 1A 40       ORCC  #$40  ; disable FIRQ interrupt
-A181: B6 82 36    LDA   $8236 ; compare 8236 with 8235, why?
-A184: B1 82 35    CMPA  $8235 ;
-A187: 27 0F       BEQ   $A198	; --------------------------------->----+
-A189: 8E 82 38    LDX   #$8238	; 8238 is also for ACIA					|
-A18C: E6 86       LDB   A,X												|
-A18E: 4C          INCA													v
-A18F: 84 3F       ANDA  #$3F											|
-A191: B7 82 36    STA   $8236 ; store the value in 8236					|
-A194: 8D 6F       BSR   $A205											|
-A196: 20 E7       BRA   $A17F											|
-																		|
-A198: 7F 82 37    CLR   $8237	; 8237 is also for ACIA			---<----+
-A19B: 96 CE       LDA   $CE		; $80CE ?
-A19D: 27 04       BEQ   $A1A3	;				------>-----+
-A19F: 0F CE       CLR   $CE		; clear $80CE				|
-A1A1: 20 C0       BRA   $A163	;  see up (JSR $A094)		v
-															|
-A1A3: 20 04       BRA   $A1A9	;	-->-----------------+-<-+
-								;						|		
-A1A5: 85 02       BITA  #$02	;	framing error?		|
-A1A7: 26 0D       BNE   $A1B6	;	--------------->----|-------+
+A179: 85 01       BITA  #$01		; a parity error has been detected
+A17B: 27 28       BEQ   $A1A5		; Branch if the bit operation is Equal to Zero
+A17D: 8D 5C       BSR   $A1DB		;
+A17F: 1A 40       ORCC  #$40		; disable FIRQ interrupt
+A181: B6 82 36    LDA   $8236		; compare 8236 with 8235, why?
+A184: B1 82 35    CMPA  $8235		;
+A187: 27 0F       BEQ   $A198		; --------------------------------->----+
+A189: 8E 82 38    LDX   #$8238		; 8238 is also for ACIA					|
+A18C: E6 86       LDB   A,X			;										|
+A18E: 4C          INCA				;										v
+A18F: 84 3F       ANDA  #$3F		;										|
+A191: B7 82 36    STA   $8236		; store the value in 8236				|
+A194: 8D 6F       BSR   $A205		;										|
+A196: 20 E7       BRA   $A17F		;										|
+									;										|
+A198: 7F 82 37    CLR   $8237		; 8237 is for ACIA			-------<----+
+A19B: 96 CE       LDA   $CE			; $80CE ?
+A19D: 27 04       BEQ   $A1A3		;				------>-----+
+A19F: 0F CE       CLR   $CE			; clear $80CE				|
+A1A1: 20 C0       BRA   $A163		;  see up (JSR $A094)		v
+									;							|
+A1A3: 20 04       BRA   $A1A9		;	-->-----------------+-<-+
+									;							|		
+A1A5: 85 02       BITA  #$02		;	framing error?			|
+A1A7: 26 0D       BNE   $A1B6		; ------------->----|-------+
 A1A9: 35 76       PULS  A,B,X,Y,U	; ---<--+-----<---------+	|
 A1AB: 3B          RTI				; end firqentry         |	|
 									;						|	|
@@ -4312,12 +4338,13 @@ A1B1: 35 06       PULS  A,B			;						|	|
 A1B3: DD C6       STD   $C6			;						|	|
 A1B5: 39          RTS				;                       |	|
 									;                       |	|
-A1B6: AD 9F 80 C6 JSR   [$80C6,X] ; what does this do? -<---|---+
-A1BA: 20 ED       BRA   $A1A9     ;  -------------->--------+
+A1B6: AD 9F 80 C6 JSR   [$80C6,X] ; what does this do? -<---|---+	This is an indexed JSR  to [$80C6] (a1bc) which outputs a character
+A1BA: 20 ED       BRA   $A1A9     ;  -------------->--------+		DONE	(PULS  A,B,X,Y,U , RTI)
 
-A1BC: 9E BE       LDX   $BE       ; Load in X the value stored in $80BE (which can be either 0x8225 or 0x8235)
-A1BE: A6 80       LDA   ,X+       ;      
-A1C0: B7 E1 01    STA   $E101	  ;	UART_data -> put a character to the outside world
+; UART OUT
+A1BC: 9E BE       LDX   $BE       ; Load in X the value stored in $80BE (which can vary from 0x8225 to 0x8235)
+A1BE: A6 80       LDA   ,X+       ; increment that value     
+A1C0: B7 E1 01    STA   $E101	  ;	UART_data -> put a character to the OUTSIDE world
 A1C3: 8C 82 35    CMPX  #$8235    ; compare X (the value stored in $80BE) with 8235
 A1C6: 25 03       BCS   $A1CB     ; ->--+
 A1C8: 8E 82 25    LDX   #$8225    ;     |
@@ -4327,9 +4354,10 @@ A1CF: 96 22       LDA   $22       ;                                  |
 A1D1: 26 00       BNE   $A1D3     ; ->-\                             |
 A1D3: C6 95       LDB   #$95      ; -<-/                             v
 A1D5: F7 E1 00    STB   $E100     ; load 95 in UART CR (1001_0101)   |
-A1D8: 9F BE       STX   $BE       ; -------------<-------------------+ What's in X? It gets to $80BE
+A1D8: 9F BE       STX   $BE       ; -------------<-------------------+ $80BE also gets 8225
 A1DA: 39          RTS   
 
+; UART IN
 A1DB: F6 E1 01    LDB   $E101		; UART_data
 A1DE: B6 82 37    LDA   $8237
 A1E1: 27 1F       BEQ   $A202
@@ -4389,7 +4417,7 @@ A244: 58          ASLB
 A245: 6E 95       JMP   [B,X]
 
 A247: BD A1 AC    JSR   $A1AC	; PULS  A,B; STD $C0; RTS;
-A24A: 39          RTS   
+A24A: 39          RTS			;
 
 A24B: 8D 43       BSR   $A290
 A24D: BD A1 AC    JSR   $A1AC	; PULS  A,B; STD $C0; RTS;
@@ -4604,101 +4632,101 @@ A3E0: A2 F8 A2 4A A2 47 A2 47 A2 47 A2 47 A2 47 A2 47
 A3F0: A2 47 A2 47 A3 B0 A2 47 A3 BE A3 C6 A3 C2 A2 47 
 A400: A3 D3 A3 D3 
 
-A404: 34 01       PSHS  CC
-A406: 1A 10       ORCC  #$10
-A408: BE 82 78    LDX   $8278
-A40B: A7 80       STA   ,X+
-A40D: 8C 82 8C    CMPX  #$828C
-A410: 25 03       BCS   $A415
-A412: 8E 82 7C    LDX   #$827C
-A415: BF 82 78    STX   $8278
-A418: 35 81       PULS  CC,PC ;(PUL? PC=RTS)
+A404: 34 01       PSHS  CC		; push CC in the stack
+A406: 1A 10       ORCC  #$10	; DISABLE IRQ
+A408: BE 82 78    LDX   $8278	; beginning of the data structure
+A40B: A7 80       STA   ,X+		;
+A40D: 8C 82 8C    CMPX  #$828C	; NOTE; 828B is the last value of some data structure (search for 8280: ). In fact 828C is a subroutine. 
+A410: 25 03       BCS   $A415	;----------------------->-----------+
+A412: 8E 82 7C    LDX   #$827C	:	Store the value 0x827C			|
+A415: BF 82 78    STX   $8278	;		in location $8278	   --<--+
+A418: 35 81       PULS  CC,PC ;(PUL? PC=RTS)	; return and restore CC
 
-A41A: BE 82 7A    LDX   $827A
-A41D: BC 82 78    CPX   $8278
-A420: 26 03       BNE   $A425
-A422: 1C FE       ANDCC #$FE
-A424: 39          RTS   
-
-A425: A6 80       LDA   ,X+
-A427: 8C 82 8C    CMPX  #$828C
-A42A: 25 03       BCS   $A42F
-A42C: 8E 82 7C    LDX   #$827C
-A42F: BF 82 7A    STX   $827A
-A432: 1A 01       ORCC  #$01
+A41A: BE 82 7A    LDX   $827A	; load in X the value in 827A
+A41D: BC 82 78    CPX   $8278	; compare with  value in 8278
+A420: 26 03       BNE   $A425	; If they are not the same --->-------------+ 
+A422: 1C FE       ANDCC #$FE	;	otherwise 1111_1110	ENABLE CARRY FLAG	|
+A424: 39          RTS			;											|
+								;											|
+A425: A6 80       LDA   ,X+		;  ----------<------------------------------+
+A427: 8C 82 8C    CMPX  #$828C	; so X is an index that goes location 828C
+A42A: 25 03       BCS   $A42F	; if carry is set jump below ---------------+ 
+A42C: 8E 82 7C    LDX   #$827C	;	Store the value 0x827C					|
+A42F: BF 82 7A    STX   $827A	;		in location $827A	   -----<-------+ -> and store the value in X (828C?) in $827A
+A432: 1A 01       ORCC  #$01	; DISABLE CARRY FLAG
 A434: 39          RTS   
 
 ; called from 9F12, which seems to be whithin keypad management
-A435: BD A4 BA    JSR   $A4BA
+A435: BD A4 BA    JSR   $A4BA	;
 A438: B6 80 07    LDA   fdcerr
-A43B: 81 00       CMPA  #$00
-A43D: 27 03       BEQ   $A442
-A43F: 16 00 64    LBRA  $A4A6
+A43B: 81 00       CMPA  #$00	; compare FDC Error with 0
+A43D: 27 03       BEQ   $A442	; if no disk error go and compare $80CF with 1, 2, etc
+A43F: 16 00 64    LBRA  $A4A6	; 
 
-A442: B6 80 CF    LDA   $80CF
-A445: 81 01       CMPA  #$01
-A447: 26 05       BNE   $A44E
+A442: B6 80 CF    LDA   $80CF	; what's in $80CF????	<<< this contains an instruction
+A445: 81 01       CMPA  #$01	; compare  with 1
+A447: 26 05       BNE   $A44E	; not 1
 A449: BD A4 D4    JSR   $A4D4
 A44C: 20 58       BRA   $A4A6
 
-A44E: 81 02       CMPA  #$02
-A450: 26 05       BNE   $A457
+A44E: 81 02       CMPA  #$02	; compare  with 2
+A450: 26 05       BNE   $A457	; not 2
 A452: BD A4 D4    JSR   $A4D4
 A455: 20 4F       BRA   $A4A6
 
-A457: 81 03       CMPA  #$03
-A459: 26 05       BNE   $A460
+A457: 81 03       CMPA  #$03	; compare  with 3
+A459: 26 05       BNE   $A460	; not 3
 A45B: BD A4 D4    JSR   $A4D4
 A45E: 20 46       BRA   $A4A6
 
-A460: 81 04       CMPA  #$04
-A462: 26 05       BNE   $A469
+A460: 81 04       CMPA  #$04	; compare  with 4
+A462: 26 05       BNE   $A469	; not 4
 A464: BD A5 3A    JSR   $A53A
 A467: 20 3D       BRA   $A4A6
 
-A469: 81 05       CMPA  #$05
-A46B: 26 05       BNE   $A472
+A469: 81 05       CMPA  #$05	; compare  with 5
+A46B: 26 05       BNE   $A472	; not 5
 A46D: BD A5 3A    JSR   $A53A
 A470: 20 34       BRA   $A4A6
 
-A472: 81 06       CMPA  #$06
-A474: 26 05       BNE   $A47B
+A472: 81 06       CMPA  #$06	; compare  with 6
+A474: 26 05       BNE   $A47B	; not 6
 A476: BD A5 3A    JSR   $A53A
 A479: 20 2B       BRA   $A4A6
 
-A47B: 81 07       CMPA  #$07
-A47D: 26 05       BNE   $A484
-A47F: BD A5 A1    JSR   $A5A1
+A47B: 81 07       CMPA  #$07	; compare  with 7
+A47D: 26 05       BNE   $A484	; not 7
+A47F: BD A5 A1    JSR   $A5A1	; disk
 A482: 20 22       BRA   $A4A6
 
-A484: 81 08       CMPA  #$08
-A486: 26 05       BNE   $A48D
+A484: 81 08       CMPA  #$08	; compare  with 8
+A486: 26 05       BNE   $A48D	; not 8
 A488: BD A5 FC    JSR   $A5FC
 A48B: 20 19       BRA   $A4A6
 
-A48D: 81 09       CMPA  #$09
-A48F: 26 05       BNE   $A496
-A491: BD A5 A1    JSR   $A5A1
+A48D: 81 09       CMPA  #$09	; compare  with 9
+A48F: 26 05       BNE   $A496	; not 9
+A491: BD A5 A1    JSR   $A5A1	; disk
 A494: 20 10       BRA   $A4A6
-
-A496: 81 0A       CMPA  #$0A
+	
+A496: 81 0A       CMPA  #$0A	; compare  with 10  // LOAD UPPER
 A498: 26 05       BNE   $A49F
-A49A: BD A5 FC    JSR   $A5FC
+A49A: BD A5 FC    JSR   $A5FC	
 A49D: 20 07       BRA   $A4A6
 
-A49F: 81 0B       CMPA  #$0B
+A49F: 81 0B       CMPA  #$0B	; compare  with 11	// LOAD LOWER
 A4A1: 26 03       BNE   $A4A6
 A4A3: BD A6 53    JSR   $A653
-A4A6: B6 E8 01    LDA   $E801
+A4A6: B6 E8 01    LDA   $E801	; <<< FDC status (we know it is an error
 A4A9: B7 80 02    STA   fdctrk
 A4AC: B6 80 07    LDA   fdcerr
 A4AF: 81 00       CMPA  #$00
-A4B1: 26 04       BNE   $A4B7
-A4B3: 1C FE       ANDCC #$FE
-A4B5: 20 02       BRA   $A4B9
-
-A4B7: 1A 01       ORCC  #$01
-A4B9: 39          RTS   
+A4B1: 26 04       BNE   $A4B7	; ------------->----+
+A4B3: 1C FE       ANDCC #$FE	; ENABLE CARRY		|
+A4B5: 20 02       BRA   $A4B9	; ---->-----------------+
+								;					|	|
+A4B7: 1A 01       ORCC  #$01	; DISABLE CARRY	--<-+	|
+A4B9: 39          RTS			;  ----<----------------+
 
 ; called from A435
 A4BA: B7 80 CF    STA   $80CF   ; Register A in $80CF
@@ -4709,7 +4737,7 @@ A4C6: 86 E8       LDA   #$E8
 A4C8: 1F 8B       TFR   A,DP
 A4CA: BD F0 8F    JSR   fdcforceinterrupt
 A4CD: B6 80 02    LDA   fdctrk
-A4D0: B7 E8 01    STA   $E801
+A4D0: B7 E8 01    STA   $E801	; floppy disc controller, register TRACK
 A4D3: 39          RTS   
 
 A4D4: BD F4 C6    JSR   enablefd
@@ -4732,51 +4760,51 @@ A4F8: 7F 80 E3    CLR   $80E3	   ; what variable is $80E3
 A4FB: B6 80 CF    LDA   $80CF      ; what variable is $80CF
 A4FE: 81 01       CMPA  #$01
 A500: 27 07       BEQ   $A509
-A502: B6 80 CF    LDA   $80CF      ; again variable $80CF
-A505: 81 03       CMPA  #$03
+A502: B6 80 CF    LDA   $80CF		; again variable $80CF
+A505: 81 03       CMPA  #$03		; compare w 3
 A507: 26 14       BNE   $A51D
 A509: B6 E2 00    LDA   $VIA_PORTB
-A50C: 84 FC       ANDA  #$FC
+A50C: 84 FC       ANDA  #$FC		; 1111_1100
 A50E: B7 E2 00    STA   $VIA_PORTB
-A511: BD A6 9C    JSR   $A69C
+A511: BD A6 9C    JSR   $A69C		; something to do with LOWER SOUND
 A514: B6 80 06    LDA   fdcstat
 A517: 81 00       CMPA  #$00
 A519: 27 02       BEQ   $A51D
 A51B: 20 19       BRA   $A536
 
-A51D: B6 80 CF    LDA   $80CF
-A520: 81 02       CMPA  #$02
+A51D: B6 80 CF    LDA   $80CF		; again variable $80CF
+A520: 81 02       CMPA  #$02		; compare w 2
 A522: 27 07       BEQ   $A52B
-A524: B6 80 CF    LDA   $80CF
-A527: 81 03       CMPA  #$03
+A524: B6 80 CF    LDA   $80CF		; again variable $80CF
+A527: 81 03       CMPA  #$03		; compare w 3
 A529: 26 0B       BNE   $A536
 A52B: B6 E2 00    LDA   $VIA_PORTB
-A52E: 84 FC       ANDA  #$FC
+A52E: 84 FC       ANDA  #$FC			; 1111_1100
 A530: B7 E2 00    STA   $VIA_PORTB
-A533: BD A6 E8    JSR   $A6E8
-A536: BD F4 D6    JSR   disablefd
+A533: BD A6 E8    JSR   $A6E8			; something to do with UPPER SOUND
+A536: BD F4 D6    JSR   disablefd		; disable DISK
 A539: 39          RTS   
 
 A53A: BD F4 C6    JSR   enablefd
-A53D: 86 40       LDA   #$40
-A53F: B4 E2 00    ANDA  $VIA_PORTB
-A542: 81 00       CMPA  #$00
+A53D: 86 40       LDA   #$40			; 0100_0000 FDC Disk Loaded
+A53F: B4 E2 00    ANDA  $VIA_PORTB		;
+A542: 81 00       CMPA  #$00			; compare w 0
 A544: 26 08       BNE   $A54E
 A546: 86 07       LDA   #$07
 A548: B7 80 07    STA   fdcerr
-A54B: 16 00 4F    LBRA  $A59D
+A54B: 16 00 4F    LBRA  $A59D		; (disablefd, RST)
 
 A54E: 86 02       LDA   #$02
 A550: B7 80 E1    STA   $80E1
 A553: 7F 80 E3    CLR   $80E3
-A556: B6 80 CF    LDA   $80CF
-A559: 81 04       CMPA  #$04
+A556: B6 80 CF    LDA   $80CF		;	again variable $80CF
+A559: 81 04       CMPA  #$04		;	compare w 4
 A55B: 27 07       BEQ   $A564
-A55D: B6 80 CF    LDA   $80CF
-A560: 81 06       CMPA  #$06
+A55D: B6 80 CF    LDA   $80CF		;	again variable $80CF
+A560: 81 06       CMPA  #$06		;	compare w 6
 A562: 26 14       BNE   $A578
 A564: B6 E2 00    LDA   $VIA_PORTB
-A567: 84 FC       ANDA  #$FC
+A567: 84 FC       ANDA  #$FC		; 1111_1100
 A569: B7 E2 00    STA   $VIA_PORTB
 A56C: BD A6 9C    JSR   $A69C
 A56F: B6 80 06    LDA   fdcstat
@@ -4784,14 +4812,14 @@ A572: 81 00       CMPA  #$00
 A574: 27 02       BEQ   $A578
 A576: 20 25       BRA   $A59D
 
-A578: B6 80 CF    LDA   $80CF
-A57B: 81 05       CMPA  #$05
+A578: B6 80 CF    LDA   $80CF		;	again variable $80CF
+A57B: 81 05       CMPA  #$05		;	compare w 5
 A57D: 27 07       BEQ   $A586
-A57F: B6 80 CF    LDA   $80CF
-A582: 81 06       CMPA  #$06
+A57F: B6 80 CF    LDA   $80CF		;	again variable $80CF
+A582: 81 06       CMPA  #$06		;	compare w 6
 A584: 26 14       BNE   $A59A
 A586: B6 E2 00    LDA   $VIA_PORTB
-A589: 84 FC       ANDA  #$FC
+A589: 84 FC       ANDA  #$FC	; 1111_1100
 A58B: B7 E2 00    STA   $VIA_PORTB
 A58E: BD A6 E8    JSR   $A6E8
 A591: B6 80 06    LDA   fdcstat
@@ -4803,28 +4831,28 @@ A59A: BD A9 7C    JSR   $A97C
 A59D: BD F4 D6    JSR   disablefd
 A5A0: 39          RTS   
 
-A5A1: BD F4 C6    JSR   enablefd
-A5A4: 86 40       LDA   #$40
-A5A6: B4 E2 00    ANDA  $VIA_PORTB
-A5A9: 81 00       CMPA  #$00
-A5AB: 26 08       BNE   $A5B5
-A5AD: 86 07       LDA   #$07
-A5AF: B7 80 07    STA   fdcerr
-A5B2: 16 00 43    LBRA  $A5F8
+A5A1: BD F4 C6    JSR   enablefd	;
+A5A4: 86 40       LDA   #$40		; 
+A5A6: B4 E2 00    ANDA  $VIA_PORTB	;	0100_0000 is FDC DISK LOADED
+A5A9: 81 00       CMPA  #$00		;	nothing on VIA_PORTB?
+A5AB: 26 08       BNE   $A5B5		;	
+A5AD: 86 07       LDA   #$07		;
+A5AF: B7 80 07    STA   fdcerr		;
+A5B2: 16 00 43    LBRA  $A5F8		; (disablefd, RTS)
 
 A5B5: BD A8 B9    JSR   $A8B9
 A5B8: B6 80 07    LDA   fdcerr
-A5BB: 81 00       CMPA  #$00
+A5BB: 81 00       CMPA  #$00	; compare error w 0
 A5BD: 27 02       BEQ   $A5C1
-A5BF: 20 37       BRA   $A5F8
+A5BF: 20 37       BRA   $A5F8	; (disablefd, RTS)
 
-A5C1: B6 80 CF    LDA   $80CF
-A5C4: 81 07       CMPA  #$07
+A5C1: B6 80 CF    LDA   $80CF	; 	again variable $80CF
+A5C4: 81 07       CMPA  #$07	;	compare error  w 7
 A5C6: 26 06       BNE   $A5CE
 A5C8: 10 8E FB A8 LDY   #$FBA8
 A5CC: 20 08       BRA   $A5D6
 
-A5CE: 81 09       CMPA  #$09
+A5CE: 81 09       CMPA  #$09	; compare error w 9
 A5D0: 26 04       BNE   $A5D6
 A5D2: 10 8E FB C8 LDY   #$FBC8
 A5D6: 7F 80 E3    CLR   $80E3
@@ -4833,28 +4861,28 @@ A5DC: B6 80 06    LDA   fdcstat
 A5DF: 81 00       CMPA  #$00
 A5E1: 27 05       BEQ   $A5E8
 A5E3: BD AB 00    JSR   $AB00
-A5E6: 20 10       BRA   $A5F8
+A5E6: 20 10       BRA   $A5F8	; (disablefd, RTS)
 
 A5E8: 7F 80 E1    CLR   $80E1
 A5EB: BD A8 47    JSR   $A847
 A5EE: B6 80 06    LDA   fdcstat
 A5F1: 81 00       CMPA  #$00
-A5F3: 27 03       BEQ   $A5F8
+A5F3: 27 03       BEQ   $A5F8	; (disablefd, RTS)
 A5F5: BD AB 00    JSR   $AB00
 A5F8: BD F4 D6    JSR   disablefd
 A5FB: 39          RTS   
 
 A5FC: BD F4 C6    JSR   enablefd
-A5FF: 86 40       LDA   #$40		;
-A601: B4 E2 00    ANDA  $VIA_PORTB	; 0100_0000
+A5FF: 86 40       LDA   #$40		;	0100_0000
+A601: B4 E2 00    ANDA  $VIA_PORTB	;	FDC bit disk loaded
 A604: 81 00       CMPA  #$00
 A606: 26 08       BNE   $A610
 A608: 86 07       LDA   #$07
 A60A: B7 80 07    STA   fdcerr
 A60D: 16 00 3F    LBRA  $A64F
 
-A610: B6 80 CF    LDA   $80CF
-A613: 81 08       CMPA  #$08
+A610: B6 80 CF    LDA   $80CF		;		again variable $80CF
+A613: 81 08       CMPA  #$08		;		compare w 8
 A615: 26 06       BNE   $A61D
 A617: 10 8E FB A8 LDY   #$FBA8
 A61B: 20 08       BRA   $A625
@@ -4884,8 +4912,8 @@ A64F: BD F4 D6    JSR   disablefd
 A652: 39          RTS   
 
 A653: BD F4 C6    JSR   enablefd
-A656: 86 40       LDA   #$40
-A658: B4 E2 00    ANDA  $VIA_PORTB
+A656: 86 40       LDA   #$40		; 0100_000 FDC Disk Loaded
+A658: B4 E2 00    ANDA  $VIA_PORTB	; 
 A65B: 81 00       CMPA  #$00
 A65D: 26 08       BNE   $A667
 A65F: 86 07       LDA   #$07
@@ -4902,7 +4930,7 @@ A678: 27 05       BEQ   $A67F
 A67A: BD AB 00    JSR   $AB00
 A67D: 20 19       BRA   $A698
 
-A67F: B6 80 D6    LDA   $80D6
+A67F: B6 80 D6    LDA   $80D6		; 80D6 (search for $D6) it is sector
 A682: B7 80 03    STA   fdcsect
 A685: 8E 80 11    LDX   #$8011
 A688: BF 80 04    STX   fdcbuff
@@ -4914,7 +4942,7 @@ A695: BD AB 00    JSR   $AB00
 A698: BD F4 D6    JSR   disablefd
 A69B: 39          RTS   
 
-A69C: 10 8E FB 90 LDY   #$FB90
+A69C: 10 8E FB 90 LDY   #$FB90		;	LOWER SOUNDS
 A6A0: BD AA D2    JSR   $AAD2
 A6A3: B6 80 06    LDA   fdcstat
 A6A6: 81 00       CMPA  #$00
@@ -4925,7 +4953,7 @@ A6AD: 16 00 37    LBRA  $A6E7
 A6B0: 7F 80 DD    CLR   $80DD
 A6B3: 86 02       LDA   #$02
 A6B5: B7 80 DE    STA   $80DE
-A6B8: 7F 80 E0    CLR   $80E0 ; associated with keypad/display?
+A6B8: 7F 80 E0    CLR   $80E0		; associated with keypad/display?
 A6BB: B6 80 E1    LDA   $80E1
 A6BE: 81 00       CMPA  #$00
 A6C0: 26 05       BNE   $A6C7
@@ -4948,7 +4976,7 @@ A6E2: 27 03       BEQ   $A6E7
 A6E4: BD AB 00    JSR   $AB00
 A6E7: 39          RTS   
 
-A6E8: 10 8E FB 9C LDY   #$FB9C
+A6E8: 10 8E FB 9C LDY   #$FB9C		; UPPER SOUNDS
 A6EC: BD AA D2    JSR   $AAD2
 A6EF: B6 80 06    LDA   fdcstat
 A6F2: 81 00       CMPA  #$00
@@ -4983,27 +5011,27 @@ A730: 27 03       BEQ   $A735
 A732: BD AB 00    JSR   $AB00
 A735: 39          RTS   
 
-A736: B6 80 D6    LDA   $80D6
+A736: B6 80 D6    LDA   $80D6			; $80D6 stores the SECTOR
 A739: B7 80 03    STA   fdcsect
-A73C: B6 E2 00    LDA   $VIA_PORTB
-A73F: BA 80 DD    ORA   $80DD
-A742: B7 E2 00    STA   $VIA_PORTB
-A745: 8E 00 00    LDX   #$0000
-A748: BF 80 04    STX   fdcbuff
-A74B: BD F4 48    JSR   readsector ; this section is associated with a read from the floppy
+A73C: B6 E2 00    LDA   $VIA_PORTB		; 
+A73F: BA 80 DD    ORA   $80DD			; OR with the value stored in $80DD
+A742: B7 E2 00    STA   $VIA_PORTB		; put the result in VIA_PORTB
+A745: 8E 00 00    LDX   #$0000			;
+A748: BF 80 04    STX   fdcbuff			; fdcbuff is no 0000, this is X register
+A74B: BD F4 48    JSR   readsector		; this section is associated with a read from the floppy
 A74E: B6 80 06    LDA   fdcstat
 A751: 81 00       CMPA  #$00
-A753: 27 03       BEQ   $A758
-A755: 16 00 32    LBRA  $A78A
-
-A758: B6 80 E0    LDA   $80E0	; associated with keypad/display?
+A753: 27 03       BEQ   $A758	; ->--+
+A755: 16 00 32    LBRA  $A78A	; -->----+ RTS
+								;     |  |
+A758: B6 80 E0    LDA   $80E0	; -<--+  |   is $80E0 associated with keypad/display?
 A75B: 81 00       CMPA  #$00
 A75D: 26 0B       BNE   $A76A
 A75F: 8E B3 1D    LDX   #$B31D
 A762: CC 02 71    LDD   #$0271
 A765: C3 B3 1D    ADDD  #$B31D
 A768: 20 0D       BRA   $A777
-
+								;		 |
 A76A: 81 02       CMPA  #$02
 A76C: 26 09       BNE   $A777
 A76E: 8E B5 8E    LDX   #$B58E
@@ -5013,58 +5041,58 @@ A777: FD 80 DB    STD   $80DB
 A77A: 10 8E 00 00 LDY   #$0000
 A77E: A6 A0       LDA   ,Y+
 A780: A7 80       STA   ,X+
-A782: BC 80 DB    CPX   $80DB
+A782: BC 80 DB    CPX   $80DB	;		 |
 A785: 26 F7       BNE   $A77E
-A787: 7C 80 D6    INC   $80D6
-A78A: 39          RTS   
+A787: 7C 80 D6    INC   $80D6	;		 |
+A78A: 39          RTS			; -->----+
 
-A78B: B6 80 D6    LDA   $80D6
-A78E: B7 80 03    STA   fdcsect
-A791: B6 80 E0    LDA   $80E0 ; associated with keypad/display?
-A794: 81 00       CMPA  #$00
-A796: 26 05       BNE   $A79D
-A798: 8E B3 1D    LDX   #$B31D
-A79B: 20 07       BRA   $A7A4
-
-A79D: 81 02       CMPA  #$02
-A79F: 26 03       BNE   $A7A4
-A7A1: 8E B5 8E    LDX   #$B58E
-A7A4: BF 80 04    STX   fdcbuff
-A7A7: BD F4 76    JSR   writesector
-A7AA: 7C 80 D6    INC   $80D6
+A78B: B6 80 D6    LDA   $80D6		; $80D6 stores the SECTOR
+A78E: B7 80 03    STA   fdcsect		;
+A791: B6 80 E0    LDA   $80E0		; associated with keypad/display?
+A794: 81 00       CMPA  #$00		;
+A796: 26 05       BNE   $A79D		; --->---+
+A798: 8E B3 1D    LDX   #$B31D		;        |
+A79B: 20 07       BRA   $A7A4		;		 v
+									;		 |
+A79D: 81 02       CMPA  #$02		; ----<--+
+A79F: 26 03       BNE   $A7A4		; ---->--+
+A7A1: 8E B5 8E    LDX   #$B58E		;        |
+A7A4: BF 80 04    STX   fdcbuff		; ---<---+
+A7A7: BD F4 76    JSR   writesector	;
+A7AA: 7C 80 D6    INC   $80D6		;   INCREMENT SECTOR
 A7AD: 39          RTS   
 
-A7AE: B6 80 D6    LDA   $80D6
+A7AE: B6 80 D6    LDA   $80D6		; $80D6 stores the SECTOR
 A7B1: B7 80 03    STA   fdcsect
-A7B4: B6 80 D5    LDA   $80D5
-A7B7: B7 80 02    STA   fdctrk
-A7BA: B6 E2 00    LDA   $VIA_PORTB
-A7BD: BA 80 DD    ORA   $80DD
-A7C0: B7 E2 00    STA   $VIA_PORTB
-A7C3: 8E 00 00    LDX   #$0000
-A7C6: BF 80 04    STX   fdcbuff
-A7C9: B6 80 E1    LDA   $80E1
-A7CC: 81 00       CMPA  #$00
-A7CE: 26 05       BNE   $A7D5
-A7D0: BD F4 48    JSR   readsector
-A7D3: 20 07       BRA   $A7DC
-
-A7D5: 81 02       CMPA  #$02
-A7D7: 26 03       BNE   $A7DC
-A7D9: BD F4 76    JSR   writesector
-A7DC: B6 80 06    LDA   fdcstat
-A7DF: 81 00       CMPA  #$00
-A7E1: 27 02       BEQ   $A7E5
-A7E3: 20 61       BRA   $A846
-
-A7E5: 7C 80 03    INC   fdcsect
-A7E8: B6 80 03    LDA   fdcsect
-A7EB: 81 05       CMPA  #$05
-A7ED: 27 05       BEQ   $A7F4
-A7EF: 8C 80 00    CMPX  #fdccmd
-A7F2: 26 D2       BNE   $A7C6
-A7F4: B6 80 03    LDA   fdcsect
-A7F7: 81 05       CMPA  #$05
+A7B4: B6 80 D5    LDA   $80D5		; $80D5 stores the TRACK
+A7B7: B7 80 02    STA   fdctrk		;
+A7BA: B6 E2 00    LDA   $VIA_PORTB	;	
+A7BD: BA 80 DD    ORA   $80DD		;
+A7C0: B7 E2 00    STA   $VIA_PORTB	;
+A7C3: 8E 00 00    LDX   #$0000		;	X == $0000
+A7C6: BF 80 04    STX   fdcbuff		;	-----<-------+ fdcbuff starts from $0000
+A7C9: B6 80 E1    LDA   $80E1		;				 | What's in $80E1?
+A7CC: 81 00       CMPA  #$00		;				 |
+A7CE: 26 05       BNE   $A7D5		; --->--+		 |
+A7D0: BD F4 48    JSR   readsector	;		|		 | read the desired sector
+A7D3: 20 07       BRA   $A7DC		;	-->---+		 |
+									;		| |		 |
+A7D5: 81 02       CMPA  #$02		; ---<--+ |		 |
+A7D7: 26 03       BNE   $A7DC		; ---->---+		 |
+A7D9: BD F4 76    JSR   writesector	;		  |		 | write the desired sector
+A7DC: B6 80 06    LDA   fdcstat		; -----<--+		 |
+A7DF: 81 00       CMPA  #$00		;				 |
+A7E1: 27 02       BEQ   $A7E5		; -->--+		 |
+A7E3: 20 61       BRA   $A846		;	   |		 |
+									;	   |		 |
+A7E5: 7C 80 03    INC   fdcsect		;  --<-+         |
+A7E8: B6 80 03    LDA   fdcsect		;                |
+A7EB: 81 05       CMPA  #$05		; what 's in Sector 5? either OS or Sys param (Track at $0B)
+A7ED: 27 05       BEQ   $A7F4		;	--->----+    |
+A7EF: 8C 80 00    CMPX  #fdccmd		;			|	 |
+A7F2: 26 D2       BNE   $A7C6		;  ------->------+
+A7F4: B6 80 03    LDA   fdcsect		;	----<---+
+A7F7: 81 05       CMPA  #$05		; compare with 5 again
 A7F9: 26 1A       BNE   $A815
 A7FB: 7F 80 03    CLR   fdcsect
 A7FE: 7C 80 02    INC   fdctrk
@@ -5096,15 +5124,15 @@ A83F: B1 80 DE    CMPA  $80DE
 A842: 10 26 FF 74 LBNE  $A7BA
 A846: 39          RTS   
 
-A847: B6 80 D6    LDA   $80D6
+A847: B6 80 D6    LDA   $80D6	; $80D6 stores the SECTOR
 A84A: B7 80 03    STA   fdcsect
 A84D: B6 80 D5    LDA   $80D5
 A850: B7 80 02    STA   fdctrk
-A853: B6 80 CF    LDA   $80CF
-A856: 81 07       CMPA  #$07
+A853: B6 80 CF    LDA   $80CF		; 	again variable $80CF
+A856: 81 07       CMPA  #$07		;	compare w 7
 A858: 27 07       BEQ   $A861
-A85A: B6 80 CF    LDA   $80CF
-A85D: 81 08       CMPA  #$08
+A85A: B6 80 CF    LDA   $80CF		; 	again variable $80CF
+A85D: 81 08       CMPA  #$08		;	compare w 8
 A85F: 26 08       BNE   $A869
 A861: CC 08 00    LDD   #$0800
 A864: C3 B8 00    ADDD  #$B800
@@ -5154,8 +5182,8 @@ A8C4: 27 06       BEQ   $A8CC
 A8C6: BD AB 00    JSR   $AB00
 A8C9: 16 00 AF    LBRA  $A97B
 
-A8CC: B6 80 CF    LDA   $80CF
-A8CF: 81 03       CMPA  #$03
+A8CC: B6 80 CF    LDA   $80CF		;	again variable $80CF
+A8CF: 81 03       CMPA  #$03		;	compare w 3
 A8D1: 10 26 00 18 LBNE  $A8ED
 A8D5: F6 80 D0    LDB   $80D0
 A8D8: 5A          DECB  
@@ -5194,8 +5222,8 @@ A922: 20 11       BRA   $A935
 
 A924: B6 80 E4    LDA   $80E4
 A927: 27 07       BEQ   $A930
-A929: 86 09       LDA   #$09
-A92B: B7 80 CF    STA   $80CF   ; value 9 in $80CF
+A929: 86 09       LDA   #$09	;	value 9 in $80CF 
+A92B: B7 80 CF    STA   $80CF   ;	again variable $80CF
 A92E: 20 05       BRA   $A935
 
 A930: 86 09       LDA   #$09
@@ -5215,7 +5243,7 @@ A94C: 16 00 2C    LBRA  $A97B
 
 A94F: 8E FB D4    LDX   #$FBD4
 A952: B6 80 CF    LDA   $80CF
-A955: F6 80 D0    LDB   $80D0
+A955: F6 80 D0    LDB   $80D0		; X=FBD4, A=[80CF], B=[80D0]  80CF goes from 1 to 11
 A958: 5C          INCB  
 A959: 5C          INCB  
 A95A: 3D          MUL				; multiplicate A*B
@@ -5223,8 +5251,8 @@ A95B: A6 85       LDA   B,X
 A95D: B4 80 D2    ANDA  $80D2
 A960: 81 00       CMPA  #$00
 A962: 26 17       BNE   $A97B
-A964: B6 80 CF    LDA   $80CF
-A967: 81 01       CMPA  #$01
+A964: B6 80 CF    LDA   $80CF		;	again variable $80CF
+A967: 81 01       CMPA  #$01		;   compare w 1
 A969: 26 07       BNE   $A972
 A96B: C6 03       LDB   #$03
 A96D: F7 80 07    STB   fdcerr
@@ -5244,8 +5272,8 @@ A987: 27 06       BEQ   $A98F
 A989: BD AB 00    JSR   $AB00
 A98C: 16 00 7B    LBRA  $AA0A
 
-A98F: B6 80 CF    LDA   $80CF
-A992: 81 06       CMPA  #$06
+A98F: B6 80 CF    LDA   $80CF		;	again variable $80CF
+A992: 81 06       CMPA  #$06		;	compare w 6
 A994: 10 26 00 12 LBNE  $A9AA
 A998: F6 80 D0    LDB   $80D0
 A99B: 5A          DECB  
@@ -5299,8 +5327,8 @@ AA0A: 39          RTS
 
 AA0B: F6 80 D0    LDB   $80D0
 AA0E: 5A          DECB  
-AA0F: B6 80 CF    LDA   $80CF
-AA12: 81 08       CMPA  #$08
+AA0F: B6 80 CF    LDA   $80CF	;	again variable $80CF
+AA12: 81 08       CMPA  #$08	;	compare w 8
 AA14: 26 0D       BNE   $AA23
 AA16: 8E FB F0    LDX   #$FBF0
 AA19: A6 85       LDA   B,X
@@ -5325,7 +5353,7 @@ AA42: 16 00 8C    LBRA  $AAD1
 
 AA45: B6 80 D5    LDA   $80D5
 AA48: B7 80 02    STA   fdctrk
-AA4B: B6 80 D6    LDA   $80D6
+AA4B: B6 80 D6    LDA   $80D6	; $80D6 stores the SECTOR
 AA4E: B7 80 03    STA   fdcsect
 AA51: 8E 80 D2    LDX   #$80D2
 AA54: 86 0A       LDA   #$0A
@@ -5368,18 +5396,18 @@ AAA8: 81 00       CMPA  #$00
 AAAA: 27 02       BEQ   $AAAE
 AAAC: 20 23       BRA   $AAD1
 
-AAAE: 30 01       LEAX  $0001,X
-AAB0: 7C 80 02    INC   fdctrk
-AAB3: B6 80 02    LDA   fdctrk
-AAB6: B1 80 D7    CMPA  $80D7
-AAB9: 22 0C       BHI   $AAC7
-AABB: BD F4 A4    JSR   gototrack2
-AABE: B6 80 06    LDA   fdcstat
-AAC1: 81 00       CMPA  #$00
-AAC3: 27 02       BEQ   $AAC7
-AAC5: 20 0A       BRA   $AAD1
-
-AAC7: B6 80 02    LDA   fdctrk
+AAAE: 30 01       LEAX  $0001,X		; increment X by 1
+AAB0: 7C 80 02    INC   fdctrk		; increment track
+AAB3: B6 80 02    LDA   fdctrk		; load track
+AAB6: B1 80 D7    CMPA  $80D7		; compare with content in $80D7
+AAB9: 22 0C       BHI   $AAC7		; ---->-----+
+AABB: BD F4 A4    JSR   gototrack2	;			|
+AABE: B6 80 06    LDA   fdcstat		;           |
+AAC1: 81 00       CMPA  #$00		;			| check for error
+AAC3: 27 02       BEQ   $AAC7		;----->-----+			
+AAC5: 20 0A       BRA   $AAD1		; RTS		|
+									;			|
+AAC7: B6 80 02    LDA   fdctrk		; ---<------+
 AACA: B1 80 D7    CMPA  $80D7
 AACD: 10 23 FF 88 LBLS  $AA59
 AAD1: 39          RTS   
@@ -5398,7 +5426,7 @@ AAE5: A6 80       LDA   ,X+
 AAE7: B7 80 D5    STA   $80D5
 AAEA: B7 80 02    STA   fdctrk
 AAED: A6 80       LDA   ,X+
-AAEF: B7 80 D6    STA   $80D6
+AAEF: B7 80 D6    STA   $80D6		; UPDATE THE SECTOR IN 80D6!!!
 AAF2: A6 80       LDA   ,X+
 AAF4: B7 80 D7    STA   $80D7
 AAF7: A6 84       LDA   ,X
@@ -5594,9 +5622,9 @@ AC55: 10 B3 C0 00 CMPD  $C000
 AC59: 26 04       BNE   $AC5F
 AC5B: 97 E4       STA   $E4
 AC5D: DD E5       STD   $E5
-AC5F: 96 E7       LDA   $E7
-AC61: 27 3B       BEQ   $AC9E
-AC63: D6 24       LDB   $24
+AC5F: 96 E7       LDA   $E7				;		----<-----------+
+AC61: 27 3B       BEQ   $AC9E			;						|
+AC63: D6 24       LDB   $24				;						|
 AC65: 26 20       BNE   $AC87
 AC67: 81 04       CMPA  #$04
 AC69: 27 1A       BEQ   $AC85
@@ -5612,9 +5640,9 @@ AC7B: BD AC A3    JSR   $ACA3
 AC7E: BD A1 16    JSR   $A116
 AC81: 0A 36       DEC   $36
 AC83: 20 EC       BRA   $AC71
-
-AC85: 20 17       BRA   $AC9E
-
+									;							|
+AC85: 20 17       BRA   $AC9E		;							^
+									;							|
 AC87: 0D E9       TST   $E9
 AC89: 27 13       BEQ   $AC9E
 AC8B: BD AC A3    JSR   $ACA3
@@ -5627,9 +5655,9 @@ AC96: 0F EB       CLR   $EB
 AC98: 97 EA       STA   $EA
 AC9A: 0A E9       DEC   $E9
 AC9C: 20 EB       BRA   $AC89
-
-AC9E: BD 88 5E    JSR   $885E
-ACA1: 20 BC       BRA   $AC5F
+									;							|
+AC9E: BD 88 5E    JSR   $885E	;		another place where subroutine $885E is called 
+ACA1: 20 BC       BRA   $AC5F	;		---->-------------------+
 
 ACA3: 96 E7       LDA   $E7
 ACA5: 81 02       CMPA  #$02
@@ -5747,7 +5775,7 @@ AD7A: 81 01       CMPA  #$01
 AD7C: 26 09       BNE   $AD87
 AD7E: D7 73       STB   $73
 AD80: D7 6F       STB   $6F
-AD82: BD A0 E2    JSR   $A0E2
+AD82: BD A0 E2    JSR   $A0E2		; This is the routine where we get stuck
 AD85: 20 07       BRA   $AD8E
 
 AD87: 81 03       CMPA  #$03
@@ -5779,29 +5807,29 @@ ADAD: 20 0D       BRA   $ADBC
 ADAF: 4F          CLRA  
 ADB0: 20 0A       BRA   $ADBC
 
-ADB2: 86 01       LDA   #$01
+ADB2: 86 01       LDA   #$01		; 
 ADB4: 20 06       BRA   $ADBC
 
 ADB6: 86 03       LDA   #$03
 ADB8: 20 02       BRA   $ADBC
 
 ADBA: 8A 80       ORA   #$80
-ADBC: 34 01       PSHS  CC
-ADBE: 1A 50       ORCC  #$50
-ADC0: DE EE       LDU   $EE
+ADBC: 34 01       PSHS  CC		; CC = 80
+ADBE: 1A 50       ORCC  #$50	; DISABLE IRQ and FIRQ
+ADC0: DE EE       LDU   $EE		; put in U the value of $80EE (0xAB2A)
 ADC2: 11 93 EC    CMPU  $EC
-ADC5: 25 0E       BCS   $ADD5
-ADC7: 35 01       PULS  CC
+ADC5: 25 0E       BCS   $ADD5	; will jump here 
+ADC7: 35 01       PULS  CC		;
 ADC9: 34 04       PSHS  B
 ADCB: BD AB 90    JSR   $AB90
 ADCE: 86 1A       LDA   #$1A
 ADD0: BD A4 04    JSR   $A404
-ADD3: 35 84       PULS  B,PC ;(PUL? PC=RTS)
+ADD3: 35 84       PULS  B,PC ;(PUL? PC=RTS)	;
 
-ADD5: ED C4       STD   ,U
-ADD7: 96 E7       LDA   $E7
-ADD9: 81 08       CMPA  #$08
-ADDB: 26 0C       BNE   $ADE9
+ADD5: ED C4       STD   ,U		;
+ADD7: 96 E7       LDA   $E7		;
+ADD9: 81 08       CMPA  #$08	; compare A with 0x08
+ADDB: 26 0C       BNE   $ADE9	; if not, will jump here 
 ADDD: 96 F0       LDA   $F0
 ADDF: A7 5F       STA   $FFFF,U
 ADE1: 33 43       LEAU  $0003,U
@@ -5809,8 +5837,8 @@ ADE3: DF EE       STU   $EE
 ADE5: 0F F0       CLR   $F0
 ADE7: 20 2C       BRA   $AE15
 
-ADE9: 81 0A       CMPA  #$0A
-ADEB: 26 0C       BNE   $ADF9
+ADE9: 81 0A       CMPA  #$0A	;	compare A with 0x0A
+ADEB: 26 0C       BNE   $ADF9	;	if not, will jump here
 ADED: 96 F0       LDA   $F0
 ADEF: A7 5F       STA   $FFFF,U
 ADF1: 33 43       LEAU  $0003,U
@@ -5818,8 +5846,8 @@ ADF3: DF EE       STU   $EE
 ADF5: 0F F0       CLR   $F0
 ADF7: 20 1C       BRA   $AE15
 
-ADF9: 81 06       CMPA  #$06
-ADFB: 26 18       BNE   $AE15
+ADF9: 81 06       CMPA  #$06	;	compare A with 0x06
+ADFB: 26 18       BNE   $AE15	;	if not, will jump here
 ADFD: A6 C4       LDA   ,U
 ADFF: 81 83       CMPA  #$83
 AE01: 25 12       BCS   $AE15
@@ -5831,7 +5859,7 @@ AE0B: BD AB 60    JSR   $AB60
 AE0E: 86 19       LDA   #$19
 AE10: BD A4 04    JSR   $A404
 AE13: 35 04       PULS  B
-AE15: 35 81       PULS  CC,PC ;(PUL? PC=RTS)
+AE15: 35 81       PULS  CC,PC ;(PUL? PC=RTS)	; it is basically a RTS? -> It will jump to 90BF:
 
 ; arrives here right away after entering into the OS: CLEARS THE FILTERS AND MEMORY STRUCTURES
 AE17: CE E4 18    LDU   #$E418			; 1_1000 -> disable INH for 4051s Res & Cutoff -> CBA = 000 ???
@@ -5840,7 +5868,7 @@ AE1D: BD F5 E7    JSR   setfilterdac	; call routine with U=#$E418 D=#$0000.
 AE20: 11 83 E4 20 CMPU  #$E420			; we are looping from X=E400 to X = E41F (all filters) need to see what setfilterdac does with U 
 AE24: 26 F7       BNE   $AE1D			; jump back up two lines to JSR setfilterdac
 AE26: CE B0 52    LDU   #$B052			; U= $B052. Saves the Stack in U - this will loop to $B2BA
-AE29: CC 8A D7    LDD   #$8AD7			; A= $8A, B=$D7
+AE29: CC 8A D7    LDD   #$8AD7			; A= $8A, B=$D7 points to code
 AE2C: 8E 8B BE    LDX   #$8BBE			; X= $8BBE
 AE2F: ED C8 1C    STD   $1C,U			;  <---+  $1C (16 + 12 = 28) Store in $B052 (then $B09F, $B0EC,...) + $1C = $B06E (then $B0BB, $B108, ...) the value of D ($80B7)
 AE32: AF C8 2B    STX   $2B,U			;      |  $2B (32 + 11 = 43) Store in $B052 (then $B09F, $B0EC,...) + $2B = $B07D (then $B0CA, $B117, ...) the value of X ($8BBE)
@@ -6168,7 +6196,7 @@ B913: 10 EF A1    STS   ,Y++
 B916: 8C B9 97    CMPX  #$B997	; the value is 00 at first
 B919: 25 F1       BCS   $B90C	; keep looping
 B91B: 1C AF       ANDCC #$AF	; 1010_1111 ENABLE IRQ and FIRQ
-B91D: 7E 88 68    JMP   $8868
+B91D: 7E 88 68    JMP   $8868	; --->>>
 
 
 ; ***** OS ENTRY *****
@@ -6184,9 +6212,9 @@ B932: 7E B9 00    JMP   $B900  ; check above, somehting with index registers - v
 ; This is called by B96E, after it did something with the filters
 ; This routine enters with B = $10 (16)
 ; This routine reads the voltage value from the pitch wheel and stores it in $900A
-B935: 86 18       LDA   #$18              ; 0001_1000 -> Disk Enable. PB3 = 1(AN1) PB2 = 0 (AN0). AN1=1 & AN0=0 => PITCH WHEEL  
-B937: B7 E2 00    STA   $VIA_PORTB
-B93A: B6 EC E1    LDA   $DOC_OscEnableR
+B935: 86 18       LDA   #$18              ; 0001_1000 -> Disk Enable. UARTCLK=0 PB3 = 1(AN1) PB2 = 0 (AN0). AN1=1 & AN0=0 => PITCH WHEEL  
+B937: B7 E2 00    STA   $VIA_PORTB		  ;
+B93A: B6 EC E1    LDA   $DOC_OscEnableR	  ; Don't understand why we are doing this
 B93D: B6 EC E2    LDA   $DOC_A2D          ; we are basically reading the pitch wheel data a few times, then we average (sort of) 
 B940: 3D          MUL  		              ; Multiply  A x B and store the result in D. What was B?   
 B941: 3D          MUL                     ; again
@@ -6327,7 +6355,7 @@ BF40: E1 1E 06 1E 1E 1E 1E 1E E1 E1 E1 E1 E1 E1 E1 E1
 BF50: 1E 1E 1E 1E 1E 1E 1E 1E E1 E1 E1 E3 E1 E1 E1 E1 
 BF60: 1E 1E 1E 1E 1E 1E 1E 1E E1 E1 D0 1C D0 08 00 E8 
 BF70: 02 00 97 30 37 97 6D 46 97 20 20 95 0C 43 94 FB 
-BF80: 00 0B 05 0B 05 02 1E 1E E1 E1 E1 E1 00 80 2E 00 ; BF8A is the message that goes to the display
+BF80: 00 0B 05 0B 05 02 1E 1E E1 E1 E1 E1 00 80 2E 00 ; BF85 is used in BOOT ROM as pointer to WAV RAM. BF8A is the message that goes to the display
 BF90: 00 80 00 00 00 1E 1E 1E E1 E1 E1 E1 E1 E1 E1 E1 
 BFA0: 1E 1E 1E 1E 1E 1E 1E 1E E1 E1 E1 E1 E1 E1 E1 E1 
 BFB0: 1E 1E 1E 1E 1E 1E 1E 1E E1 E1 E1 E1 E1 E1 66 A9 

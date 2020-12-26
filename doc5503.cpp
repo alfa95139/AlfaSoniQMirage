@@ -26,11 +26,11 @@
 // 0	  0   - Free Run
 // 0	  1   - Address One cycle, reset OSC accumulator, set Halt bit
 // 1	  0   - Sync OSC2 to OSC1, or Amplitude Modulate OSC1 by OSC0
-// 1  	1   -  Address One cycle, reset OSC accumulator, set Halt bit then reset Halt bit
+// 1  	1   - Address One cycle, reset OSC accumulator, set Halt bit then reset Halt bit
 //
 // M1 * H = 1 causes the oscillator to reset: This  needs to be evaluated during doc_wreg!
 // 
-// The Mirage initializes the Oscillator Control Register with:
+// OS 3.2 initializes the Oscillator Control Register with:
 // Oscillators  0-3 : value 0000_0011 (03)
 //                  CA3, CA2, CA1, CA0 = 0000
 // Oscillators  4-7 : value 0001_0011 (13)
@@ -59,7 +59,7 @@
 // E4_0001_0000 (E410) to E4_0001_0111 (E417): CUT OFF
 // E4_0000_1000 (E408) to E4_0000_1111 (E40F): Resonance
 
-#define DOC5503_DEBUG 1
+#define DOC5503_DEBUG 0
 
 #include "Arduino.h"
 #include "log.h"
@@ -148,7 +148,6 @@ return;
 // *************************************************
 // ******************* HALT OSC ********************
 // halt_osc: handle halting an oscillator
-// chip = chip ptr
 // onum = oscillator #
 // type = 1 for 0 found in sample data, 0 for hit end of table size
 // *************************************************
@@ -185,7 +184,7 @@ void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
 	// if swap mode, start the partner
 	if (mode == MODE_SWAP)
 	{
-		pPartner->control &= ~1;    // clear the halt bit
+		pPartner->control &= ~1;    // toggle mode
 		pPartner->accumulator = 0;  // and make sure it starts from the top (does this also need phase preservation?)
 	}
 
@@ -215,24 +214,24 @@ void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_
  // assert(samples < (44100/50));
  // std::fill_n(&m_mix_buffer[0], samples*output_channels, 0);
 
-  for (int chan = 0; chan < output_channels; chan++)
+  for (int chan = 0; chan < output_channels; chan++)      // for each channel
   {
-    for (osc = 0; osc < (oscsenabled+1); osc++)
+    for (osc = 0; osc < (oscsenabled+1); osc++)           // for each oscillator
     {
       DOC5503Osc *pOsc = &oscillators[osc];
 
       if (!(pOsc->control & 1) && ((pOsc->control >> 4) & (output_channels - 1)) == chan)
       {
         
-        uint32_t wtptr = pOsc->wavetblpointer & wavemasks[pOsc->wavetblsize], altram;
-        uint32_t acc = pOsc->accumulator;
-        uint16_t wtsize = pOsc->wtsize - 1;
-        uint8_t ctrl = pOsc->control;
-        uint16_t freq = pOsc->freq;
-        int16_t vol = pOsc->vol;
-        int8_t data = -128;
-        int resshift = resshifts[pOsc->resolution] - pOsc->wavetblsize;
-        uint32_t sizemask = accmasks[pOsc->wavetblsize];
+        uint32_t  wtptr = pOsc->wavetblpointer & wavemasks[pOsc->wavetblsize], altram;
+        uint32_t  acc = pOsc->accumulator;
+        uint16_t  wtsize = pOsc->wtsize - 1;
+        uint8_t   ctrl = pOsc->control;
+        uint16_t  freq = pOsc->freq;
+        int16_t   vol = pOsc->vol;
+        int8_t    data = -128;
+        int       resshift = resshifts[pOsc->resolution] - pOsc->wavetblsize;
+        uint32_t  sizemask = accmasks[pOsc->wavetblsize];
  //     mixp = &m_mix_buffer[0] + chan;
         
         for (snum = 0; snum < samples; snum++)
@@ -258,13 +257,13 @@ void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_
             *mixp += data * vol;
             mixp += output_channels;
 
-            if (altram >= wtsize)
+            if (altram >= wtsize)   // End of the table has been reached - halt the oscillator
             {
               doc_halt_osc(osc, 0, &acc, resshift);
             }
           }
 
-          // if oscillator halted, we've got no more samples to generate
+          // if oscillator halted, we are done generating samples for that oscillator
           if (pOsc->control & 1)
           {
             ctrl |= 1;
@@ -280,7 +279,7 @@ void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_
   }
 
 /*
-
+// RE-INSERT THESE (OR EQUIVALENT
   mixp = &m_mix_buffer[0];
   
   for (int chan = 0; chan < output_channels; chan++)
@@ -310,31 +309,45 @@ uint8_t doc_rreg(uint8_t reg) {
     switch(reg & 0xe0)
     {
       case 0x00:     // freq lo
+#if DOC5503_DEBUG
         log_debug("DOC5503 READ: Freq LOW %02x  value = %02x\n", reg, oscillators[osc].freq & 0xff);
+#endif
         return (oscillators[osc].freq & 0xff);
         break;
       case 0x20:      // freq hi
+#if DOC5503_DEBUG
         log_debug("DOC5503 READ: Freq HIGH %02x  value = %02x\n", reg, (oscillators[osc].freq>>8) );
+#endif        
         return (oscillators[osc].freq >> 8);
         break;
       case 0x40:  // volume
+#if DOC5503_DEBUG      
         log_debug("DOC5503 READ: Volume %02x  value = %02x\n", reg, oscillators[osc].vol);
+#endif        
         return oscillators[osc].vol;
         break;
       case 0x60:  // data
+#if DOC5503_DEBUG      
         log_debug("DOC5503 READ: Data %02x  value = %02x\n", reg, oscillators[osc].data);
+#endif      
         return oscillators[osc].data;
         break;
       case 0x80:  // wavetable pointer
+#if DOC5503_DEBUG      
        log_debug("DOC5503 READ: Wavetable Pointer %02x  value = %02x\n", reg, (oscillators[osc].wavetblpointer >> 8) & 0xff );
+#endif	     
 	     return ((oscillators[osc].wavetblpointer>>8) & 0xff);
        break;
       case 0xa0:  // oscillator control
+#if DOC5503_DEBUG       
         log_debug("DOC5503 READ: Oscillator Control %02x  value = %02x\n", reg, oscillators[osc].control);
+#endif        
         return oscillators[osc].control;
         break;
       case 0xc0:  // / N.U. 1bit / Bank Select 1bit / Wavetable Size 3bits / Resolution 3bits/
+#if DOC5503_DEBUG      
         log_debug("DOC5503 READ: Remember to implement 4 banks 32Kbytes each. ");
+#endif      
         retval = 0;
         if (oscillators[osc].wavetblpointer & 0x10000) // if bit 17 is 1, we are addressing the next 64Kbytes
         {
@@ -343,7 +356,9 @@ uint8_t doc_rreg(uint8_t reg) {
 
         retval |= (oscillators[osc].wavetblsize<<3);
         retval |= oscillators[osc].resolution;
+#if DOC5503_DEBUG
         log_debug("DOC5503 READ: Bank Select %02x  value = %02x\n", reg, retval);
+#endif        
         return retval;
         break;
     }
@@ -353,7 +368,9 @@ uint8_t doc_rreg(uint8_t reg) {
     switch (reg)
     {
       case 0xe0:  // interrupt status
-        log_debug("DOC5503 READ INTERRUPT STATUS: %x", regE0);
+#if DOC5503_DEBUG
+        log_debug("DOC5503:       INTERRUPT STATUS IS: %x", regE0);
+#endif      
         retval = regE0;
 
         doc_irq = 0; // clear DOC interrupt
@@ -379,23 +396,29 @@ uint8_t doc_rreg(uint8_t reg) {
         {
           if (oscillators[i].irqpend)
           {
+#if DOC5503_DEBUG            
             log_debug("DOC5503 -> GENERATE IRQ!!! ");
+#endif
             doc_irq=1;
             //cpu->irq();
             break;
           }
         }
-        log_debug(" %02x\n", retval);
+#if DOC5503_DEBUG
+        log_debug("DOC5503: READ INTERRUPT STATUS WILL RETURN %02x\n", retval);
+#endif        
         return retval;
         break;
       case 0xe1:  // oscillator enable
 #if DOC5503_DEBUG 
-        log_debug("DOC5503 READ OSCILLATOR ENABLE REGISTER%0x\n", oscsenabled<<1);
+        log_debug("DOC5503 READ OSCILLATOR ENABLE REGISTER %0x\n", oscsenabled<<1);
 #endif        
         return oscsenabled<<1;
         break;
       case 0xe2:  //A/D converter: reads from: pitch/mod wheel, output signal path, and line-in (sampling) 
+#if DOC5503_DEBUG 
         log_debug("DOC5503 READ A/D Converter, faking %d value\n", regE2);
+#endif
         return(regE2);
         break; 
     }
@@ -420,27 +443,36 @@ if (reg < 0xe0)
       case 0x0:     // freq lo
         oscillators[osc].freq &= 0xff00;
         oscillators[osc].freq |= val;
+#if DOC5503_DEBUG 
         log_debug("DOC5503 WRITE: Freq LOW %02x with value = %02x\n", reg, oscillators[osc].freq );
+#endif          
         break;
 
       case 0x20:      // freq hi
         oscillators[osc].freq &= 0x00ff;
         oscillators[osc].freq |= (val<<8);
+#if DOC5503_DEBUG 
         log_debug("DOC5503 WRITE: Freq High %02x with value = %02x\n", reg, oscillators[osc].freq );
+#endif          
         break;
 
       case 0x40:  // volume
+#if DOC5503_DEBUG 
         log_debug("DOC5503 WRITE: Volume Register %02x with value = %02x\n", reg, val);
+#endif          
         oscillators[osc].vol = val;
         break;
 
       case 0x60:  // data - ignore writes
+#if DOC5503_DEBUG 
       log_debug("DOC5503 WRITE: ERROR ATTEMTPING TO Write READ-ONLY DATA REGISTER %02x with value = %02x\n", reg, val);
-
+#endif  
         break;
 
       case 0x80:  // wavetable pointer
-        log_debug("DOC5503 WRITE: Waveteble Pointer Register %02x with value (%02x << 8) == %02x\n", reg, val, val<<8);
+#if DOC5503_DEBUG 
+        log_debug("DOC5503 WRITE: Waveteble Pointer Register %02x with value (%02x << 8) == %04x\n", reg, val, val<<8);
+#endif  
         oscillators[osc].wavetblpointer = (val<<8);
         break;
 
@@ -476,7 +508,9 @@ if (reg < 0xe0)
         break;
 
       case 0xc0:  // bank select / wavetable size / resolution
+#if DOC5503_DEBUG 
         log_debug("DOC5503 WRITE: Bank Select Register [REMEMBER TO IMPLEMENT BANK SELECT] %02x with value = %02x\n", reg, val);
+#endif          
         if (val & 0x40)    
         {
           oscillators[osc].wavetblpointer |= 0x10000;
@@ -497,7 +531,9 @@ if (reg < 0xe0)
     switch (reg)
     {
       case 0xe0:  // interrupt status
+#if DOC5503_DEBUG 
         log_debug("DOC5503 WRITE not implemented: Attempting to write Interrupt Status Register %02x with value = %02x\n", reg, val);
+#endif          
         break;
 
       case 0xe1:  // oscillator enable
@@ -523,7 +559,9 @@ if (reg < 0xe0)
       }
 
       case 0xe2:  // A/D converter
+#if DOC5503_DEBUG 
          log_debug("DOC5503 ILLEGAL WRITE: Attempting to write to A2D Converter (READ ONLY!!!) with value = %02x\n", val);
+#endif        
         break;
     }
   }

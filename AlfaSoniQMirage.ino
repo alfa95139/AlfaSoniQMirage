@@ -10,7 +10,7 @@
 //
 // Copyright (C) 2012 Gordon JC Pearce <gordonjcp@gjcp.net>
 // Copyright (c) 2019 Erturk Kocalar, 8Bitforce.com
-// Copyright (c) 2020 Alessandro Fasan, ALFASoniQ  / Dylan Brophy, Nuclare         
+// Copyright (c) 2020 Alessandro Fasan, ALFASoniQ  / Dylan Brophy, Nuclare (6809 emu integration)        
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
@@ -44,8 +44,13 @@
 #include "doc5503.h"
 #include "acia.h" // AF 11.28.20
 #include "log.h"
+#include "TeensyTimerTool.h"
+using namespace TeensyTimerTool;
 
 CPU6809* cpu;
+
+Timer Tacia;  // generate a timer for the ACIA
+Timer T2;     // VIA T2
 
 typedef struct reg_save_s {
   uint16_t u, s, x, y, d;
@@ -87,9 +92,14 @@ bool do_continue = true;
 void setup() 
 {
   Serial.begin(115200);
+  MIDISerial.begin(19200); // MIDI Baud Rate
 
   while (!Serial);
-
+ // while (!MIDISerial);
+ 
+ Tacia.beginPeriodic( acia_clk_CB, 3.125 );  //3.125 milliseconds, 320 characters per second
+ //T2.beginPeriodic( via_irq_callback, 3.2);                 //2.5 milliseconds (1 / 400Hz = 2.5 millis)
+ 
   Serial.println("\n");
   Serial.println("========================================");
   Serial.println("= Ensoniq Mirage Memory Configuration: =");

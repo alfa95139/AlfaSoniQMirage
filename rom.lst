@@ -62,7 +62,7 @@ ORG $F000
 fdcreadsector:
 F000: B6 80 03    LDA   $8003
 F003: 97 02       STA   $02
-F005: 86 88       LDA   #$88           ;Read Sector command
+F005: 86 88       LDA   #$88           ;	Read Sector command
 F007: B7 80 00    STA   $8000
 F00A: 97 00       STA   $00
 F00C: 13          SYNC  
@@ -76,7 +76,7 @@ F011: 20 F9       BRA   $F00C
 fdcskipsector:
 F013: B6 80 03    LDA   $8003
 F016: 97 02       STA   $02
-F018: 86 88       LDA   #$88           ;Read Sector command
+F018: 86 88       LDA   #$88           ;	Read Sector command
 F01A: B7 80 00    STA   $8000
 F01D: 97 00       STA   $00
 F01F: 13          SYNC  
@@ -89,7 +89,7 @@ F022: 20 FB       BRA   $F01F
 fdcwritesector:
 F024: B6 80 03    LDA   $8003
 F027: 97 02       STA   $02
-F029: 86 A8       LDA   #$A8           ;Write Sector command
+F029: 86 A8       LDA   #$A8           ;	Write Sector command
 F02B: B7 80 00    STA   $8000
 F02E: 97 00       STA   $00
 F030: 13          SYNC  
@@ -103,7 +103,7 @@ F035: 20 F9       BRA   $F030
 fdcfillsector:
 F037: B6 80 03    LDA   $8003
 F03A: 97 02       STA   $02
-F03C: 86 A8       LDA   #$A8           ;Write Sector command
+F03C: 86 A8       LDA   #$A8           ;	Write Sector command
 F03E: B7 80 00    STA   $8000
 F041: 97 00       STA   $00
 F043: 13          SYNC  
@@ -115,7 +115,7 @@ F048: 20 F9       BRA   $F043
 *** Read all of current track
 *** data addr in X
 fdcreadtrack:
-F04A: 86 E8       LDA   #$E8           ;Read Track command
+F04A: 86 E8       LDA   #$E8           ;	Read Track command
 F04C: B7 80 00    STA   $8000
 F04F: 97 00       STA   $00
 F051: 13          SYNC  
@@ -127,7 +127,7 @@ F056: 20 F9       BRA   $F051
 *** Write current track (format)
 *** data addr in X
 fdcwritetrack:
-F058: 86 F8       LDA   #$F8           ;Write Track command
+F058: 86 F8       LDA   #$F8           ;	Write Track command
 F05A: B7 80 00    STA   $8000
 F05D: 97 00       STA   $00
 F05F: 13          SYNC  
@@ -137,8 +137,8 @@ F064: 20 F9       BRA   $F05F
 
 
 *** Step drive head to track 0
-fdcrestore:
-F066: 86 0C       LDA   #$0C           ;Restore command
+fdcrestore:	
+F066: 86 0C       LDA   #$0C           ;	Restore command
 F068: B7 80 00    STA   $8000
 F06B: 97 00       STA   $00
 F06D: 20 FE       BRA   $F06D
@@ -149,7 +149,7 @@ F06D: 20 FE       BRA   $F06D
 fdcseektrack:
 F06F: B6 80 02    LDA   $8002
 F072: 97 03       STA   $03
-F074: 86 1C       LDA   #$1C           ;Seek command
+F074: 86 1C       LDA   #$1C           ;	Seek command
 F076: B7 80 00    STA   $8000
 F079: 97 00       STA   $00
 F07B: 20 FE       BRA   $F07B
@@ -157,7 +157,7 @@ F07B: 20 FE       BRA   $F07B
 
 *** Step drive head inward by one track
 fdcseekin:
-F07D: 86 58       LDA   #$58           ;Step In command
+F07D: 86 58       LDA   #$58           ;	Step In command
 F07F: B7 80 00    STA   $8000
 F082: 97 00       STA   $00
 F084: 20 FE       BRA   $F084
@@ -165,7 +165,7 @@ F084: 20 FE       BRA   $F084
 
 *** Step drive head outward by one track
 fdcseekout:
-F086: 86 78       LDA   #$78           ;Step Out command
+F086: 86 78       LDA   #$78           ;	Step Out command
 F088: B7 80 00    STA   $8000
 F08B: 97 00       STA   $00
 F08D: 20 FE       BRA   $F08D
@@ -173,10 +173,10 @@ F08D: 20 FE       BRA   $F08D
 
 *** Reset fdc, cancel pending operations
 fdcforceinterrupt:
-F08F: 86 D0       LDA   #$D0           ;Force Interrupt command
+F08F: 86 D0       LDA   #$D0           ;	Force Interrupt command
 F091: B7 80 00    STA   $8000
 F094: 97 00       STA   $00
-F096: D6 00       LDB   $00            ;while fdc Busy bit set
+F096: D6 00       LDB   $00            ;	while fdc Busy bit set
 F098: C5 01       BITB  #$01
 F09A: 26 FA       BNE   $F096
 F09C: F7 80 06    STB   $8006
@@ -192,64 +192,64 @@ F0A7: 12          NOP
 F0A8: 12          NOP   
 F0A9: 12          NOP   
 F0AA: 12          NOP   
-F0AB: 31 3F       LEAY  $FFFF,Y        ;dec Y
+F0AB: 31 3F       LEAY  $FFFF,Y        ;	dec Y
 F0AD: 26 F8       BNE   countdown
 F0AF: 39          RTS   
 
 
 *** FDC interrupt (NMI) handler
 nmivec:
-F0B0: 32 6C       LEAS  $000C,S        ;pop INT context (12 bytes)
-F0B2: D6 00       LDB   $00            ;read fdc status reg
+F0B0: 32 6C       LEAS  $000C,S        ;	pop INT context (12 bytes)
+F0B2: D6 00       LDB   $00            ;	read fdc status reg
 F0B4: F7 80 06    STB   $8006
 F0B7: B6 80 00    LDA   $8000
-F0BA: 81 88       CMPA  #$88           ;if Read Sector command
+F0BA: 81 88       CMPA  #$88           ;	if Read Sector command
 F0BC: 27 07       BEQ   $F0C5
 F0BE: B6 80 00    LDA   $8000
-F0C1: 81 E8       CMPA  #$E8           ;or Write Sector command,
+F0C1: 81 E8       CMPA  #$E8           ;	or Write Sector command,
 F0C3: 26 0A       BNE   $F0CF
 F0C5: F6 80 06    LDB   $8006
-F0C8: C4 5C       ANDB  #$5C           ;keep 4 bits of status byte
+F0C8: C4 5C       ANDB  #$5C           ;	keep 4 bits of status byte
 F0CA: F7 80 06    STB   $8006
 F0CD: 20 20       BRA   $F0EF
 
 F0CF: B6 80 00    LDA   $8000
-F0D2: 81 A8       CMPA  #$A8           ;if Read Track command
+F0D2: 81 A8       CMPA  #$A8           ;	if Read Track command
 F0D4: 27 07       BEQ   $F0DD
 F0D6: B6 80 00    LDA   $8000
-F0D9: 81 F8       CMPA  #$F8           ;or Write Track command,
+F0D9: 81 F8       CMPA  #$F8           ;	or Write Track command,
 F0DB: 26 0A       BNE   $F0E7
 F0DD: F6 80 06    LDB   $8006
-F0E0: C4 5C       ANDB  #$5C           ;keep 4 bits of status byte
+F0E0: C4 5C       ANDB  #$5C           ;	keep 4 bits of status byte
 F0E2: F7 80 06    STB   $8006
 F0E5: 20 08       BRA   $F0EF
 
 F0E7: F6 80 06    LDB   $8006
-F0EA: C4 18       ANDB  #$18           ;else keep 2 bits of status
+F0EA: C4 18       ANDB  #$18           ;	else keep 2 bits of status
 F0EC: F7 80 06    STB   $8006
 F0EF: 39          RTS   
 
 
 *** Start up machine, assume nothing
 coldstart:
-F0F0: 1A 50       ORCC  #$50           ;disab VIA, QChip, UART ints
-F0F2: 86 1F       LDA   #$1F
-F0F4: B7 E2 02    STA   $E202          ;set VIA data dir 2 reg
-F0F7: 86 10       LDA   #$10
-F0F9: B7 E2 00    STA   $E200          ;fd off, RAM bank 0
-F0FC: 8E E4 00    LDX   #$E400         ;reset VCF chips
+F0F0: 1A 50       ORCC  #$50           ;	disab VIA, QChip, UART ints
+F0F2: 86 1F       LDA   #$1F		   ;	0001_1111 =? Can't write PB7 (which is managed by ACR), PB6 (FDC Disk Loaded) and PB5 (Q-Chip Sync CA3)
+F0F4: B7 E2 02    STA   $E202          ;	set VIA data dir 2 reg
+F0F7: 86 10       LDA   #$10		   ;	0001_0000
+F0F9: B7 E2 00    STA   $E200          ;	 DISABLE DISK, RAM bank 0
+F0FC: 8E E4 00    LDX   #$E400         ;	reset VCF chips
 F0FF: 6F 80       CLR   ,X+
 F101: 8C E4 08    CMPX  #$E408
 F104: 26 F9       BNE   $F0FF
-F106: B7 E4 18    STA   $E418          ;write mpx addr preset
-F109: 10 CE BF 80 LDS   #$BF80         ;init system SP
+F106: B7 E4 18    STA   $E418          ;	write mpx addr preset
+F109: 10 CE BF 80 LDS   #$BF80         ;	init system SP
 F10D: BD F1 E5    JSR   clearram
 F110: BD F1 5D    JSR   hwsetup
 F113: BD F4 C6    JSR   enablefd
-F116: 86 40       LDA   #$40
-F118: B4 E2 00    ANDA  $E200
-F11B: 81 00       CMPA  #$00           ;disk loaded?
-F11D: 27 12       BEQ   $F131
+F116: 86 40       LDA   #$40			;	0100_000
+F118: B4 E2 00    ANDA  $E200			;
+F11B: 81 00       CMPA  #$00			;	is the disk loaded?
+F11D: 27 12       BEQ   $F131			;	if not, go manage "nd" message
 F11F: BD F2 0D    JSR   loadopsys
 F122: B6 80 06    LDA   $8006
 F125: 81 00       CMPA  #$00
@@ -261,60 +261,60 @@ F12F: 20 0E       BRA   $F13F
 F131: BD F4 D6    JSR   disablefd
 F134: 86 07       LDA   #$07
 F136: B7 80 06    STA   $8006
-F139: B7 80 07    STA   $8007          ;error code (P98) = "nd"
+F139: B7 80 07    STA   $8007          ;	error code (P98) = "nd"
 F13C: BD F3 06    JSR   checkos
 F13F: B6 80 06    LDA   $8006
-F142: 81 00       CMPA  #$00           ;if no err,
-F144: 26 CA       BNE   $F110          ;fall thru & run os
+F142: 81 00       CMPA  #$00           ;	if no err,
+F144: 26 CA       BNE   $F110          ;	fall thru & run os
 
 *** Jump to operating system in RAM
 runopsys:
 F146: 96 01       LDA   $01
-F148: B7 80 02    STA   $8002          ;copy fdc track reg
+F148: B7 80 02    STA   $8002           ;	copy fdc track reg
 F14B: 86 A6       LDA   #$A6
-F14D: B7 E2 0E    STA   $E20E          ;VIA intr enab reg
-F150: 86 95       LDA   #$95		   ;	
-F152: B7 E1 00    STA   $E100          ;UART control reg
-F155: 86 30       LDA   #$30
-F157: B7 E2 00    STA   $E200
-F15A: 7E 80 0E    JMP   $800E          ;OS entry vector
+F14D: B7 E2 0E    STA   $E20E           ;	VIA intr enab reg
+F150: 86 95       LDA   #$95		    ;	
+F152: B7 E1 00    STA   $E100           ;	UART control reg
+F155: 86 30       LDA   #$30			;	0011_0000  CONFUSING: SET CA3 to 1, but CA3 is input...
+F157: B7 E2 00    STA   $E200			;	Disk Enable
+F15A: 7E 80 0E    JMP   $800E			;	OS entry vector
 
 
 *** Initialize VIA, QChip, UART
 hwsetup:
 F161: BD F0 8F    JSR   fdcforceinterrupt
 F164: 86 7F       LDA   #$7F
-F166: B7 E2 0E    STA   $E20E          ;VIA intr enab reg
+F166: B7 E2 0E    STA   $E20E			;VIA intr enab reg
 F169: 86 CC       LDA   #$CC
-F16B: B7 E2 0B    STA   $E20B          ;VIA aux ctrl reg
+F16B: B7 E2 0B    STA   $E20B			;VIA aux ctrl reg
 F16E: 86 0E       LDA   #$0E
-F170: B7 E2 0C    STA   $E20C          ;VIA periph ctrl reg
+F170: B7 E2 0C    STA   $E20C			;VIA periph ctrl reg
 F173: 86 1F       LDA   #$1F
-F175: B7 E2 03    STA   $E203          ;VIA data dir 1 reg
-F178: 86 30       LDA   #$30
-F17A: B7 E2 00    STA   $E200          ;disab fdc, sync QChip
-F17D: 7F E2 06    CLR   $E206          ;clear VIA timer 1
-F180: 7F E2 07    CLR   $E207
-F183: 7F E2 04    CLR   $E204
-F186: 7F E2 05    CLR   $E205
-F189: CC 13 88    LDD   #$1388         ;preset VIA timer 2
-F18C: F7 E2 08    STB   $E208
-F18F: B7 E2 09    STA   $E209
-F192: 86 FF       LDA   #$FF
-F194: B7 EC E1    STA   $ECE1          ;init QChip
-F197: 8E EC 00    LDX   #$EC00
-F19A: 6F 80       CLR   ,X+
-F19C: 8C EC E0    CMPX  #$ECE0
-F19F: 26 F9       BNE   $F19A
+F175: B7 E2 03    STA   $E203			;VIA data dir 1 reg
+F178: 86 30       LDA   #$30			;	0011_0000  CONFUSING: SET CA3 to 1, but CA3 is input...
+F17A: B7 E2 00    STA   $E200			;	Disk Enable
+F17D: 7F E2 06    CLR   $E206			;	clear VIA timer 1
+F180: 7F E2 07    CLR   $E207			;
+F183: 7F E2 04    CLR   $E204			;
+F186: 7F E2 05    CLR   $E205			;
+F189: CC 13 88    LDD   #$1388			;preset VIA timer 2
+F18C: F7 E2 08    STB   $E208			;	88
+F18F: B7 E2 09    STA   $E209			;	13
+F192: 86 FF       LDA   #$FF			;	store $FF in (11111 = 1F -> oscillator from 0 to 15 are enabled, only bit E4, E3, E2, E1, E0 are available)
+F194: B7 EC E1    STA   $ECE1			;				Enable Oscillator Register
+F197: 8E EC 00    LDX   #$EC00			;	init QChip
+F19A: 6F 80       CLR   ,X+				;  ---<-----+
+F19C: 8C EC E0    CMPX  #$ECE0			;			| clear all the DOC registers
+F19F: 26 F9       BNE   $F19A			;  ----->---+
 F1A1: BD F1 BB    JSR   qchipsetup
-F1A4: 86 03       LDA   #$03
-F1A6: B7 E1 00    STA   $E100          ;UART control reg
-F1A9: 7F 80 06    CLR   $8006          ;clear fd status vars
-F1AC: 7F 80 07    CLR   $8007
-F1AF: 7F 80 02    CLR   $8002
-F1B2: 7F 80 03    CLR   $8003
-F1B5: 86 01       LDA   #$01
-F1B7: B7 BF 8C    STA   $BF8C          ;set flag for OS load
+F1A4: 86 03       LDA   #$03			;	ACIA Master Reset
+F1A6: B7 E1 00    STA   $E100			;	UART control reg
+F1A9: 7F 80 06    CLR   $8006			;	clear fd status vars
+F1AC: 7F 80 07    CLR   $8007			;
+F1AF: 7F 80 02    CLR   $8002			;
+F1B2: 7F 80 03    CLR   $8003			;
+F1B5: 86 01       LDA   #$01			;	set flag 
+F1B7: B7 BF 8C    STA   $BF8C			;		for OS load
 F1BA: 39          RTS   
 
 
@@ -346,7 +346,7 @@ clearram:
 F1E5: 7F BF 85    CLR   $BF85
 F1E8: B6 BF 85    LDA   $BF85
 F1EB: BA E2 00    ORA   $E200
-F1EE: B7 E2 00    STA   $E200          ;RAM bank select
+F1EE: B7 E2 00    STA   $E200			;RAM bank select
 F1F1: 8E 00 00    LDX   #$0000
 F1F4: 86 7F       LDA   #$7F
 F1F6: A7 80       STA   ,X+
@@ -354,10 +354,10 @@ F1F8: 8C 80 00    CMPX  #$8000
 F1FB: 26 F9       BNE   $F1F6
 F1FD: 7C BF 85    INC   $BF85
 F200: B6 BF 85    LDA   $BF85
-F203: 81 04       CMPA  #$04           ;all four banks
-F205: 26 E1       BNE   $F1E8
-F207: 86 10       LDA   #$10
-F209: B7 E2 00    STA   $E200
+F203: 81 04       CMPA  #$04			;	all four banks
+F205: 26 E1       BNE   $F1E8			;
+F207: 86 10       LDA   #$10			;	0001_0000
+F209: B7 E2 00    STA   $E200			;	DISABLE DISK (DISK ENABLE is active LOW)
 F20C: 39          RTS   
 
 
@@ -367,49 +367,49 @@ F20D: BD F0 66    JSR   fdcrestore
 F210: B6 80 06    LDA   $8006
 F213: 81 00       CMPA  #$00
 F215: 27 03       BEQ   $F21A
-F217: 16 00 91    LBRA  $F2AB          ;bail on err
+F217: 16 00 91    LBRA  $F2AB			;bail on err
 
-F21A: 7F BF 85    CLR   $BF85          ;first part of OS
-F21D: 8E 80 00    LDX   #$8000         ;load addr=$8000
+F21A: 7F BF 85    CLR   $BF85			;first part of OS
+F21D: 8E 80 00    LDX   #$8000			;load addr=$8000
 F220: BF 80 04    STX   $8004
 F223: B6 BF 85    LDA   $BF85
 F226: 48          ASLA  
 F227: 48          ASLA  
-F228: B7 BF 80    STA   $BF80          ;index into param table
-F22B: 10 8E FB 80 LDY   #$FB80         ;... at $FB80
+F228: B7 BF 80    STA   $BF80			;index into param table
+F22B: 10 8E FB 80 LDY   #$FB80			;... at $FB80
 F22F: BD F3 8C    JSR   preparefd
 F232: B6 80 06    LDA   $8006
 F235: 81 00       CMPA  #$00
 F237: 27 03       BEQ   $F23C
-F239: 16 00 6F    LBRA  $F2AB          ;bail on err
+F239: 16 00 6F    LBRA  $F2AB			;bail on err
 
-F23C: B6 BF 81    LDA   $BF81          ;set track#
+F23C: B6 BF 81    LDA   $BF81			;set track#
 F23F: B7 80 02    STA   $8002
-F242: B6 BF 82    LDA   $BF82          ;set sector#
+F242: B6 BF 82    LDA   $BF82			;set sector#
 F245: B7 80 03    STA   $8003
-F248: B6 BF 8C    LDA   $BF8C          ;test OS load flag,
-F24B: 27 03       BEQ   $F250          ;set at $F1B7 (dumb)
-F24D: BD F4 25    JSR   saveparams
-F250: BD F3 AC    JSR   loadossector
+F248: B6 BF 8C    LDA   $BF8C			;test OS load flag,
+F24B: 27 03       BEQ   $F250			;set at $F1B7 (dumb) -->--+
+F24D: BD F4 25    JSR   saveparams		;                         |
+F250: BD F3 AC    JSR   loadossector	;	------<---------------+
 F253: B6 80 06    LDA   $8006
 F256: 81 00       CMPA  #$00
-F258: 27 02       BEQ   $F25C
-F25A: 20 4F       BRA   $F2AB          ;bail on err
-
-F25C: B6 BF 8C    LDA   $BF8C          ;test OS load flag
-F25F: 27 0A       BEQ   $F26B
-F261: 34 10       PSHS  X
-F263: BD F4 37    JSR   restoreparams
-F266: 7F BF 8C    CLR   $BF8C          ;clr OS load flag
-F269: 35 10       PULS  X
-F26B: BF 80 04    STX   $8004
-F26E: 7C 80 03    INC   $8003          ;do next sector
+F258: 27 02       BEQ   $F25C			; --------->--------------+
+F25A: 20 4F       BRA   $F2AB			;bail on err			  |
+										;						  |	
+F25C: B6 BF 8C    LDA   $BF8C			;test OS load flag	---<--+
+F25F: 27 0A       BEQ   $F26B			; ------------->----------+
+F261: 34 10       PSHS  X				;
+F263: BD F4 37    JSR   restoreparams	; ---------->---------------+
+F266: 7F BF 8C    CLR   $BF8C			;clr OS load flag			|
+F269: 35 10       PULS  X				;							|
+F26B: BF 80 04    STX   $8004			;  ---------<---------------+
+F26E: 7C 80 03    INC   $8003			;do next sector
 F271: B6 80 03    LDA   $8003
-F274: 81 06       CMPA  #$06           ;while sector <= 5
+F274: 81 06       CMPA  #$06			;while sector <= 5
 F276: 26 D0       BNE   $F248
-F278: 7C 80 02    INC   $8002          ;increment track
+F278: 7C 80 02    INC   $8002			;increment track
 F27B: B6 80 02    LDA   $8002
-F27E: B1 BF 83    CMPA  $BF83          ;quit if trk > max trk
+F27E: B1 BF 83    CMPA  $BF83			;quit if trk > max trk
 F281: 22 0C       BHI   $F28F
 F283: BD F3 F1    JSR   gototrack
 F286: B6 80 06    LDA   $8006
@@ -539,17 +539,18 @@ F38B: 39          RTS					;
 
 *** Prepare for disk transfer
 *** read params from table, step to track
+*** Y is either FB80 or FB88, depending whether loading OS or sys param
 preparefd:
 F38C: B6 BF 80    LDA   $BF80
-F38F: 30 A6       LEAX  A,Y
-F391: A6 80       LDA   ,X+            ;get track#
+F38F: 30 A6       LEAX  A,Y				; X = BF80 + Y (?)
+F391: A6 80       LDA   ,X+				;get track#
 F393: B7 BF 81    STA   $BF81
 F396: B7 80 02    STA   $8002
-F399: A6 80       LDA   ,X+            ;get sector#
+F399: A6 80       LDA   ,X+				;get sector#
 F39B: B7 BF 82    STA   $BF82
-F39E: A6 80       LDA   ,X+            ;max track
+F39E: A6 80       LDA   ,X+				;max track
 F3A0: B7 BF 83    STA   $BF83
-F3A3: A6 84       LDA   ,X             ;max sector
+F3A3: A6 84       LDA   ,X				;max sector
 F3A5: B7 BF 84    STA   $BF84
 F3A8: BD F3 F1    JSR   gototrack
 F3AB: 39          RTS   
@@ -579,10 +580,10 @@ F3D8: 81 00       CMPA  #$00
 F3DA: 27 14       BEQ   $F3F0          ;normal exit if no err
 F3DC: BD F0 86    JSR   fdcseekout
 F3DF: BD F0 7D    JSR   fdcseekin
-F3E2: B6 BF 8C    LDA   $BF8C          ;test OS load flag
-F3E5: 27 03       BEQ   $F3EA
-F3E7: BD F4 37    JSR   restoreparams
-F3EA: BE 80 04    LDX   $8004
+F3E2: B6 BF 8C    LDA   $BF8C			;test OS load flag
+F3E5: 27 03       BEQ   $F3EA			;	-->-+
+F3E7: BD F4 37    JSR   restoreparams	;		|
+F3EA: BE 80 04    LDX   $8004			;  --<--+
 F3ED: BD F0 00    JSR   fdcreadsector  ;one last try?
 F3F0: 39          RTS   
 
@@ -608,14 +609,14 @@ F412: 39          RTS
 *** Set Disk Error Code (P98) after OS load error
 *** based on fdc status copy in $8006
 seterrcode:
-F413: 86 01       LDA   #$01           ;1=Disk Drive Error
-F415: B7 80 07    STA   $8007
-F418: 86 10       LDA   #$10
-F41A: F5 80 06    BITB  $8006          ;test "not found" bit
-F41D: 27 05       BEQ   $F424
-F41F: 86 06       LDA   #$06           ;6=Unformatted Disk
-F421: B7 80 07    STA   $8007
-F424: 39          RTS   
+F413: 86 01       LDA   #$01			;	1	=	Disk Drive Error
+F415: B7 80 07    STA   $8007			;
+F418: 86 10       LDA   #$10			;
+F41A: F5 80 06    BITB  $8006			;	test "not found" bit
+F41D: 27 05       BEQ   $F424			;	----->--------------------------+
+F41F: 86 06       LDA   #$06			;	6	=	Unformatted Disk		|
+F421: B7 80 07    STA   $8007			;									|
+F424: 39          RTS					;	----------------<---------------+
 
 
 *** Copy disk transfer params from $8000-8007 to $BF8D-BF94
@@ -644,23 +645,23 @@ F447: 39          RTS
 *** similar to loadossector
 *** not used by ROM code
 readsector:
-F448: 86 0A       LDA   #$0A           ;retry count = 10
-F44A: B7 80 01    STA   $8001
-F44D: BE 80 04    LDX   $8004          ;X = buffer address
-F450: BD F0 00    JSR   fdcreadsector
-F453: 7A 80 01    DEC   $8001          ;dec retry count
-F456: B6 80 01    LDA   $8001
-F459: 27 07       BEQ   $F462          ;exit if count = 0
-F45B: B6 80 06    LDA   $8006
-F45E: 81 00       CMPA  #$00
-F460: 26 EB       BNE   $F44D
-F462: B6 80 06    LDA   $8006
-F465: 81 00       CMPA  #$00
-F467: 27 0C       BEQ   $F475          ;normal exit if no err
-F469: BD F0 86    JSR   fdcseekout
-F46C: BD F0 7D    JSR   fdcseekin
-F46F: BE 80 04    LDX   $8004
-F472: BD F0 00    JSR   fdcreadsector  ;one last try?
+F448: 86 0A       LDA   #$0A			;	retry count = 10
+F44A: B7 80 01    STA   $8001			;
+F44D: BE 80 04    LDX   $8004			;	X = buffer address
+F450: BD F0 00    JSR   fdcreadsector	;
+F453: 7A 80 01    DEC   $8001			;	dec retry count
+F456: B6 80 01    LDA   $8001			;
+F459: 27 07       BEQ   $F462			;	exit if count = 0
+F45B: B6 80 06    LDA   $8006			;
+F45E: 81 00       CMPA  #$00			;
+F460: 26 EB       BNE   $F44D			;
+F462: B6 80 06    LDA   $8006			;
+F465: 81 00       CMPA  #$00			;
+F467: 27 0C       BEQ   $F475			;	normal exit if no err
+F469: BD F0 86    JSR   fdcseekout		;
+F46C: BD F0 7D    JSR   fdcseekin		;
+F46F: BE 80 04    LDX   $8004			;
+F472: BD F0 00    JSR   fdcreadsector	;	one last try?
 F475: 39          RTS   
 
 
@@ -707,21 +708,21 @@ F4C3: 26 E4       BNE   $F4A9
 F4C5: 39          RTS   
 
 
-*** Clear FDC Enable bit in VIA
+*** Clear (ACTIVATE) DISK Enable (FDC DSEL is ACTIVE LOW) bit in VIA
 enablefd:
 F4C6: B6 E2 00    LDA   $E200
-F4C9: 84 EF       ANDA  #$EF
-F4CB: B7 E2 00    STA   $E200          ;VIA data reg 2
+F4C9: 84 EF       ANDA  #$EF			; 1110_1111 =? forces DISK ENABLE (ACTIVE LOW)
+F4CB: B7 E2 00    STA   $E200			; VIA data reg 2
 F4CE: 10 8E FF FF LDY   #$FFFF
 F4D2: BD F0 A7    JSR   countdown
 F4D5: 39          RTS   
 
 
-*** Set FDC Enable bit in VIA
+*** Set (DE-ACTIVATE) DISK Enable bit in VIA
 disablefd:
-F4D6: B6 E2 00    LDA   $E200
-F4D9: 8A 10       ORA   #$10
-F4DB: B7 E2 00    STA   $E200          ;VIA data reg 2
+F4D6: B6 E2 00    LDA   $E200			;
+F4D9: 8A 10       ORA   #$10			;	0001_0000
+F4DB: B7 E2 00    STA   $E200			;	VIA data reg 2
 F4DE: 39          RTS   
 
 
@@ -798,11 +799,11 @@ unknown3:
 F541: 86 7F       LDA   #$7F           ; 0111_1111         | Bit 7 set means each "1" in bits 0-6 disables the corresponding interrupt 
 F543: B7 E2 0E    STA   $E20E          ; stored in VIA IER | 
 F546: 86 03       LDA   #$03           ; 0000_0011
-F548: B7 E1 00    STA   $E100          ; stored in UART command reg, this is a UART reset
+F548: B7 E1 00    STA   $E100          ;	UART MASTER RESET
 F54B: 7F E2 00    CLR   $E200          ; clear PORT B
 F54E: 12          NOP                  ; wait
 F54F: 12          NOP                  ;     until the VIA is done
-F550: 86 30       LDA   #$30           ; 0011_000 Q-Chip Sync, and FD Enable
+F550: 86 30       LDA   #$30           ; 0011_000 Q-Chip Sync, and FD Enable (I thought CA3 was INPUT, it is treated as output)
 F552: B7 E2 00    STA   $E200          ;  in VIA PORT B
 F555: 86 18       LDA   #$18           ; 0001_1000 (PA4 ANODE1_, and PA3=ANODE2_) 
 F557: B7 E2 0F    STA   $E20F          ; ANODE1_ and ANODE2_ are set to 1: SEG A (top) of both displays is seleced.
@@ -923,7 +924,7 @@ F605: E7 88 81    STB   -$7F,X
 F608: A7 88 A1    STA   -$5F,X
 F60B: E7 88 82    STB   -$7E,X
 F60E: A7 88 A2    STA   -$5E,X
-F611: 1C AF       ANDCC #$AF
+F611: 1C AF       ANDCC #$AF		;	Enable IRQ, FIRQ
 F613: 6E C4       JMP   ,U
 
 F615: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
@@ -943,16 +944,16 @@ F6D5: FF FF FF FF FF FF FF FF
 
 *** Another QChip dealie
 unknown9:
-F6DD: 1A 50       ORCC  #$50
-F6DF: EC 62       LDD   $0002,S
-F6E1: A7 A8 C2    STA   -$3E,Y
-F6E4: A7 A8 C1    STA   -$3F,Y
-F6E7: E7 A8 C3    STB   -$3D,Y
-F6EA: E7 A8 C4    STB   -$3C,Y
-F6ED: 1C AF       ANDCC #$AF
+F6DD: 1A 50       ORCC  #$50		;	Disable IRQ, FIRQ
+F6DF: EC 62       LDD   $0002,S		;
+F6E1: A7 A8 C2    STA   -$3E,Y		;
+F6E4: A7 A8 C1    STA   -$3F,Y		;
+F6E7: E7 A8 C3    STB   -$3D,Y		;
+F6EA: E7 A8 C4    STB   -$3C,Y		;
+F6ED: 1C AF       ANDCC #$AF		;	Enable IRQ, FIRQ
 F6EF: 35 06       PULS  A,B
 F6F1: ED E4       STD   ,S
-F6F3: 39          RTS   
+F6F3: 39          RTS				;
 
 F6F4: FF FF FF FF FF FF FF FF FF FF FF FF 
 
@@ -1085,22 +1086,22 @@ FC74: 79 7F 7F 7F 7F 7F 7F 7F 7F 7F 7F
 
 *** Check for expansion cartridge, jump to startup code
 resetvec:
-FC7F: 4F          CLRA  
-FC80: 8E C0 00    LDX   #$C000
-FC83: A1 80       CMPA  ,X+
-FC85: 10 26 F4 67 LBNE  coldstart
-FC89: 4C          INCA  
-FC8A: 81 10       CMPA  #$10
-FC8C: 26 F5       BNE   $FC83
-FC8E: 7E C0 10    JMP   $C010
+FC7F: 4F          CLRA				;
+FC80: 8E C0 00    LDX   #$C000		;
+FC83: A1 80       CMPA  ,X+			; -----<-----+ Loop to verify 0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08, 0x09, 0x0A, 0x0B, 0x0C, 0x0D, 0x0E, 0x0F
+FC85: 10 26 F4 67 LBNE  coldstart	; no good rom|
+FC89: 4C          INCA				;		  	 |
+FC8A: 81 10       CMPA  #$10		;			 |
+FC8C: 26 F5       BNE   $FC83		; ---->------+
+FC8E: 7E C0 10    JMP   $C010		; This contains the address to jump to the ROM cartridge code
 
 ospanic:
 FC91: 86 02       LDA   #$02
 FC93: B7 80 03    STA   $8003
 FC96: 86 7F       LDA   #$7F
 FC98: B7 80 01    STA   $8001
-FC9B: CC FD B7    LDD   #$FDB7         ;flash ".O.S" message  1111_1101_1011_0111
-FC9E: FD BF 8A    STD   $BF8A	       ; this is the location used by showerrorcode	
+FC9B: CC FD B7    LDD   #$FDB7         ;	flash ".O.S" message  1111_1101_1011_0111
+FC9E: FD BF 8A    STD   $BF8A	       ;	this is the location used by showerrorcode	
 FCA1: BD F3 3C    JSR   showerrcode
 FCA4: 7A 80 01    DEC   $8001
 FCA7: B6 80 01    LDA   $8001

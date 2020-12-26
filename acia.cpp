@@ -1,7 +1,7 @@
 /* vim: set noexpandtab ai ts=4 sw=4 tw=4:
    acia.c -- emulation of 6850 ACIA
    Copyright (C) 2012 Gordon JC Pearce
-   Adapted to TeensyDuino and Retroshield by Alessandro Fasan, Novemnber 2020
+   Adapted to TeensyDuino and Retroshield by Alessandro Fasan, Novemnber/December 2020
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
@@ -20,7 +20,7 @@
 
 #include "Arduino.h"
 #include "acia.h"
-
+#include "log.h"
 
 
 unsigned long acia_cycles = ACIA_CLK;
@@ -34,92 +34,159 @@ extern unsigned long get_cpu_cycle_count();
    GJCP implemented only CR7 RX interrupt and CR5 TX interrupt in the control
    and SR0 RD full, SR1 TX empty, and SR7 IRQ.
    (GJCP: "maybe for robustness testing I will implement a way to signal errors").
-   RTS, CTS and DCD are not used, with the latter two held grounded - see schematics.
-   The 6850 is clocked at 2Mhz.
+   RTS, CTS and DCD are not used, with the latter two held to ground - see schematics.
+   
+   The 6850 is clocked at 2Mhz by PB7 of the VIA 6522.
    IRQ is directly connect to the 6809 FIRQ.
    IRQ is not excercised while booting the system ROM.
-   It is excercised by OS 3.2. As of 11/29/20 the IRQ functionality is not tested.
+   It is excercised by Mirage OS 3.2. As of 11/29/20 the IRQ functionality is not tested.
+   
+   NOTE: Without the correct connection (IRQ->FIRQ) and modeling of the clock, the system hangs between A10E and A113
+         ------------------------------------------------------------------------------------------------------------   
+ bit:     7     | 6 |    5     |   4  | 3  |    2    |    1     |    0     |
+ CR:   Receive  |   |          |      |    |         |          |          |  
+      Interrupt |   |          |      |    |         |          |          |
+       Enable   |   |          |      |    |         |          |          |
+        (rie)   |   |          |      |    |         |          |          |
+ ---------------+---+----------+------+----+---------+----------+----------+
+ SR:  Interrupt |   | Receiver |      |    |  Data   | Transmit |  Receive |
+       Request  |   | Overrun  |      |    | Carrier | data reg | data reg |
+                |   |          |      |    | Detect  |  Empty   |   Full   |
+       (irq)    |   |  (ovr)   |      |    | (ndcd)  |  (tdre)  |  (rdrf)  |
+  -------------------------------------------------------------------------+
+
+   IRQ_ bit 7: 1'b1 -> IRQ_ LOW (INTERRUPT FIRED)
+   IRQ_ bit 7: 1'b0 -> IRQ_ HIGH 
+   The IRQ_ bit is cleared by a READ OPERATION to the Receive Data Register or a WRITE OPERATION to the Transmit Data Register
+
+
+   MIDI: One start bit, eight data bits, and one stop bit result in a maximum transmission rate of 3125 bytes (characters) per second
 */
 
 
 
+#define ACIA6850_DEBUG 1
+
+
+
+uint16_t acia_clk;
+uint8_t m_irq = 1;
+int m_tx_irq_enable, m_rx_irq_enable;
+
 //INIT
 void acia_init() {
 
-	// tx register empty     // IRQ PE OVRN FE CTS DCD TDRE RDRF
+	// tx register empty        // IRQ PE OVRN FE CTS DCD TDRE RDRF
+	acia.sr = SR_TDRE;          //  0   0   0   0  0    0   1   0
   
-	acia.sr = 0x02;          //  0   0   0   0  0    0   1   0
+  acia.cr = 0x00;
+  
+  acia.tdr  = 0;
+  acia.rdr  = 0;
+  
+  acia.clk  = 0;
+  acia.irq  = 0;
+
+  m_irq = 0;
 	
 	return;
 }
 
-// *****************************************
-// * IRQ - which will be connected to FIRQ
-// *****************************************
-uint8_t acia_irq() {
-  if ((acia.sr & 0x80) == 0x80 ) Serial.printf("DONE FIRING A FIRQ!!!\n");
-  return ((acia.sr & 0x80) == 0x80 );
+// provide a clock to the ACIA, 31250 baud
+void acia_clk_CB() {
+  acia.clk++;
 }
 
+void acia_update_irq(){
+uint8_t irq;
+         
+
+//                    TX IRQ                                         RX_IRQ
+irq = ( m_tx_irq_enable && ( acia.sr & SR_TDRE)) || ( m_rx_irq_enable && (acia.sr & SR_RDRF) );
+
+#if ACIA6850_DEBUG 
+      log_debug("****** UART: ACIA6850: TX_irq_en = %0x, RX_irq_en = %0x\n", m_tx_irq_enable, m_rx_irq_enable);
+      log_debug("                         acia_CR = %0x, acia_SR = %0x\n",  acia.cr, acia.sr );
+      log_debug("       TX IRQ = %0x, RX IRQ = %0x\n", m_tx_irq_enable && ( acia.sr & SR_TDRE), ( m_rx_irq_enable && (acia.sr & SR_RDRF) ) );
+      
+#endif
+
+
+acia.irq = irq;
+
+// update STATUS REGISTER
+if (acia.irq)
+    acia.sr |= SR_IRQ;
+  else
+    acia.sr &= ~SR_IRQ;
+
+#if ACIA6850_DEBUG 
+log_debug("*      acia_SR = %0x (UPDATED)\n",   acia.sr );
+log_debug("       IRQ = %0x it %s fire FIRQ ", irq, (irq==1)? "WILL (if not masked)" : "will NOT");
+#endif
+  
+}
 
 //RUN
 //*********************************************************
 // * Purpose of acia_run is to generate the irq when needed
 //*********************************************************
 void acia_run(CPU6809* cpu) { 
-        // call this every time around the loop
-        int i;
-        uint8_t buf;
 
-       if (get_cpu_cycle_count() < acia_cycles) 
-                return;                       // nothing to do yet
-       
-       acia_cycles = get_cpu_cycle_count() + ACIA_CLK;        // nudge timer
+        if (acia.irq)   {      // && (m_tx_irq_enable || m_rx_irq_enable))
+#if ACIA6850_DEBUG
+log_debug("****** ACIA FIRQ ***** ACIA FIRQ ***** ACIA FIRQ *****\n");
+#endif             
+             cpu->firq();
+        } 
 
-/* ***** These are interfering with the serial debug in Teensyduino evnvironment
-   ***** We will re-introduce these once we implement the MIDI interface (either serial, or USB)
-       // read a character? 
-       if (Serial.available()){
-              buf = Serial.read();
-              if (buf != 255) {         // when there is nothing this would read ff, or -1, or "@"
-                acia.rdr = buf;           //SR  IRQ PE OVRN FE CTS DCD TDRE RDRF
-                acia.sr |= 0x01;          //SR    0   0   0   0  0   0   0    1
-                if (acia.cr & 0x80) {     //SR  IRQ PE OVRN FE CTS DCD TDRE RDRF
-                        acia.sr |= 0x80;    //SR  1   0   0   0   0  0   0    0
-                        if (acia_irq()) {
-                                 cpu->firq();     // Irrelevant for Boot ROM, 
-                                 }                // it is required for OS3.2 ( firq interrupt routine)
-                        }    
-                }
-            }
-        // got a character to send?
+  if (acia_clk < 10) return;
+  acia_clk=0;
+
+}
         
-        if (!(acia.sr & 0x02)) { 
-                          //Serial.printf("Do I GET HERE?  char= >%c< \n", acia.tdr);
-                          Serial.write(acia.tdr);
-                          acia.sr |= 0x02; // since I just txmitted, now TDRE is empty
-                          if ((acia.cr & 0x60) == 0x20) { // checking for CR5 active, will set IRQ
-                                                           // IRQ PE OVRN FE CTS DCD TDRE RDRF
-                                   acia.sr |= 0x80;        //  1   0   0   0   0  0   0    0
-                                   if (acia_irq()) {
-                                        cpu->firq();       // Irrelevant for Boot ROM, 
-                                        }                  // it is required for OS3.2 ( firq interrupt routine)
-                                   }
-                        }
-*/
+
+
+void acia_data_r(){
+
+//read a (MIDI) byte ? 
+if (MIDISerial.available()){
+                acia.rdr = MIDISerial.read();     
+               
+#if ACIA6850_DEBUG 
+log_debug("****** UART: ACIA6850 - READ - Value %0x\n", acia.rdr );
+#endif           
+                acia.sr |= SR_RDRF; 
+                //acia_update_irq();  
+         }  // if MIDISerial.available
 
 }
 
+void acia_data_w(uint8_t data) { 
+
+#if ACIA6850_DEBUG 
+log_debug("***** UART: ACIA6850 - TX DATA  char= >%0x< \n", acia.tdr);
+log_debug("***** UART: ACIA6850 - With CR value =%0X \n", acia.cr);
+#endif
+                Serial.write(data);
+                acia.sr &= ~SR_TDRE; // since I just txmitted, now TDRE is empty      
+                //acia_update_irq();
+}
 
 uint8_t acia_rreg(uint8_t reg) {
 	switch (reg & 0x01) {   // not fully mapped
 		case ACIA_SR:
-//  		Serial.printf(" ACIA_SR: %0x\n ", acia.sr);
+#if ACIA6850_DEBUG 
+log_debug("************************** READING ACIA_SR: %0x\n ", acia.sr);
+#endif
 			  return acia.sr;
         break;
 		case ACIA_RDR:
-//  		Serial.printf(" ACIA_RDR: %x\n", acia.rdr);     //     IRQ PE OVRN FE CTS DCD TDRE RDRF
-			  acia.sr &= 0x7e;	           // clear IRQ, RDRF       0  1   1   1   1   1   1   0
+#if ACIA6850_DEBUG 
+log_debug("*************************** READING ACIA_RDR: %x: Will CLEAR IRQ and RDRF\n", acia.rdr);     //   IRQ PE OVRN FE CTS DCD TDRE RDRF
+#endif
+			  acia.sr &= ~SR_RDRF;         // clear  RDRF       1  1   1   1   1   1   1   0
+        acia_update_irq();           // This will clear the IRQ
 			  return acia.rdr;
         break;
 		default:
@@ -131,24 +198,39 @@ uint8_t acia_rreg(uint8_t reg) {
 }
 
 void acia_wreg(uint8_t reg, uint8_t val) {
-//Serial.printf(" ACIA_Wreg \n");  
+#if ACIA6850_DEBUG 
+log_debug("****************** ACIA_Wreg Address = 0xE10%0X\n", reg);  
+#endif
 	switch (reg & 0x01) {   // not fully mapped
 		case ACIA_CR:
 			acia.cr = val;
-      if (acia.cr & 0x11) {
-          Serial.printf("ACIA Master Reset\n");
-          //acia.cr = 0;
-          acia.sr = 0;
-          acia.tdr = 0;
-          acia.rdr = 0;
-      }
-//   	 Serial.printf("CR acia.cr = %02x\n", val); // 15 is: 0 Rx IRQ disabled 00 (Tx IRQ disabled) 101 (8 bit, no parity, 1 stop bit) 01 ( 16 division ratio)
+      m_rx_irq_enable = (acia.cr >> 7) & 1;          // check for RX IRQ Enable Active
+               //   CR5 & CR6  (tx2, tx1) == (0,1)
+      m_tx_irq_enable = ((acia.cr & 0x60) == 0x20);  // check for TX IRQ Enable Active
+               //   CR0 & CR1 == (1,1) 
+      if ( ( acia.cr & 0x03 ) == 0x03)              // Check for Master Reset
+              acia_init();                          // Master Reset
+ 
+#if ACIA6850_DEBUG
+log_debug("*                  m_rx_irq_enable will %s trigger a RX request\n", (m_rx_irq_enable == 1) ? "" : "not");
+log_debug("*                  m_tx_irq_enable will %s trigger a TX request\n", (m_tx_irq_enable == 1) ? "" : "not");
+log_debug("****************** ACIA CR = %0x\n", acia.cr);
+#endif
+      acia_update_irq(); // <<<<
 			break;
+		
 		case ACIA_TDR:
 			acia.tdr = val;
-//    Serial.printf(" TDR acia.tdr = %c\n", val);   // IRQ PE OVRN FE CTS DCD TDRE RDRF
-			acia.sr &= 0x7d;	       // clear IRQ, TDRE       0   1   1   1   1   1   0    1
+#if ACIA6850_DEBUG 
+log_debug(" **************** TDR acia.tdr = %0x\n", acia.tdr);
+#endif
+      if(m_tx_irq_enable) {
+        acia_data_w(acia.tdr);
+        acia.sr &= ~SR_TDRE;  // clear TDRE       1   1   1   1   1   1   0    1
+			  acia_update_irq();    // This will clear the IRQ
+      }
 			break;
+      
      default:
        Serial.printf("******************** ACIA: Unmapped Register ******************************\n");
        return 0xff;

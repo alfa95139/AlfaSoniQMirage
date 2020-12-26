@@ -364,10 +364,12 @@ void fdc_wreg(uint8_t reg, uint8_t val) {
 	// handle writes to FDC registers
 	int cmd = (val & 0xf0)>>4;
 
-  //Serial.printf("Entering: FDC_WREG\n");
-  //Serial.printf("FDC_WREG reg => %02x; val =>  %02x\n", reg, val);
-  //Serial.printf("FDC_WREG cmd => %02x\n", cmd);
-  //Serial.printf("FDC_WREG reg & 0x03 = > %02x\n", reg & 0x03);
+#if FDC1772_DEBUG
+log_debug("Entering: FDC_WREG\n");
+log_debug("FDC_WREG reg => %02x; val =>  %02x\n", reg, val);
+log_debug("FDC_WREG cmd => %02x\n", cmd);
+log_debug("FDC_WREG reg & 0x03 = > %02x\n", reg & 0x03);
+#endif
 
 	switch (reg & 0x03) {
 		case FDC_CR: // 0
