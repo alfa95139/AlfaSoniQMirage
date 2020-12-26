@@ -419,7 +419,9 @@ if ((DEVICES_START <= address) &  (address <= DEVICES_END)) {
   } else if ((address & 0xFF00) == UART6850) { //AF: Added 11.28.20 
     set_log("acia6850");  
     out = acia_rreg(address & 0xFF);
-    //Serial.printf("UART6850: Reading Register %04x %04x\n", address & 0xFF, out);
+#if RomMonEnable
+    log_debug("UART6850: Reading Register %04x %04x\n", address, out);
+#endif
   } else if ((address & 0xFF00) == 0xE400) {
     set_log("filters"); 
     out = FILTERS[address - 0xE400]; 
