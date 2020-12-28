@@ -124,14 +124,17 @@ irq = ( m_tx_irq_enable && ( acia.sr & SR_TDRE)) || ( m_rx_irq_enable && (acia.s
 acia.irq = irq;
 
 // update STATUS REGISTER
+
 if (acia.irq)
     acia.sr |= SR_IRQ;
-  else
+  else {
     acia.sr &= ~SR_IRQ;
-
+//    acia.sr |= SR_TDRE;
+  }
+  
 #if ACIA6850_DEBUG 
-log_debug("*      acia_SR = %0x (UPDATED)\n",   acia.sr );
-log_debug("       IRQ = %0x it %s fire FIRQ ", irq, (irq==1)? "WILL (if not masked)" : "will NOT");
+log_debug("******** acia_SR = %0x (UPDATED)\n",   acia.sr );
+log_debug("         IRQ = %0x it %s fire FIRQ ", irq, (irq==1)? "WILL (if not masked)" : "will NOT");
 #endif
   
 }
@@ -169,6 +172,7 @@ log_debug("************************** READING ACIA_SR: %0x\n ", acia.sr);
     break;
     
     case ACIA_RDR: // $E101
+    acia.sr &= 0x7e;  // clear IRQ, RDRF
 #if ACIA6850_DEBUG 
 log_debug("*************************** READING ACIA_RDR: %x: Will CLEAR IRQ and RDRF\n", acia.rdr);     //   IRQ PE OVRN FE CTS DCD TDRE RDRF
 #endif
@@ -215,14 +219,16 @@ log_debug("****************** ACIA CR = %0x\n", acia.cr);
       break;
     
 case ACIA_TDR:      // E101
-      acia.tdr = val;
-      if(m_tx_irq_enable) {
+        acia.tdr = val;
+        acia.sr &= 0x7d;
 #if ACIA6850_DEBUG 
 log_debug("***** UART: ACIA6850 - TX DATA  char= >%0x< \n", acia.tdr);
-log_debug("***** UART: ACIA6850 - With CR value =%0X \n", acia.cr);
+log_debug("***** UART: ACIA6850 - CR value =%0X, SR value =%0X \n", acia.cr, acia.sr);
 #endif
-          Serial.write(acia.tdr);
-          acia.sr &= ~SR_TDRE; // since I just txmitted, now TDRE is empty          
+//      if(m_tx_irq_enable) {
+        if(! (acia.sr & SR_TDRE)) {
+          Serial.printf("************************ >%c< *************************\n",acia.tdr);
+          acia.sr |= SR_TDRE; // since I just txmitted, now TDRE is empty          
           acia_update_irq();    // This will clear the IRQ
           }
       break;
