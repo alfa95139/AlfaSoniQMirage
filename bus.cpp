@@ -87,13 +87,13 @@
 #define DOCirqService   0x8871 // this is the routine that services the DOC IRQ
 #define firqentry       0xA151 // FIRQ Service Routine
 #define osentry         0xB920 // OS 3.2 OS Entry point
-#define AF_1            0x8AE4 // call to setfilterDAC
-#define AF_2            0x85E9 //
-#define AF_3            0x8AAE //
-#define AF_4            0x82F5 //8AAE
-#define AF_5            0x8761 // this is after calling the setfilterdac routine
+#define AF_1            0xA758 // after first call for FDC from OS - case 1
+#define AF_2            0xA78A // after first call for FDC from OS - case 2
+#define AF_3            0xA7D0 // Another readsector
+#define AF_4            0xA7D5 // After Readsector - case 1
+#define AF_5            0xA7D7 // After Readsector - case 2
 #define firstOSjmp      0x875E // this is the first jump from OS 3.2 Entry Point. It contains the loop to reset the filters and other houskeeping
-#define AF_6            0x8868 // within 0x885E
+#define AF_6            0xA7EB // Sector Counter - check for A (up to 5)
 #define Dec162020N2     0x9858
 #define Dec162020       0x9A4D
 #define DisplayParam    0x9CC1
@@ -101,21 +101,21 @@
 #define DisplayNKeys3  0x9DE2
 #define B4DispNKeys     0x9E00
 #define DisplayNKeys1   0x9E14
-#define DisplayNKeys2   0x9812//
-#define AF_7            0x9039//
-#define AF_8            0xA116  
-#define AF_9            0xA13D
-#define AF_10           0x9083
-#define AF_11           0xA0F2
-#define AF_12           0x91EE // Call 1 (of 2) to A0F2
-#define AF_13           0x940F // Call 2 (of 2) to A0F2
-#define AF_14           0x91D3 // ORIGIN of Call 1 (of 2) to A0F2
-#define AF_15           0x9198 // ORIGIN OF ORIGIN of Call 1 (of 2) to A0F2
-#define AF_16           0x913B // ORIGIN of ORIGIN OF ORIGIN of Call 1 (of 2) to A0F2
-#define AF_17           0x9116 // FIRST KEYVAL SCAN
+#define DisplayNKeys2   0x9812 //
+#define AF_7            0xA809 // JSR   fdcseekin
+#define AF_8            0xA80C // After fdcseekin 
+#define AF_9            0x91F4 // 122820 NMI crash
+#define AF_10           0x9F6F // before NMI crash
+#define AF_11           0xA6B0 // 122920
+#define AF_12           0xA69C // 122920
+#define AF_13           0xAA60  // JSR FDCSKIPSECTOR
+#define AF_14           0xAA63 //
+#define AF_15           0xA4BA // 122920
+#define AF_16           0xA4D7 //122920
+#define AF_17           0xAADE // loop for gototrack2
 #define AF_18           0x90E9 // Keyval Interpreter
-#define AF_19           0x9DC6 // 
-#define AF_20           0x885E
+#define AF_19           0xAAFC // 122920
+#define AF_20           0xAAFF // 122920
 #define DualUARTrst     0xA07E // before hang
 #define UART_OUT        0xA1BC //
 #define AnotherUART     0xA13D // We analyzed this well...
@@ -183,20 +183,20 @@ const char* address_name(uint16_t address) {
   if (address == monitorPrintStr)     return "MONITOR ROM printstring Routine";
   if (address == monitorsendch1)      return "MONITOR ROM sendch1 Routine";
   if (address == loadopsys)           return "LOAD OS IN PRG RAM";
-  if (address == osentry)             return "OS ENTRY";
+  if (address == osentry)             return "*OS ENTRY";
   if (address == irqentry)            return "IRQ INTERRUPT ROUTINE ENTRY POINT";
   if (address == manageKeys)          return "*Manage Keys - assuming 6511 or UART????"; 
   if (address == entersDOCirq)        return "Check whether the DOC has generated the interrupt";
   if (address == DOCirqService)       return "*DOC IRQ Service Routine";
   if (address ==  DualUARTrst)        return "Dual UART RST";
-  if (address ==  UART_OUT)           return "*UART OUT";
+  if (address ==  UART_OUT)           return "UART OUT";
   if (address ==  AnotherUART)        return "ANOTHER UART";
   
-  if (address == firqentry)           return "*FIRQ INTERRUPT ROUTINE ENTRY POINT";
+  if (address == firqentry)           return "FIRQ INTERRUPT ROUTINE ENTRY POINT";
   if (address == firqvec)             return "firqvec";
   //if (address == irqvec)            return "irqvec";
   if (address == osvec)               return "osvec"; 
-  if (address ==readfdinOS)           return "*readfdinOS -> This is one of the floppy disk reads from within the OS";
+  if (address ==readfdinOS)           return "readfdinOS -> This is one of the floppy disk reads from within the OS";
   if (address == fdcreadsector)       return "fdcreadsector"; 
   if (address == fdcskipsector)       return "fdcskipsector"; 
   if (address == fdcwritesector)      return "fdcwritesector"; 
@@ -212,7 +212,8 @@ const char* address_name(uint16_t address) {
   if (address == nmivec)              return "nmivec"; 
   if (address == coldstart)           return "coldstart"; 
   if (address == runopsys)            return "runopsys"; 
-  if (address == hwsetup)             return "hwsetup"; 
+   if (address == hwsetup)             return "HW SETUP ROUTINE: IN MONITOR ROM";
+  //if (address == hwsetup)             return "hwsetup"; 
   if (address == qchipsetup)          return "qchipsetup"; 
   if (address == clearram)            return "clearram"; 
   if (address == readsysparams)       return "readysysparams"; 
@@ -220,35 +221,61 @@ const char* address_name(uint16_t address) {
   if (address == showerrcode)         return "showerrorcode"; 
   if (address == preparefd)           return "preparefd"; 
   if (address == loadossector)        return "loadossector"; 
+  if (address == 0xF23C)              return " Set Track & Sector # before loadossector"; 
+  if (address == 0xF253)              return "AFTER LOADOSSECTOR - Check $8006 flag";
+  if (address == 0xF3B1)              return " BEFORE FDCREADSECTOR";
+  if (address == 0xF3B7)              return " AFTER FDCREADSECTOR";
+  if (address == readsector)          return "* Entering Readsector";
+  if (address == 0xF450)              return " In readector, just before JSR FDCREADESCTOR";
+  if (address == 0xF453)              return " AFTER JSR FDCREADSECTOR FROM READSECTOR ROUTINE";
+  //if (address == 0xAADE)              return "* Only once in MAME";
+  if (address == 0xA7D0)              return " This is the Readsector from OS";
+  if (address == 0xA7D3)              return " This is after the Readsector from OS - CHECK 0x8000 values";
+  if (address == 0xA809)              return " Breakpoint where 0x80D7 is read";
+  if (address == 0x80D5)              return " Breakpoint where loops through 5 READSECTORS - check values of $80D5, $80D6, $80D7, $80D8";
+  if (address == 0xA80C)              return " After FDCSEEKIN ****** START LOOOKING AT WHO FUCKS UP fdcsect ($800 ";
   if (address == gototrack)           return "gototrack";
   if (address == seterrcode)          return "seterrcode"; 
   if (address == saveparams)          return "saveparams"; 
   if (address == restoreparams)       return "restoreparams"; 
-  if (address == readsector)          return "readsector"; 
   if (address == writesector)         return "writesector"; 
   if (address == gototrack2)          return "gototrack2"; 
   if (address == enablefd)            return "enablefd";
   if (address == disablefd)           return "disablefd";
   if (address == docctrlregs)         return "docctrlregs";
+ 
+
+    if (address == AF_1)                return "After reading sector: case 1";
+    if (address == AF_2)                return "After reading sector: case 2";
+  
+    if (address == AF_3)                return " Readsector";
+    if (address == AF_4)                return " After Readsector - case 1";
+    if (address == AF_5)                return " After Readsector - case 2";
+ 
+  if (address == AF_6)                return " Sector Counter - check for A (up to 5)";
+  if (address == AF_7)                return " AT: JSR   fdcseekin";
+  if (address == AF_8)                return " AFTER     JSR fdcseekin: How Many NMIs????";
+  
+  if (address == AF_9)                return " 122820 NMI crash";
+  
+  if (address == AF_10)               return " before NMI crash";
+  
+ // if (address == AF_11)               return "* **** 11";
+ // if (address == AF_12)               return "* **** 12";
+  
+  if (address == AF_13)               return " **** $AA60: JSR fdcskipsector";
+  if (address == AF_14)               return "      $AA63";
+
+  if (address == AF_15)               return " **** 15";
+  
+  if (address == AF_16)               return " **** 16";
+  if (address == AF_19)               return " @ JSR   gototrack2";
+  if (address == AF_20)               return " @ RTI";
+  
+  if (address == AF_17)               return " LOOP FOR GOTOTRACK 2. Check values of $80D5, $80D6, $80D7";
   /*
-    if (address == AF_1)                return "* check 1";
-    if (address == AF_2)                return "* check 2";
-    if (address == AF_3)                return "* check 3";
-  if (address == AF_6)                return "*Within 0x885E";
-  if (address == AF_7)                return "* CHECK THIS ROUTINE 7";
-  if (address == AF_8)                return "* CHECK THIS ROUTINE 8";
-  if (address == AF_9)                return "* CHECK THIS ROUTINE 9";
-  if (address == AF_10)               return "* Routine from which we later trigger 0x90B0";
-  if (address == AF_11)               return "* Routine that gets me to loop forever (starting from $A01E)";
-  if (address == AF_12)               return "* CALL 1 (of 2) to A0F2";
-  if (address == AF_13)               return "* CALL 2 (of 2) to A0F2";
-  if (address == AF_14)               return "* ORIGIN of CALL 1 (of 2) to A0F2";
-  if (address == AF_15)               return "* ORIGIN OF ORIGIN of CALL 1 (of 2) to A0F2";
-  if (address == AF_16)               return "* ORIGIN of ORIGIN OF ORIGIN of CALL 1 (of 2) to A0F2";
-  if (address == AF_17)               return "* inside KeyVal scan<<<<";
   if (address == AF_18)               return "*Keyval Interpreter<<<<";
-  if (address == AF_19)               return "* >>><<<<";
-  if (address == AF_20)               return "* >>>***<<<<";
+
   if (address == DisplayNKeys1)       return "*DISPLAY AND KEYPAD 1";
   if (address == DisplayNKeys2)       return "*DISPLAY AND KEYPAD 2";
   if (address ==Dec162020N2 )         return "*Dec162020N2";
@@ -326,9 +353,18 @@ void CPU6809::write(uint16_t address, uint8_t data) {
     debug_mode = true;
     set_debug(true);
   }*/
+if(address == 0x80D5) log_debug(">>>>> 80D5 written with value %X <<<<<", data);
+if(address == 0x80D6) log_debug(">>>>> 80D6 written with value %X <<<<<", data);
+if(address == 0x80D7) log_debug(">>>>> 80D7 written with value %X <<<<<", data);
+if(address == 0x80D8) log_debug(">>>>> 80D8 written with value %X <<<<<", data);
 
+if(address == 0x8000) log_debug(">>>>> 8000 FCD CMD    written with value %X <<<<<", data);
+if(address == 0x8001) log_debug(">>>>> 8001 FCD RETRY  written with value %X <<<<<", data);
+if(address == 0x8002) log_debug(">>>>> 8002 FCD TRK    written with value %X <<<<<", data);
+if(address == 0x8003) log_debug(">>>>> 8003 FCD SECT   written with value %X <<<<<", data);
+if(address == 0x8004) log_debug(">>>>> 8006 FCD BUFF   written with value %X <<<<<", data);
+if(address == 0x8006) log_debug(">>>>> 8006 FCD STATUS written with value %X <<<<<", data);
 
-  
   // RAM?
   if ((RAM_START <= address) && (address <= RAM_END)) {                     //  0x8000 to 0xBFFF
     PRG_RAM[address - RAM_START] = data;  
@@ -411,6 +447,7 @@ if ((DEVICES_START <= address) &  (address <= DEVICES_END)) {
     out = via_rreg(address & 0xFF);
   } else if ((address & 0xFF00) == FDC1770) {
     set_log("fdc");
+    if (address  == 0xE800) log_debug(" READING from FDC REGISTER %0x", address & 0xFF);
     out = fdc_rreg(address & 0xFF);
   } else if ((address & 0xFF00) == DOC5503 ) {
     set_log("doc5503");                       // AF: Added 11.1.2020
@@ -484,8 +521,19 @@ void CPU6809::printRegs() {
   Serial.printf("DP %02x\n", dp);
   Serial.printf("A  %02x\n", a);
   Serial.printf("B  %02x\n", b);
-  Serial.printf("CC %02x\n", cc.all);
-  Serial.println();
+  Serial.printf("Condition Code Register\n");
+  Serial.printf("   E F H I N Z V C\n");
+  //Serial.printf("  | + + + + + + + |\n");
+  Serial.printf("   %x %x %x %x %x %x %x %x\n", (cc.all>>7) &0x01, (cc.all>>6) &0x01,(cc.all>>5) &0x01, (cc.all>>4) &0x01, (cc.all>>3) &0x01, (cc.all>>2) &0x01, (cc.all>>1) &0x01, (cc.all>>0) &0x01);
+ // Serial.printf("  | + + + + + + + |\n");
+  Serial.printf("   E F H I N Z V C\n");
+  //Serial.printf("     I a R e e   a\n");
+ // Serial.printf("     R l Q g r O r\n");
+ // Serial.printf("     Q f     o v r\n");
+ // Serial.printf("       C       f y\n");
+ // Serial.printf("       r       l  \n");
+ // Serial.printf("       y       w  \n");
+   Serial.println();
 }
 
 void CPU6809::printLastInstructions() {
@@ -557,7 +605,7 @@ void CPU6809::on_irq(uint16_t src, uint16_t dst) {
     invalid("Not allowed to branch below 0x8000 (irq)");
   if (debug) {
     const char* name = address_name(dst);
-        log_debug("IRQ from %04x to %04x (%s)\n", src, dst, name);
+     //   log_debug("IRQ from %04x to %04x (%s)\n", src, dst, name);
   }
 }
 void CPU6809::on_firq(uint16_t src, uint16_t dst) {
@@ -575,6 +623,15 @@ void CPU6809::print_memory(int address, int lines) {
   s[16] = 0;
 
   address &= 0xFFF0;
+  if (address == 0x8000) {
+  Serial.println("ADDR |  f  f  f  f  f     f  f");
+  Serial.println("ADDR |  d  d  d  d  d     d  d");
+  Serial.println("ADDR |  c  c  c  c  c     c  c");
+  Serial.println("ADDR |  c  r  t  s  b     s  e");
+  Serial.println("ADDR |  m  t  r  e  u     t  r");
+  Serial.println("ADDR |  d  r  k  c  f     a  r");
+  Serial.println("ADDR |  d  y     t  f     t   ");
+  }
   Serial.println("ADDR | 00 01 02 03 04 05 06 07 08 09 0A 0B 0C 0D 0E 0F | 0123456789ABCDEF |");
   Serial.println("-----|------------------------------------------------ | ---------------- |");
   for (int line = 0; line < lines; line++) {

@@ -61,27 +61,27 @@ ORG $F000
 *** (How does this terminate?)
 fdcreadsector:
 F000: B6 80 03    LDA   $8003
-F003: 97 02       STA   $02
-F005: 86 88       LDA   #$88           ;	Read Sector command
+F003: 97 02       STA   $02				;	$E802
+F005: 86 88       LDA   #$88			;	Read Sector command
 F007: B7 80 00    STA   $8000
-F00A: 97 00       STA   $00
+F00A: 97 00       STA   $00				;	$E800
 F00C: 13          SYNC  
-F00D: 96 03       LDA   $03
-F00F: A7 80       STA   ,X+
+F00D: 96 03       LDA   $03				;	$E803
+F00F: A7 80       STA   ,X+				; ???
 F011: 20 F9       BRA   $F00C
 
 
 *** Skip (verify?) sector in current track
 *** sector number in $8003, ignore data
 fdcskipsector:
-F013: B6 80 03    LDA   $8003
-F016: 97 02       STA   $02
-F018: 86 88       LDA   #$88           ;	Read Sector command
-F01A: B7 80 00    STA   $8000
-F01D: 97 00       STA   $00
-F01F: 13          SYNC  
-F020: 96 03       LDA   $03
-F022: 20 FB       BRA   $F01F
+F013: B6 80 03    LDA   $8003			;	
+F016: 97 02       STA   $02				;	$E802
+F018: 86 88       LDA   #$88			;	Read Sector command
+F01A: B7 80 00    STA   $8000			;	store 0x88  in $8000
+F01D: 97 00       STA   $00				;	store 0x88  in $E800
+F01F: 13          SYNC					; --<--+
+F020: 96 03       LDA   $03				;      |  $E803
+F022: 20 FB       BRA   $F01F			; -->--+
 
 
 *** Write sector to current track
@@ -155,12 +155,12 @@ F079: 97 00       STA   $00
 F07B: 20 FE       BRA   $F07B
 
 
-*** Step drive head inward by one track
+*** Step drive head inward by one track. Enters with DP = E8. So $00 means $E800
 fdcseekin:
-F07D: 86 58       LDA   #$58           ;	Step In command
+F07D: 86 58       LDA   #$58			;	Step In command
 F07F: B7 80 00    STA   $8000
-F082: 97 00       STA   $00
-F084: 20 FE       BRA   $F084
+F082: 97 00       STA   $00				;	Store in $E800, which is a write to the WD1772 control register
+F084: 20 FE       BRA   $F084			; ->---<----o
 
 
 *** Step drive head outward by one track
@@ -173,12 +173,12 @@ F08D: 20 FE       BRA   $F08D
 
 *** Reset fdc, cancel pending operations
 fdcforceinterrupt:
-F08F: 86 D0       LDA   #$D0           ;	Force Interrupt command
+F08F: 86 D0       LDA   #$D0            ;	Force Interrupt command
 F091: B7 80 00    STA   $8000
-F094: 97 00       STA   $00
-F096: D6 00       LDB   $00            ;	while fdc Busy bit set
-F098: C5 01       BITB  #$01
-F09A: 26 FA       BNE   $F096
+F094: 97 00       STA   $00				;	this should store in  $E800
+F096: D6 00       LDB   $00             ;	This should load from $E8000. While fdc Busy bit set
+F098: C5 01       BITB  #$01            ;
+F09A: 26 FA       BNE   $F096           ;
 F09C: F7 80 06    STB   $8006
 F09F: 10 8E 00 01 LDY   #$0001
 F0A3: 17 00 01    LBSR  countdown
@@ -314,7 +314,7 @@ F1AC: 7F 80 07    CLR   $8007			;
 F1AF: 7F 80 02    CLR   $8002			;
 F1B2: 7F 80 03    CLR   $8003			;
 F1B5: 86 01       LDA   #$01			;	set flag 
-F1B7: B7 BF 8C    STA   $BF8C			;		for OS load
+F1B7: B7 BF 8C    STA   $BF8C			;		for OS load. While the flag is 0x01 we are loading the OS
 F1BA: 39          RTS   
 
 
@@ -387,26 +387,26 @@ F23C: B6 BF 81    LDA   $BF81			;set track#
 F23F: B7 80 02    STA   $8002
 F242: B6 BF 82    LDA   $BF82			;set sector#
 F245: B7 80 03    STA   $8003
-F248: B6 BF 8C    LDA   $BF8C			;test OS load flag,
-F24B: 27 03       BEQ   $F250			;set at $F1B7 (dumb) -->--+
-F24D: BD F4 25    JSR   saveparams		;                         |
-F250: BD F3 AC    JSR   loadossector	;	------<---------------+
-F253: B6 80 06    LDA   $8006
-F256: 81 00       CMPA  #$00
-F258: 27 02       BEQ   $F25C			; --------->--------------+
-F25A: 20 4F       BRA   $F2AB			;bail on err			  |
-										;						  |	
-F25C: B6 BF 8C    LDA   $BF8C			;test OS load flag	---<--+
-F25F: 27 0A       BEQ   $F26B			; ------------->----------+
-F261: 34 10       PSHS  X				;
-F263: BD F4 37    JSR   restoreparams	; ---------->---------------+
-F266: 7F BF 8C    CLR   $BF8C			;clr OS load flag			|
-F269: 35 10       PULS  X				;							|
-F26B: BF 80 04    STX   $8004			;  ---------<---------------+
-F26E: 7C 80 03    INC   $8003			;do next sector
-F271: B6 80 03    LDA   $8003
-F274: 81 06       CMPA  #$06			;while sector <= 5
-F276: 26 D0       BNE   $F248
+F248: B6 BF 8C    LDA   $BF8C			;test OS load flag,   -----<----+
+F24B: 27 03       BEQ   $F250			;         --------->------+		|
+F24D: BD F4 25    JSR   saveparams		; Copy disk transfer params from $8000-8007 to $BF8D-BF94. This happens the first time
+F250: BD F3 AC    JSR   loadossector	;	------<---------------+		|
+F253: B6 80 06    LDA   $8006			; FDC STATUS    				| << check who is writing here
+F256: 81 00       CMPA  #$00			;								|
+F258: 27 02       BEQ   $F25C			; --------->--------------+		|
+F25A: 20 4F       BRA   $F2AB			;bail on err			  |		|
+										;						  |		|
+F25C: B6 BF 8C    LDA   $BF8C			;test OS load flag	---<--+		|
+F25F: 27 0A       BEQ   $F26B			; ------------->----------+		^
+F261: 34 10       PSHS  X				;								|
+F263: BD F4 37    JSR   restoreparams	; ---------->---------------+	|
+F266: 7F BF 8C    CLR   $BF8C			;clr OS load flag			|	|
+F269: 35 10       PULS  X				;							|	|
+F26B: BF 80 04    STX   $8004			;  ---------<---------------+	|
+F26E: 7C 80 03    INC   $8003			;do next sector					|
+F271: B6 80 03    LDA   $8003			;								|
+F274: 81 06       CMPA  #$06			;while sector <= 5				|
+F276: 26 D0       BNE   $F248			; keep loading ------------>----+
 F278: 7C 80 02    INC   $8002			;increment track
 F27B: B6 80 02    LDA   $8002
 F27E: B1 BF 83    CMPA  $BF83			;quit if trk > max trk
@@ -559,32 +559,32 @@ F3AB: 39          RTS
 *** Read sector of operating system
 *** restore params if OS flag set
 loadossector:
-F3AC: 86 0A       LDA   #$0A           ;retry count = 10
+F3AC: 86 0A       LDA   #$0A			;retry count = 10
 F3AE: B7 80 01    STA   $8001
-F3B1: BE 80 04    LDX   $8004          ;X = buffer address
-F3B4: BD F0 00    JSR   fdcreadsector
-F3B7: B6 80 06    LDA   $8006
-F3BA: 81 00       CMPA  #$00
-F3BC: 27 08       BEQ   $F3C6
-F3BE: B6 BF 8C    LDA   $BF8C          ;test OS load flag
-F3C1: 27 03       BEQ   $F3C6
-F3C3: BD F4 37    JSR   restoreparams
-F3C6: 7A 80 01    DEC   $8001          ;dec retry count
-F3C9: B6 80 01    LDA   $8001
-F3CC: 27 07       BEQ   $F3D5          ;exit if count = 0
-F3CE: B6 80 06    LDA   $8006
-F3D1: 81 00       CMPA  #$00
-F3D3: 26 DC       BNE   $F3B1
-F3D5: B6 80 06    LDA   $8006          ;convoluted logic!
-F3D8: 81 00       CMPA  #$00
-F3DA: 27 14       BEQ   $F3F0          ;normal exit if no err
-F3DC: BD F0 86    JSR   fdcseekout
-F3DF: BD F0 7D    JSR   fdcseekin
+F3B1: BE 80 04    LDX   $8004			;X = buffer address ---<----+
+F3B4: BD F0 00    JSR   fdcreadsector	;							|
+F3B7: B6 80 06    LDA   $8006			;							|
+F3BA: 81 00       CMPA  #$00			;							|
+F3BC: 27 08       BEQ   $F3C6			;   ---------->-----+		|
+F3BE: B6 BF 8C    LDA   $BF8C			;test OS load flag	|		|
+F3C1: 27 03       BEQ   $F3C6			;	---------->-----+		^
+F3C3: BD F4 37    JSR   restoreparams	;					|		|
+F3C6: 7A 80 01    DEC   $8001			;dec retry count -<-+		|
+F3C9: B6 80 01    LDA   $8001			;							|
+F3CC: 27 07       BEQ   $F3D5			;exit if count = 0			|
+F3CE: B6 80 06    LDA   $8006			;							|
+F3D1: 81 00       CMPA  #$00			;							|
+F3D3: 26 DC       BNE   $F3B1			; --------->----------------+
+F3D5: B6 80 06    LDA   $8006			;convoluted logic!
+F3D8: 81 00       CMPA  #$00			;
+F3DA: 27 14       BEQ   $F3F0           ;normal exit if no err
+F3DC: BD F0 86    JSR   fdcseekout		;
+F3DF: BD F0 7D    JSR   fdcseekin		;
 F3E2: B6 BF 8C    LDA   $BF8C			;test OS load flag
 F3E5: 27 03       BEQ   $F3EA			;	-->-+
 F3E7: BD F4 37    JSR   restoreparams	;		|
 F3EA: BE 80 04    LDX   $8004			;  --<--+
-F3ED: BD F0 00    JSR   fdcreadsector  ;one last try?
+F3ED: BD F0 00    JSR   fdcreadsector	; one last try?
 F3F0: 39          RTS   
 
 

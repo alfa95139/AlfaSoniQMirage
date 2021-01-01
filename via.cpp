@@ -163,7 +163,7 @@ PA7 (ROW 2), PA6 (ROW 1), PA5 (ROW 0) read the row. This will give the coordinat
 
    
 
-#define VIA6522_DEBUG 1
+#define VIA6522_DEBUG 0
 
 //#include "bus.h"
 #include "via.h"
@@ -341,7 +341,7 @@ uint8_t via_rreg(uint8_t reg) {
     case 0x01:
     val =  via.ora; // 
 #if VIA6522_DEBUG
-      log_error("*** VIA6522 >READ<: PoRT A =%0x TODO Add Display emulation \n", val);
+      log_debug("*** VIA6522 >READ<: PoRT A =%0x TODO Add Display emulation \n", val);
 #endif
      break;
     case 0x02:
@@ -449,7 +449,9 @@ uint8_t via_rreg(uint8_t reg) {
       break;  
      case 0x0F:       
      val = via.ora;  
+#if VIA6522_DEBUG
      log_debug("VIA read  PORT A (NO HNDSHKE) = %0x TODO Add Keypad/Display emulation=====\n", val);
+#endif     
      break;
     default:
 #if VIA6522_DEBUG
@@ -487,9 +489,9 @@ void via_wreg(uint8_t reg, uint8_t val) {
       via.orb = val;
       break;
     case 0x01: // port A only used for keypad and display
- //#if VIA6522_DEBUG
-       log_error("*** VIA6522 >WRITE<: TODO Add Display emulation===========================\n");
- //#endif
+#if VIA6522_DEBUG
+       log_debug("*** VIA6522 >WRITE<: TODO Add Display emulation===========================\n");
+#endif
        via.ora = val | 0xE0; // fake No Kyes are pressed
       break;
     case 0x02:

@@ -61,7 +61,7 @@
 //unsigned long acia_cycles = ACIA_CLK;
 extern unsigned long get_cpu_cycle_count();
 
-#define ACIA6850_DEBUG 1
+#define ACIA6850_DEBUG 0
 
 struct {
   uint8_t cr;
@@ -227,7 +227,7 @@ log_debug("***** UART: ACIA6850 - CR value =%0X, SR value =%0X \n", acia.cr, aci
 #endif
 //      if(m_tx_irq_enable) {
         if(! (acia.sr & SR_TDRE)) {
-          Serial.printf("************************ >%c< *************************\n",acia.tdr);
+          Serial.printf("************************ >%c (%0x)< *************************\n",acia.tdr, acia.tdr);
           acia.sr |= SR_TDRE; // since I just txmitted, now TDRE is empty          
           acia_update_irq();    // This will clear the IRQ
           }

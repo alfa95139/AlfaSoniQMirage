@@ -35,7 +35,7 @@ saveparams EQU $F425
 restoreparams EQU $F437
 readsector EQU $F448
 writesector EQU $F476
-gototrack2 EQU $F4A4
+gototrack2 EQU $F4A4				; This routine is used twice in OS 3.2. Never used in BOOT ROM. Identical to gototrack (used in BOOT ROM)
 enablefd EQU $F4C6
 disablefd EQU $F4D6
 timer2int EQU $F4DF
@@ -2171,7 +2171,7 @@ irqentry:
 91EC: EA 86       ORB   A,X			;
 91EE: BD A0 F2    JSR   $A0F2		;;; call 1 (of 2) -> THIS is invoked *after* the second round of 2 $9E14 calls, before UART $A13D
 91F1: BD 9E 83    JSR   $9E83
-91F4: 7D 80 07    TST   fdcerr
+91F4: 7D 80 07    TST   fdcerr		; <<<< 12/28/20 AF
 91F7: 27 07       BEQ   $9200
 91F9: BD 92 49    JSR   $9249	; this is a sort of clear variables routine
 91FC: BD 94 31    JSR   $9431
@@ -4658,12 +4658,12 @@ A434: 39          RTS
 
 ; called from 9F12, which seems to be whithin keypad management
 A435: BD A4 BA    JSR   $A4BA	;
-A438: B6 80 07    LDA   fdcerr
+A438: B6 80 07    LDA   fdcerr	; (first time 0x00)
 A43B: 81 00       CMPA  #$00	; compare FDC Error with 0
 A43D: 27 03       BEQ   $A442	; if no disk error go and compare $80CF with 1, 2, etc
 A43F: 16 00 64    LBRA  $A4A6	; 
 
-A442: B6 80 CF    LDA   $80CF	; what's in $80CF????	<<< this contains an instruction
+A442: B6 80 CF    LDA   $80CF	; what's in $80CF????	(first time 0x03)
 A445: 81 01       CMPA  #$01	; compare  with 1
 A447: 26 05       BNE   $A44E	; not 1
 A449: BD A4 D4    JSR   $A4D4
@@ -4676,7 +4676,7 @@ A455: 20 4F       BRA   $A4A6
 
 A457: 81 03       CMPA  #$03	; compare  with 3
 A459: 26 05       BNE   $A460	; not 3
-A45B: BD A4 D4    JSR   $A4D4
+A45B: BD A4 D4    JSR   $A4D4	; <<< First time
 A45E: 20 46       BRA   $A4A6
 
 A460: 81 04       CMPA  #$04	; compare  with 4
@@ -4729,15 +4729,15 @@ A4B7: 1A 01       ORCC  #$01	; DISABLE CARRY	--<-+	|
 A4B9: 39          RTS			;  ----<----------------+
 
 ; called from A435
-A4BA: B7 80 CF    STA   $80CF   ; Register A in $80CF
-A4BD: F7 80 D0    STB   $80D0   ; Register B in $80D0
-A4C0: BD AB 20    JSR   $AB20
+A4BA: B7 80 CF    STA   $80CF   ; Register A in $80CF   (first time 0x03)
+A4BD: F7 80 D0    STB   $80D0   ; Register B in $80D0   (first time 0x01)
+A4C0: BD AB 20    JSR   $AB20	; inc 80D0, multiply by 4, store the result in 80D1 (first time 0x00)
 A4C3: 7F 80 07    CLR   fdcerr  ;
-A4C6: 86 E8       LDA   #$E8
-A4C8: 1F 8B       TFR   A,DP
+A4C6: 86 E8       LDA   #$E8	; <<<< FROM NOW ON 
+A4C8: 1F 8B       TFR   A,DP	; <<<<             DP == base address of FDC
 A4CA: BD F0 8F    JSR   fdcforceinterrupt
 A4CD: B6 80 02    LDA   fdctrk
-A4D0: B7 E8 01    STA   $E801	; floppy disc controller, register TRACK
+A4D0: B7 E8 01    STA   $E801	; floppy disc controller, register TRACK (first time: 0x0b)
 A4D3: 39          RTS   
 
 A4D4: BD F4 C6    JSR   enablefd
@@ -5011,13 +5011,13 @@ A730: 27 03       BEQ   $A735
 A732: BD AB 00    JSR   $AB00
 A735: 39          RTS   
 
-A736: B6 80 D6    LDA   $80D6			; $80D6 stores the SECTOR
+A736: B6 80 D6    LDA   $80D6			; $80D6 stores the SECTOR. First time is Sector 0.
 A739: B7 80 03    STA   fdcsect
-A73C: B6 E2 00    LDA   $VIA_PORTB		; 
-A73F: BA 80 DD    ORA   $80DD			; OR with the value stored in $80DD
+A73C: B6 E2 00    LDA   $VIA_PORTB		; First time is 40 (0100_0000) / FDC disk loaded (forced by our VIA model)
+A73F: BA 80 DD    ORA   $80DD			; OR with the value stored in $80DD (First time is 0). 
 A742: B7 E2 00    STA   $VIA_PORTB		; put the result in VIA_PORTB
 A745: 8E 00 00    LDX   #$0000			;
-A748: BF 80 04    STX   fdcbuff			; fdcbuff is no 0000, this is X register
+A748: BF 80 04    STX   fdcbuff			; fdcbuff is now 0000, this is X register
 A74B: BD F4 48    JSR   readsector		; this section is associated with a read from the floppy
 A74E: B6 80 06    LDA   fdcstat
 A751: 81 00       CMPA  #$00
@@ -5070,11 +5070,11 @@ A7BA: B6 E2 00    LDA   $VIA_PORTB	;
 A7BD: BA 80 DD    ORA   $80DD		;
 A7C0: B7 E2 00    STA   $VIA_PORTB	;
 A7C3: 8E 00 00    LDX   #$0000		;	X == $0000
-A7C6: BF 80 04    STX   fdcbuff		;	-----<-------+ fdcbuff starts from $0000
+A7C6: BF 80 04    STX   fdcbuff		;	-----<-------+ fdcbuff starts from $0000    -----<------------+
 A7C9: B6 80 E1    LDA   $80E1		;				 | What's in $80E1?
 A7CC: 81 00       CMPA  #$00		;				 |
 A7CE: 26 05       BNE   $A7D5		; --->--+		 |
-A7D0: BD F4 48    JSR   readsector	;		|		 | read the desired sector
+A7D0: BD F4 48    JSR   readsector	;		|		 | read the desired sector; *>A7D0<*
 A7D3: 20 07       BRA   $A7DC		;	-->---+		 |
 									;		| |		 |
 A7D5: 81 02       CMPA  #$02		; ---<--+ |		 |
@@ -5094,25 +5094,25 @@ A7F2: 26 D2       BNE   $A7C6		;  ------->------+
 A7F4: B6 80 03    LDA   fdcsect		;	----<---+
 A7F7: 81 05       CMPA  #$05		; compare with 5 again
 A7F9: 26 1A       BNE   $A815
-A7FB: 7F 80 03    CLR   fdcsect
-A7FE: 7C 80 02    INC   fdctrk
-A801: B6 80 02    LDA   fdctrk
+A7FB: 7F 80 03    CLR   fdcsect		;
+A7FE: 7C 80 02    INC   fdctrk		;
+A801: B6 80 02    LDA   fdctrk		;
 A804: B1 80 D7    CMPA  $80D7
 A807: 22 0C       BHI   $A815
-A809: BD F0 7D    JSR   fdcseekin
-A80C: B6 80 06    LDA   fdcstat
-A80F: 81 00       CMPA  #$00
-A811: 27 02       BEQ   $A815
-A813: 20 31       BRA   $A846
-
-A815: B6 80 02    LDA   fdctrk
-A818: B1 80 D7    CMPA  $80D7
-A81B: 22 05       BHI   $A822
-A81D: 8C 80 00    CMPX  #fdccmd
-A820: 26 A4       BNE   $A7C6
-A822: B6 80 02    LDA   fdctrk
-A825: B1 80 D7    CMPA  $80D7
-A828: 22 07       BHI   $A831
+A809: BD F0 7D    JSR   fdcseekin	;	<<= Does this generate a NMI? If so it should be managed by NMIVEC routine
+A80C: B6 80 06    LDA   fdcstat		;
+A80F: 81 00       CMPA  #$00		;
+A811: 27 02       BEQ   $A815		;	--->----+
+A813: 20 31       BRA   $A846		;			|
+									;			|
+A815: B6 80 02    LDA   fdctrk		;	---<----+
+A818: B1 80 D7    CMPA  $80D7		;  (when value in fdctrack is 0x03, value in $80D7 is 0x0E, which is the upper side of Lower #1, we are loading Lower #1)
+A81B: 22 05       BHI   $A822		;  if we are done with loading Lower #1 go to $A822 ---->-----------------------+  
+A81D: 8C 80 00    CMPX  #fdccmd		;  X is the memory buffer location where the WAV are being loaded               |
+A820: 26 A4       BNE   $A7C6		; -> will jmp $A7C6                                                             |
+A822: B6 80 02    LDA   fdctrk		;                                -------------------------<---------------------+
+A825: B1 80 D7    CMPA  $80D7		; 0x0E
+A828: 22 07       BHI   $A831		;
 A82A: 8C 80 00    CMPX  #fdccmd
 A82D: 10 26 FF 95 LBNE  $A7C6
 A831: 7C 80 DD    INC   $80DD
@@ -5346,24 +5346,24 @@ AA2F: 10 8E FB 8C LDY   #$FB8C
 AA33: 86 02       LDA   #$02
 AA35: B7 80 E3    STA   $80E3
 AA38: BD AA D2    JSR   $AAD2
-AA3B: B6 80 06    LDA   fdcstat
-AA3E: 81 00       CMPA  #$00
-AA40: 27 03       BEQ   $AA45
-AA42: 16 00 8C    LBRA  $AAD1
-
-AA45: B6 80 D5    LDA   $80D5
-AA48: B7 80 02    STA   fdctrk
-AA4B: B6 80 D6    LDA   $80D6	; $80D6 stores the SECTOR
-AA4E: B7 80 03    STA   fdcsect
-AA51: 8E 80 D2    LDX   #$80D2
-AA54: 86 0A       LDA   #$0A
-AA56: B7 80 01    STA   fdcrtry
-AA59: B6 80 E2    LDA   $80E2
-AA5C: 81 00       CMPA  #$00
-AA5E: 26 0A       BNE   $AA6A
-AA60: BD F0 13    JSR   fdcskipsector
-AA63: B6 E8 03    LDA   $E803
-AA66: A7 84       STA   ,X
+AA3B: B6 80 06    LDA   fdcstat			; back here <<<<-------
+AA3E: 81 00       CMPA  #$00			; first time fdcstat is zero
+AA40: 27 03       BEQ   $AA45			; ->-+
+AA42: 16 00 8C    LBRA  $AAD1			;    |
+										;	 v
+AA45: B6 80 D5    LDA   $80D5			; -<-+
+AA48: B7 80 02    STA   fdctrk			; track is now 0x20 (32 decimal: why?)
+AA4B: B6 80 D6    LDA   $80D6			; $80D6 stores the SECTOR
+AA4E: B7 80 03    STA   fdcsect			; sector is now 0x05 (why?)
+AA51: 8E 80 D2    LDX   #$80D2			; this will be a counter
+AA54: 86 0A       LDA   #$0A			;
+AA56: B7 80 01    STA   fdcrtry			; number of retry
+AA59: B6 80 E2    LDA   $80E2			; don't know what's in $80E2 ?
+AA5C: 81 00       CMPA  #$00			;
+AA5E: 26 0A       BNE   $AA6A			;
+AA60: BD F0 13    JSR   fdcskipsector	;	NO IDEA why skipping sector 5 of track 32
+AA63: B6 E8 03    LDA   $E803			;	now $E803 is 0x87 (1000_0111)
+AA66: A7 84       STA   ,X				;
 AA68: 20 07       BRA   $AA71
 
 AA6A: 81 02       CMPA  #$02
@@ -5371,13 +5371,13 @@ AA6C: 26 03       BNE   $AA71
 AA6E: BD F0 37    JSR   fdcfillsector
 AA71: 7A 80 01    DEC   fdcrtry
 AA74: B6 80 01    LDA   fdcrtry
-AA77: 27 07       BEQ   $AA80
+AA77: 27 07       BEQ   $AA80		; when fdcrtry is 0...
 AA79: B6 80 06    LDA   fdcstat
 AA7C: 81 00       CMPA  #$00
 AA7E: 26 D9       BNE   $AA59
 AA80: B6 80 06    LDA   fdcstat
 AA83: 81 00       CMPA  #$00
-AA85: 27 1E       BEQ   $AAA5
+AA85: 27 1E       BEQ   $AAA5		; --->
 AA87: BD F0 86    JSR   fdcseekout
 AA8A: BD F0 7D    JSR   fdcseekin
 AA8D: B6 80 E2    LDA   $80E2
@@ -5396,12 +5396,12 @@ AAA8: 81 00       CMPA  #$00
 AAAA: 27 02       BEQ   $AAAE
 AAAC: 20 23       BRA   $AAD1
 
-AAAE: 30 01       LEAX  $0001,X		; increment X by 1
-AAB0: 7C 80 02    INC   fdctrk		; increment track
+AAAE: 30 01       LEAX  $0001,X		; increment X by 1 (goes from 80D2 to 80D3)
+AAB0: 7C 80 02    INC   fdctrk		; increment track (now 0x21, which is 33 in decimal)
 AAB3: B6 80 02    LDA   fdctrk		; load track
-AAB6: B1 80 D7    CMPA  $80D7		; compare with content in $80D7
+AAB6: B1 80 D7    CMPA  $80D7		; compare with content in $80D7 (which is 0x22)
 AAB9: 22 0C       BHI   $AAC7		; ---->-----+
-AABB: BD F4 A4    JSR   gototrack2	;			|
+AABB: BD F4 A4    JSR   gototrack2	;			| <<< we will run gototrack2 again. This routine is only use twice in OS 3.2
 AABE: B6 80 06    LDA   fdcstat		;           |
 AAC1: 81 00       CMPA  #$00		;			| check for error
 AAC3: 27 02       BEQ   $AAC7		;----->-----+			
@@ -5423,16 +5423,16 @@ AAE0: 26 01       BNE   $AAE3
 AAE2: 4F          CLRA  
 AAE3: 30 A6       LEAX  A,Y
 AAE5: A6 80       LDA   ,X+
-AAE7: B7 80 D5    STA   $80D5
-AAEA: B7 80 02    STA   fdctrk
+AAE7: B7 80 D5    STA   $80D5		; 0x20
+AAEA: B7 80 02    STA   fdctrk		; stores 0x20, which seems wrong
 AAED: A6 80       LDA   ,X+
-AAEF: B7 80 D6    STA   $80D6		; UPDATE THE SECTOR IN 80D6!!!
+AAEF: B7 80 D6    STA   $80D6		; UPDATE THE SECTOR IN 80D6!!! (0x05)
 AAF2: A6 80       LDA   ,X+
-AAF4: B7 80 D7    STA   $80D7
+AAF4: B7 80 D7    STA   $80D7		; (0x22)
 AAF7: A6 84       LDA   ,X
-AAF9: B7 80 D8    STA   $80D8
-AAFC: BD F4 A4    JSR   gototrack2
-AAFF: 39          RTS   
+AAF9: B7 80 D8    STA   $80D8		; (0x05)
+AAFC: BD F4 A4    JSR   gototrack2	;<<<<<<<
+AAFF: 39          RTS				;--------> first time go back to $AA3B
 
 AB00: 86 01       LDA   #$01
 AB02: B7 80 07    STA   fdcerr

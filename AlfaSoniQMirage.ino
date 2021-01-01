@@ -3,14 +3,15 @@
 // 2020/06/14 Version 1.0 by A. Fasan
 // Contributions from Gordon J. Pierce, Erturk Kocalar (8bitforce.com)
 // 2020/11/2 Version 2.0 by D. Brophy, A. Fasan
-// Ensoniq Mirage Retroshield 6809 Emulator for Teensy 4.1
-// Made possible by Dylan Brophy (6809 sw emulator, which enabled to upgrade to Teensy 4.1 (speed + full 128K WAV memory)
+// Ensoniq Mirage with 6809 Emulator for Teensy 4.1
+// Made possible by Dylan Brophy (6809 sw emulator, which enabled to upgrade to Teensy 4.1 (speed + full 128K WAV memory))
 //
 // The MIT License (MIT)
 //
 // Copyright (C) 2012 Gordon JC Pearce <gordonjcp@gjcp.net>
 // Copyright (c) 2019 Erturk Kocalar, 8Bitforce.com
-// Copyright (c) 2020 Alessandro Fasan, ALFASoniQ  / Dylan Brophy, Nuclare (6809 emu integration)        
+// Copyright (c) 2020 Alessandro Fasan, ALFASoniQ  / Dylan Brophy, Nuclare, emulation based on 6809 Usim (by Ray Bellis) integration & enhancements 
+// Copyright (c) 2021 Alessandro Fasan, ALFASoniQ        
 
 // Permission is hereby granted, free of charge, to any person obtaining a copy
 // of this software and associated documentation files (the "Software"), to deal
