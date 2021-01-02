@@ -1729,30 +1729,30 @@ irqentry:
 8EDD: 10 9E A5    LDY   $A5
 8EE0: 8E 8E BF    LDX   #$8EBF
 8EE3: 8D 07       BSR   $8EEC
-8EE5: 35 02       PULS  A
+8EE5: 35 02       PULS  A		; <<<
 8EE7: 8B 24       ADDA  #$24
 8EE9: 97 7D       STA   $7D
 8EEB: 39          RTS   
 
-8EEC: E6 2A       LDB   $000A,Y
+8EEC: E6 2A       LDB   $000A,Y	; <<<< START FROM HERE 
 8EEE: 58          ASLB  
 8EEF: AE 85       LDX   B,X
-8EF1: A1 0E       CMPA  $000E,X
-8EF3: 22 05       BHI   $8EFA
-8EF5: E7 C6       STB   A,U
-8EF7: 4C          INCA  
-8EF8: 20 F7       BRA   $8EF1
-
-8EFA: 30 88 18    LEAX  $18,X
-8EFD: CB 02       ADDB  #$02
-8EFF: 6D 2B       TST   $000B,Y
-8F01: 27 05       BEQ   $8F08
-8F03: 30 88 18    LEAX  $18,X
-8F06: CB 02       ADDB  #$02
-8F08: 81 3C       CMPA  #$3C
-8F0A: 22 04       BHI   $8F10
-8F0C: C1 0E       CMPB  #$0E
-8F0E: 23 E1       BLS   $8EF1
+8EF1: A1 0E       CMPA  $000E,X	;  --<------+---<---+
+8EF3: 22 05       BHI   $8EFA	;	--->----|---+	|
+8EF5: E7 C6       STB   A,U		;			^	|	| <<<<<------
+8EF7: 4C          INCA			;			|	|	|
+8EF8: 20 F7       BRA   $8EF1	; ----->----+	|	|
+								;				|	|
+8EFA: 30 88 18    LEAX  $18,X	; -----<--------+	|
+8EFD: CB 02       ADDB  #$02	;					|
+8EFF: 6D 2B       TST   $000B,Y	;					|
+8F01: 27 05       BEQ   $8F08	;					|
+8F03: 30 88 18    LEAX  $18,X	;					^
+8F06: CB 02       ADDB  #$02	;					|
+8F08: 81 3C       CMPA  #$3C	;					|
+8F0A: 22 04       BHI   $8F10	;					|
+8F0C: C1 0E       CMPB  #$0E	;					|
+8F0E: 23 E1       BLS   $8EF1	;------>------------+
 8F10: 39          RTS   
 
 8F11: 34 26       PSHS  Y,B,A
@@ -2049,7 +2049,7 @@ irqentry:
 
 910B: 8D 09       BSR   $9116
 910D: 81 0E       CMPA  #$0E	; 0x0E	Up Arrow
-910F: 27 D8       BEQ   $90E9
+910F: 27 D8       BEQ   $90E9	; <<<<<
 9111: 81 0F       CMPA  #$0F	; 0x0F	Down Arrow
 9113: 27 D4       BEQ   $90E9
 9115: 39          RTS   
@@ -2071,7 +2071,7 @@ irqentry:
 9135: E6 C5       LDB   B,U
 9137: DD B3       STD   $B3
 9139: 4F          CLRA  
-913A: 39          RTS   
+913A: 39          RTS			; returning to 910D in the case I am looking at 1/1/2020
 
 913B: 81 0D       CMPA  #$0D	; 0x0D	Value
 913D: 26 09       BNE   $9148
@@ -4087,7 +4087,7 @@ irqentry:
 9F74: BD F5 2D    JSR   unknown2	; via, UART reset
 9F77: BD 87 5E    JSR   $875E		; also called from osentry, initialization routine (memory structures, DOC)
 9F7A: BD 89 6B    JSR   $896B		; this looks at keys pressed from keyboard, managed by the shift register
-9F7D: BD A0 7E    JSR   $A07E		; This important, but we do not execute it (12/15/2020)
+9F7D: BD A0 7E    JSR   $A07E		; This important, but we do not execute it (12/15/2020) <<<----
 9F80: 86 CC       LDA   #$CC
 9F82: B7 E2 0B    STA   $E20B
 9F85: 7F E2 06    CLR   $E206
@@ -4957,19 +4957,19 @@ A6B8: 7F 80 E0    CLR   $80E0		; associated with keypad/display?
 A6BB: B6 80 E1    LDA   $80E1
 A6BE: 81 00       CMPA  #$00
 A6C0: 26 05       BNE   $A6C7
-A6C2: BD A7 36    JSR   $A736
-A6C5: 20 07       BRA   $A6CE
+A6C2: BD A7 36    JSR   $A736		;
+A6C5: 20 07       BRA   $A6CE		;
 
 A6C7: 81 02       CMPA  #$02
 A6C9: 26 03       BNE   $A6CE
 A6CB: BD A7 8B    JSR   $A78B
-A6CE: B6 80 06    LDA   fdcstat
+A6CE: B6 80 06    LDA   fdcstat		;
 A6D1: 81 00       CMPA  #$00
-A6D3: 27 05       BEQ   $A6DA
+A6D3: 27 05       BEQ   $A6DA		; ---> if no error
 A6D5: BD AB 00    JSR   $AB00
 A6D8: 20 0D       BRA   $A6E7
 
-A6DA: BD A7 AE    JSR   $A7AE
+A6DA: BD A7 AE    JSR   $A7AE		; ----<----
 A6DD: B6 80 06    LDA   fdcstat
 A6E0: 81 00       CMPA  #$00
 A6E2: 27 03       BEQ   $A6E7
@@ -5019,32 +5019,32 @@ A742: B7 E2 00    STA   $VIA_PORTB		; put the result in VIA_PORTB
 A745: 8E 00 00    LDX   #$0000			;
 A748: BF 80 04    STX   fdcbuff			; fdcbuff is now 0000, this is X register
 A74B: BD F4 48    JSR   readsector		; this section is associated with a read from the floppy
-A74E: B6 80 06    LDA   fdcstat
-A751: 81 00       CMPA  #$00
-A753: 27 03       BEQ   $A758	; ->--+
+A74E: B6 80 06    LDA   fdcstat			;
+A751: 81 00       CMPA  #$00			; check for errors
+A753: 27 03       BEQ   $A758	; ->--+ if no errors go to $A758
 A755: 16 00 32    LBRA  $A78A	; -->----+ RTS
 								;     |  |
 A758: B6 80 E0    LDA   $80E0	; -<--+  |   is $80E0 associated with keypad/display?
 A75B: 81 00       CMPA  #$00
 A75D: 26 0B       BNE   $A76A
-A75F: 8E B3 1D    LDX   #$B31D
-A762: CC 02 71    LDD   #$0271
-A765: C3 B3 1D    ADDD  #$B31D
-A768: 20 0D       BRA   $A777
-								;		 |
+A75F: 8E B3 1D    LDX   #$B31D		; 0xB31D
+A762: CC 02 71    LDD   #$0271		; 0x0271
+A765: C3 B3 1D    ADDD  #$B31D		; Result in D is A=0xB5, B=8E
+A768: 20 0D       BRA   $A777		;
+									;	 |
 A76A: 81 02       CMPA  #$02
 A76C: 26 09       BNE   $A777
-A76E: 8E B5 8E    LDX   #$B58E
-A771: CC 02 71    LDD   #$0271
+A76E: 8E B5 8E    LDX   #$B58E		; The following will copy Parameters stored in Track 0F, Sect 00 to B58E-B7FE (0x271 values) 
+A771: CC 02 71    LDD   #$0271		;
 A774: C3 B5 8E    ADDD  #$B58E
-A777: FD 80 DB    STD   $80DB
-A77A: 10 8E 00 00 LDY   #$0000
-A77E: A6 A0       LDA   ,Y+
-A780: A7 80       STA   ,X+
-A782: BC 80 DB    CPX   $80DB	;		 |
-A785: 26 F7       BNE   $A77E
-A787: 7C 80 D6    INC   $80D6	;		 |
-A78A: 39          RTS			; -->----+
+A777: FD 80 DB    STD   $80DB		;	 | <<< First time $80DB contains, 0xB31D, the second time $B58E.
+A77A: 10 8E 00 00 LDY   #$0000		;    |
+A77E: A6 A0       LDA   ,Y+			;  -----<---+
+A780: A7 80       STA   ,X+			;	 | the first time xfer Track 02, Sect 00 to B31D to B58D (0x271)
+A782: BC 80 DB    CPX   $80DB		;	 |      |
+A785: 26 F7       BNE   $A77E		; ---|-->---+ loops between $B31D and #B58E where it copies from 0x0000 to 0x0271. THESE ARE Parameters!
+A787: 7C 80 D6    INC   $80D6		;	 |
+A78A: 39          RTS				; ->-+   [ This SBRoutine was called from $A6C2
 
 A78B: B6 80 D6    LDA   $80D6		; $80D6 stores the SECTOR
 A78E: B7 80 03    STA   fdcsect		;
@@ -5067,8 +5067,8 @@ A7B1: B7 80 03    STA   fdcsect
 A7B4: B6 80 D5    LDA   $80D5		; $80D5 stores the TRACK
 A7B7: B7 80 02    STA   fdctrk		;
 A7BA: B6 E2 00    LDA   $VIA_PORTB	;	
-A7BD: BA 80 DD    ORA   $80DD		;
-A7C0: B7 E2 00    STA   $VIA_PORTB	;
+A7BD: BA 80 DD    ORA   $80DD		;	I think this will be used to select different pages
+A7C0: B7 E2 00    STA   $VIA_PORTB	;   I think this will be used to select different pages
 A7C3: 8E 00 00    LDX   #$0000		;	X == $0000
 A7C6: BF 80 04    STX   fdcbuff		;	-----<-------+ fdcbuff starts from $0000    -----<------------+
 A7C9: B6 80 E1    LDA   $80E1		;				 | What's in $80E1?
@@ -6081,13 +6081,14 @@ B270: 00 80 68 00 00 00 00 B4 FE B3 1E EC 9B 02 00 00
 B280: 10 04 01 00 00 00 00 00 00 00 00 00 00 00 00 00 
 B290: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
 B2A0: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 F0 00 
-;      0  1  2
+;      0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
 B2B0: 00 00 00 00 00 00 00 00 00 F0 00 00 00 00 00 00 
 B2C0: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
 B2D0: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
 B2E0: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 
 B2F0: FF FF FF FF FF FF FF FF FF FF FF FF FF FF FF 00 
 B300: 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 
+;      0  1  2  3  4  5  6  7  8  9  A  B  C  D  E  F
 B310: 00 00 00 00 00 00 00 00 00 00 00 00 00 32 B3 DE 
 B320: B3 E0 B3 DE B3 E0 00 02 00 00 00 BE 1E 00 00 00 
 B330: 00 F0 00 00 00 00 B3 FE B4 1E B3 FE B4 1E 00 00 

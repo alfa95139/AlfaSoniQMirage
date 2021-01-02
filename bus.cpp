@@ -106,11 +106,11 @@
 #define AF_8            0xA80C // After fdcseekin 
 #define AF_9            0x91F4 // 122820 NMI crash
 #define AF_10           0x9F6F // before NMI crash
-#define AF_11           0xA6B0 // 122920
-#define AF_12           0xA69C // 122920
-#define AF_13           0xAA60  // JSR FDCSKIPSECTOR
-#define AF_14           0xAA63 //
-#define AF_15           0xA4BA // 122920
+#define AF_11           0x9F74 // /---
+#define AF_12           0x9F77 // 
+#define AF_13           0x9F7A  // 
+#define AF_14           0x9F7D // 
+#define AF_15           0x9F80 // ---/
 #define AF_16           0xA4D7 //122920
 #define AF_17           0xAADE // loop for gototrack2
 #define AF_18           0x90E9 // Keyval Interpreter
@@ -221,19 +221,25 @@ const char* address_name(uint16_t address) {
   if (address == showerrcode)         return "showerrorcode"; 
   if (address == preparefd)           return "preparefd"; 
   if (address == loadossector)        return "loadossector"; 
-  if (address == 0xF23C)              return " Set Track & Sector # before loadossector"; 
+
+  if (address == 0xF23C)              return "Set Track & Sector # before loadossector"; 
   if (address == 0xF253)              return "AFTER LOADOSSECTOR - Check $8006 flag";
-  if (address == 0xF3B1)              return " BEFORE FDCREADSECTOR";
-  if (address == 0xF3B7)              return " AFTER FDCREADSECTOR";
-  if (address == readsector)          return "* Entering Readsector";
+  if (address == 0xF3B1)              return " BEFORE FDCREADSECTOR: check for X";
+  if (address == 0xF3B7)              return " AFTER FDCREADSECTOR:  check for X";
+  if (address == readsector)          return " Entering Readsector";
   if (address == 0xF450)              return " In readector, just before JSR FDCREADESCTOR";
   if (address == 0xF453)              return " AFTER JSR FDCREADSECTOR FROM READSECTOR ROUTINE";
   //if (address == 0xAADE)              return "* Only once in MAME";
+  if (address == 0xA74E)              return " AFTER JSR READSECTOR";
+  if (address == 0xA77A)              return " here starts copying data from WAV to B31D and onward";
+  if (address == 0xA787)              return " AFTER looping from X=B31D to X=B58E: did it copy a bunch of WAV values here?";
   if (address == 0xA7D0)              return " This is the Readsector from OS";
   if (address == 0xA7D3)              return " This is after the Readsector from OS - CHECK 0x8000 values";
+  if (address == 0xA7A4)              return " STX fdcbuff: what is X? Who is changing it?";
   if (address == 0xA809)              return " Breakpoint where 0x80D7 is read";
   if (address == 0x80D5)              return " Breakpoint where loops through 5 READSECTORS - check values of $80D5, $80D6, $80D7, $80D8";
   if (address == 0xA80C)              return " After FDCSEEKIN ****** START LOOOKING AT WHO FUCKS UP fdcsect ($800 ";
+  if (address == 0xA748)              return " just started the loop - check for X";
   if (address == gototrack)           return "gototrack";
   if (address == seterrcode)          return "seterrcode"; 
   if (address == saveparams)          return "saveparams"; 
@@ -243,8 +249,18 @@ const char* address_name(uint16_t address) {
   if (address == enablefd)            return "enablefd";
   if (address == disablefd)           return "disablefd";
   if (address == docctrlregs)         return "docctrlregs";
- 
 
+  if (address == 0x910D)              return "* only this";
+  if (address == 0x8F10)              return "* CHECK - $8F10 RTS - CHECK";
+  if (address == 0x8EEC)              return "* Part where it writes in PRGM memory starting at 0x8e71 and onward";
+  if (address == 0x8EF1)              return "* starting point of the loop";
+  if (address == 0x8EEB)              return "* CHECK - $8EEB RTS - CHECK";
+  
+  if (address == 0x9234)              return "* Before JSR $8ECF";
+  if (address == 0x9237)              return "* After JSR $8ECF";
+  if (address == 0x9239)              return "* After BSR $9249";
+  if (address == 0x9F91)              return "* 1/1/2021 BEFORE last NMI crash";
+/*
     if (address == AF_1)                return "After reading sector: case 1";
     if (address == AF_2)                return "After reading sector: case 2";
   
@@ -258,16 +274,24 @@ const char* address_name(uint16_t address) {
   
   if (address == AF_9)                return " 122820 NMI crash";
   
-  if (address == AF_10)               return " before NMI crash";
+  if (address == AF_10)               return "* before NMI crash";
   
- // if (address == AF_11)               return "* **** 11";
- // if (address == AF_12)               return "* **** 12";
+  if (address == AF_11)               return "* **** 1 after JD=S unknown3 1";
+  if (address == AF_12)               return "* **** 2 after JDS unknown2 2";
   
-  if (address == AF_13)               return " **** $AA60: JSR fdcskipsector";
-  if (address == AF_14)               return "      $AA63";
+  if (address == AF_13)               return "* **** 3 after JSR $875E";
+  if (address == AF_14)               return "* **** 4 after JSR $896B";
+  if (address == 0xA07E)              return "* Entering 0xA07E";
+  if (address == 0x91F9)              return "* Before JSR $9249 ";
+  if (address == 0x91FC)              return "* Before JSR $9431 ";
+  if (address == 0x91FF)              return "* RTS (after JSR $941) ";
+  if (address == AF_15)               return "* **** 5 after JSR $A07E";
+  if (address == 0x9200)              return " Getting closer";
 
-  if (address == AF_15)               return " **** 15";
-  
+//  if (address == 0x8EEC)              return " In a Few Lines";
+//  if (address == 0x8EF5)              return " STB A,U <<< CAUSING PROBLEMS";
+  if(address == 0x9239)               return "* After BSR $9249";
+ */ 
   if (address == AF_16)               return " **** 16";
   if (address == AF_19)               return " @ JSR   gototrack2";
   if (address == AF_20)               return " @ RTI";
@@ -285,41 +309,7 @@ const char* address_name(uint16_t address) {
   if (address == DisplayNKeys3)        return "* BEFORE DisplayNKeys 3";
   if (address == B4DispNKeys)          return "* Before DisplayNKeys";
   */
-  if (address == cmpwA2D_A0E2)        return "compare with A2D before jumpint to A0E2";
-  if (address == another_A0E2)        return "another call to A0E2 (where we get stuck)";
-  if (address == call2_A0E2)          return "Call to A0E2: CHECK REGISTERS AND VARIABLES)";
-   if(address == somediskstuff)       return "Called from A435, I am doing something with the disk";
-   if (address == 0x9E5F)             return " |";
-   if (address == 0x9E6E)             return "  |";
-   if (address == 0x9E79)             return "          |";
-    if (address == 0x9E67)             return "           |"; 
-   if (address == 0x9E83)              return "   |";
-   if (address == 0x9E9B)              return "    |";
-   if (address == 0x9E9F)              return "     |";
-   if (address == 0x9EA7)              return "      |";
-   if (address == 0x9EBE)              return "       |";
-    if (address == 0x9EC2)             return "        |";
-    if (address == 0x9EC6)             return "         |";
-    if (address == 0x9E79)             return "          |";
-    if (address == 0x9E67)             return "           |"; 
-    if (address == 0x9ECE)             return " +";
-     if (address == 0x9EDC)            return "  +";
-      if (address == 0x9EE9)           return "   +";
-      if (address == 0x9EF2)           return "    +";
-     if (address == 0x9EFA)            return "     +"; 
-     if (address == 0x9F09)            return "      +";
-     if (address == 0x9F1B)            return "       +";
-   if (address == 0x9F2C)              return "        +";
-  /*
-    if (address == AF_2)                return "AF_2";
-  if (address == AF_3)                return "AF_3";
-  if (address == AF_4)                return "AF_4";
-  if (address == AF_5)                return "AF_5";
- 
-  if (address == AF_7)                return "AF_7";
-  if (address == AF_8)                return "AF_8";
-  if (address == AF_9)                return "AF_9";
-  */
+
   if (address == firstOSjmp)          return "firstOSjmp";
   if (address == tunefiltpitchw )     return "tunefiltpitchw";
   if (address == keypadscan)          return "keypadscan";
@@ -353,26 +343,30 @@ void CPU6809::write(uint16_t address, uint8_t data) {
     debug_mode = true;
     set_debug(true);
   }*/
-if(address == 0x80D5) log_debug(">>>>> 80D5 written with value %X <<<<<", data);
-if(address == 0x80D6) log_debug(">>>>> 80D6 written with value %X <<<<<", data);
-if(address == 0x80D7) log_debug(">>>>> 80D7 written with value %X <<<<<", data);
-if(address == 0x80D8) log_debug(">>>>> 80D8 written with value %X <<<<<", data);
+//if(address == 0x80D5) log_debug(">>>>> 80D5 written with value %X <<<<<", data);
+//if(address == 0x80D6) log_debug(">>>>> 80D6 written with value %X <<<<<", data);
+//if(address == 0x80D7) log_debug(">>>>> 80D7 written with value %X <<<<<", data);
+//if(address == 0x80D8) log_debug(">>>>> 80D8 written with value %X <<<<<", data);
 
-if(address == 0x8000) log_debug(">>>>> 8000 FCD CMD    written with value %X <<<<<", data);
-if(address == 0x8001) log_debug(">>>>> 8001 FCD RETRY  written with value %X <<<<<", data);
-if(address == 0x8002) log_debug(">>>>> 8002 FCD TRK    written with value %X <<<<<", data);
-if(address == 0x8003) log_debug(">>>>> 8003 FCD SECT   written with value %X <<<<<", data);
-if(address == 0x8004) log_debug(">>>>> 8006 FCD BUFF   written with value %X <<<<<", data);
-if(address == 0x8006) log_debug(">>>>> 8006 FCD STATUS written with value %X <<<<<", data);
+//if(address == 0x8000) log_debug(">>>>> 8000 FCD CMD    written with value %X <<<<<", data);
+//if(address == 0x8001) log_debug(">>>>> 8001 FCD RETRY  written with value %X <<<<<", data);
+//if(address == 0x8002) log_debug(">>>>> 8002 FCD TRK    written with value %X <<<<<", data);
+//if(address == 0x8003) log_debug(">>>>> 8003 FCD SECT   written with value %X <<<<<", data);
+//if(address == 0x8004) log_debug(">>>>> 8006 FCD BUFF   written with value %X", data);
+//if(address == 0x8005) log_debug(" %X\n", data);
+//if(address == 0x8006) log_debug(">>>>> 8006 FCD STATUS written with value %X <<<<<", data);
 
   // RAM?
   if ((RAM_START <= address) && (address <= RAM_END)) {                     //  0x8000 to 0xBFFF
     PRG_RAM[address - RAM_START] = data;  
-    if (address < 0x9000 && address >= 0x828C) {  
+
+  // AF 1/1/2020 We will need to remove this: it is not accurate (the OS RAM has areas for writing data: see for instance 8E71-8ECE) and it is very OS Dependent.
+    if  (address < 0x9000 && address >= 0x828C) {  
       if (os_img_start[address - RAM_START] != data) {
         log_emergency("Attempted to write OS RAM at 0x%04x with data 0x%02x, which does not match expected 0x%02x", address, data, os_img_start[address - RAM_START]);
       }
     }
+    
     //log_debug("********************* Writing to PRG_RAM, address = %04x : DATA = %02x\n", address, data);
     /*if(address == 0x800F) log_debug("************* WRITING OS ENTRY JMP 0x800F = %02X *********************\n", data);
     if(address == 0x8010) log_debug("*************                      0x8010 = %02X *********************\n", data);
@@ -510,18 +504,21 @@ void CPU6809::invalid(const char* message) {
   emergency = true;
 }
 
-void CPU6809::printRegs() {
-  Serial.println("Register dump:");
-  Serial.printf("IR %04x (%s)\n", ir, address_name(ir));
+void CPU6809::printRegs() { // AF 1/1/21 same order as MAME debugger to speed up debugging
+  Serial.println("Register dump:"); 
+ // Serial.printf("IR %04x (%s)\n", ir, address_name(ir));
   Serial.printf("PC %04x (%s)\n", pc, address_name(pc));
-  Serial.printf("U  %04x (%s)\n", u, address_name(u));
   Serial.printf("S  %04x (%s)\n", s, address_name(s));
-  Serial.printf("X  %04x (%s)\n", x, address_name(x));
-  Serial.printf("Y  %04x (%s)\n", y, address_name(y));
+  Serial.printf("CC %02x\n", cc.all);
   Serial.printf("DP %02x\n", dp);
   Serial.printf("A  %02x\n", a);
   Serial.printf("B  %02x\n", b);
-  Serial.printf("Condition Code Register\n");
+  Serial.printf("D  %04x\n", (a<<8) + b);
+  Serial.printf("X  %04x (%s)\n", x, address_name(x));
+  Serial.printf("Y  %04x (%s)\n", y, address_name(y));
+  Serial.printf("U  %04x (%s)\n", u, address_name(u));
+  Serial.printf("MEMORY BANK (0, 1, 2, 3)= %d\n",via_rreg(0) & 0b0011);
+  Serial.printf("Condition Code Register (Breakdown)\n");
   Serial.printf("   E F H I N Z V C\n");
   //Serial.printf("  | + + + + + + + |\n");
   Serial.printf("   %x %x %x %x %x %x %x %x\n", (cc.all>>7) &0x01, (cc.all>>6) &0x01,(cc.all>>5) &0x01, (cc.all>>4) &0x01, (cc.all>>3) &0x01, (cc.all>>2) &0x01, (cc.all>>1) &0x01, (cc.all>>0) &0x01);
@@ -605,7 +602,7 @@ void CPU6809::on_irq(uint16_t src, uint16_t dst) {
     invalid("Not allowed to branch below 0x8000 (irq)");
   if (debug) {
     const char* name = address_name(dst);
-     //   log_debug("IRQ from %04x to %04x (%s)\n", src, dst, name);
+      //  log_debug("IRQ from %04x to %04x (%s)\n", src, dst, name);
   }
 }
 void CPU6809::on_firq(uint16_t src, uint16_t dst) {

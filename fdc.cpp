@@ -23,8 +23,8 @@ June 2020:  fdc.cpp -- ported emulation to work with SD card in Teensy 3.5/3.6
    
    */
 #define FDC1772_DEBUG 0
-#define FDC1772_DEBUGWReg 1
-#define FDC1772_DEBUGRReg 1
+#define FDC1772_DEBUGWReg 0
+#define FDC1772_DEBUGRReg 0
 
 #include "Arduino.h"
 #include <stdio.h>
@@ -236,7 +236,7 @@ void fdc_run(CPU6809* cpu) {
 			fdc.trk_r = 0;  // Track 0
 			fdc.sr = 0x04;  // We are emulating TR00 HIGH from the FDC (track at 0), clear BUSY and DRQ INTERRUPT
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
-      fdc_cycles = get_cpu_cycle_count() + 32; // new
+      fdc_cycles = get_cpu_cycle_count() + 5; // new
       cpu->nmi(true);
 			return;
       break;
@@ -246,21 +246,21 @@ void fdc_run(CPU6809* cpu) {
 			fdc.sr = 0; // Clear BUSY and DRQ INTERRUPT
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 			if (fdc.trk_r == 0) fdc.sr |= 0x04;  // track at 0, emulates TR00 HIGH for Type 1 command
-      fdc_cycles = get_cpu_cycle_count() + 32; // new
+      fdc_cycles = get_cpu_cycle_count() + 5; // new
 		  cpu->nmi(true);
 			return;
       break;
     case 0x50:  // Step In
       log_debug("fdc_run(): Step In\n");
       fdc.sr &= 0xfe; // Clear the Busy Bit  AF123020 // fdc.sr = 0; // Clear BUSY and DRQ INTERRUPT AF123020 
-      fdc_cycles = get_cpu_cycle_count() + 32; // new
+      fdc_cycles = get_cpu_cycle_count() + 5; // new
       cpu->nmi(true);
       return;
       break;
     case 0x60:  // Step Out
       log_debug("fdc_run(): Step Out\n");
       fdc.sr &= 0xfe; // Clear the Busy Bit  AF123020 // fdc.sr = 0; // Clear BUSY and DRQ INTERRUPT AF123020 - 
-      fdc_cycles = get_cpu_cycle_count() + 32; // new
+      fdc_cycles = get_cpu_cycle_count() + 5; // new
       cpu->nmi(true);
       return;
       break;
@@ -295,18 +295,18 @@ void fdc_run(CPU6809* cpu) {
       cpu->irq();
 
 			s_byte++;
-     // fdc_cycles = get_cpu_cycle_count() + 5;// 5 is minimum, if less it crashes// original 32
+
+      fdc_cycles = get_cpu_cycle_count() + 5;// 5 is minimum if less it hangs // original 32
       
 			if (s_byte > (fdc.sec_r == 5 ? 512 : 1024) ) {
         fdc.sr &= 0xfe; // Clear the Busy Bit, we will disregard the last value read anyway, this is needed to keep irq and nmi in sync
         ReadSectorDone = true; // NEXT TIME: This will force reading a new sector of 1024 bytes from the SD card
         log_debug("SDFDC: Done reading sector %d. Track %d, Sector %d\n", fdc.sec_r, fdc.trk_r, fdc.sec_r);
-        fdc_cycles = get_cpu_cycle_count() + 32;// 5 is minimum, if less it crashes// original 32
+        
         cpu->nmi(true);
-      } else  {
-        fdc_cycles = get_cpu_cycle_count() + 5;// 5 is minimum, if less it crashes// original 32
+      } else  
         ReadSectorDone = false;
-      }
+      
 			return;
       break;
 		default: // Others
@@ -317,7 +317,7 @@ void fdc_run(CPU6809* cpu) {
 	}
   // Should we ever get here?
 	fdc.sr &= 0xfe;	// stop, clear BUSY bit
-  log_debug("<fdc.sr &= 0xfe;  // stop> where fdc.sr =%02x ", fdc.sr);
+  log_debug("SHOULD NEVER GET HERE: fdc.sr &= 0xfe;  // stop> where fdc.sr =%02x ", fdc.sr);
 }
 
 
@@ -402,14 +402,14 @@ log_debug("FDC_WREG FDRC: cmd %02x val = %02x\n", cmd, val);
 #if FDC1772_DEBUGWReg
 log_debug("FDC_WREG cmd %02x: restore\n",  val);
 #endif
-					            fdc_cycles = get_cpu_cycle_count() + 1000; //1000000;   // remove (or minimize) this
+					            fdc_cycles = get_cpu_cycle_count() + 2;     // execute equivalent command in fdc_run asap. AF 1/1/2021
 					            fdc.sr = 0x01; // busy
 					            break;
 				     case 0x1: // Seek
 #if FDC1772_DEBUGWReg
 log_debug("FDC_WREG cmd %02x: seek to %d\n", val, fdc.data_r);
 #endif
-					            fdc_cycles = get_cpu_cycle_count() + 1000; //1000000;   // remove (or minimize) this
+					            fdc_cycles = get_cpu_cycle_count() + 2;     // execute equivalent command in fdc_run asap. AF 1/1/2021
 					            fdc.sr |= 0x01;  // busy
                       fdc.trk_r = fdc.data_r;
 					            break;
@@ -423,7 +423,7 @@ log_debug("FDC_WREG cmd %02x: seek to %d\n", val, fdc.data_r);
 #if FDC1772_DEBUGWReg
 log_debug("FDC_WREG cmd %02x: Step in %d\n", val, fdc.trk_r);
 #endif
-					            fdc_cycles = get_cpu_cycle_count() + 100; //100000;    // remove (or minimize) this
+					            fdc_cycles = get_cpu_cycle_count() + 2;     // execute equivalent command in fdc_run asap. AF 1/1/2021
 					            fdc.trk_r++;
                       fdc.sr |= 0x01;  // busy
 					            ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
@@ -432,7 +432,7 @@ log_debug("FDC_WREG cmd %02x: Step in %d\n", val, fdc.trk_r);
 #if FDC1772_DEBUGWReg
 log_debug("FDC_WREG cmd %02x: Step out (with NO Update) %d\n", val, fdc.trk_r);
 #endif
-					            fdc_cycles = get_cpu_cycle_count() + 100; //100000;    // remove (or minimize) this
+					            fdc_cycles = get_cpu_cycle_count() + 2;     // execute equivalent command in fdc_run asap. AF 1/1/2021
 					            //fdc.trk_r--; Without update
                       fdc.sr = 0x01;  // busy
 					            ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
@@ -441,7 +441,7 @@ log_debug("FDC_WREG cmd %02x: Step out (with NO Update) %d\n", val, fdc.trk_r);
 #if FDC1772_DEBUGWReg
 log_debug("FDC_WREG cmd %02x: Step Out (WITH Update (%02x) (val = %02x)\n", cmd, val);
 #endif 
-                      fdc_cycles = get_cpu_cycle_count() + 10; //100000;    // remove (or minimize) this
+                      fdc_cycles = get_cpu_cycle_count() + 2;     // execute equivalent command in fdc_run asap. AF 1/1/2021
                       fdc.trk_r--;
                       fdc.sr |= 0x01;  // busy
                       break;
@@ -456,12 +456,18 @@ log_debug("FDC_WREG cmd %02x: read sector\n", val);
 					            break;
              case 0xa: // Write Single Sector
                       log_warning("FDC WRITING COMMAND: Write Single Sector (%02x) CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
+                      fdc.sr = 0;
+                      fdc_cycles = 0;
                       break;
              case 0xb: // Write Multiple Sectors
                       log_warning("FDC WRITING COMMAND: Write Multiple Sectors (%02x) CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
+                      fdc.sr = 0;
+                      fdc_cycles = 0;
                       break;
              case 0xf: // Write Track
                       log_warning("FDC WRITING COMMAND: Write Track (%02x) CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
+                      fdc.sr = 0;
+                      fdc_cycles = 0;
                       break;
 				      default: //0f
 					            log_warning("FDC WRITING REGISTER EMULATION: COMMAND cmd %02x: CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);

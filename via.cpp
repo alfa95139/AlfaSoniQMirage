@@ -163,7 +163,7 @@ PA7 (ROW 2), PA6 (ROW 1), PA5 (ROW 0) read the row. This will give the coordinat
 
    
 
-#define VIA6522_DEBUG 0
+#define VIA6522_DEBUG 1
 
 //#include "bus.h"
 #include "via.h"
@@ -479,8 +479,8 @@ void via_wreg(uint8_t reg, uint8_t val) {
       if (bc & 0x02) log_debug("      Half = %s \n",    (val & 0x02) ?  "Lower" : "Upper");
       if (bc & 0x04) log_debug("      Input = %s \n",   (val & 0x04) ?  "Line"  : "Mic");
       if (bc & 0x08) // if line (meaning playing)
-          log_debug("****  %swheel selected\n", (val &0x04) ? "Mod" : "Pitch");
-        if (bc & 0x10) log_debug("      FDC = %s \n",     (val & 0x10) ?  "Off"   : "On");          
+                log_debug("****  %swheel selected\n", (val &0x04) ? "Mod" : "Pitch");
+//        if (bc & 0x10) log_debug("      FDC = %s \n",     (val & 0x10) ?  "Off"   : "On");          
      // if (bc & 0x20) log_debug("      DOC CA3 synchro = %s \n", (val & 0x20) ? "1" : "0");        // It does not make sense to report writing this value, it is driven by DOC 5503
      // if (bc & 0x40) log_debug("      Disc = %s \n",    (val & 0x40) ? "Loaded" : "Not Loaded");   // It does not make sense to report writing this value, it is written from external devices
 #endif
