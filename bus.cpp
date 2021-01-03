@@ -250,16 +250,16 @@ const char* address_name(uint16_t address) {
   if (address == disablefd)           return "disablefd";
   if (address == docctrlregs)         return "docctrlregs";
 
-  if (address == 0x910D)              return "* only this";
-  if (address == 0x8F10)              return "* CHECK - $8F10 RTS - CHECK";
-  if (address == 0x8EEC)              return "* Part where it writes in PRGM memory starting at 0x8e71 and onward";
-  if (address == 0x8EF1)              return "* starting point of the loop";
-  if (address == 0x8EEB)              return "* CHECK - $8EEB RTS - CHECK";
+  if (address == 0x910D)              return " only this";
+  if (address == 0x8F10)              return " CHECK - $8F10 RTS - CHECK";
+  if (address == 0x8EEC)              return " Part where it writes in PRGM memory starting at 0x8e71 and onward";
+  if (address == 0x8EF1)              return " starting point of the loop";
+  if (address == 0x8EEB)              return " CHECK - $8EEB RTS - CHECK";
   
-  if (address == 0x9234)              return "* Before JSR $8ECF";
-  if (address == 0x9237)              return "* After JSR $8ECF";
-  if (address == 0x9239)              return "* After BSR $9249";
-  if (address == 0x9F91)              return "* 1/1/2021 BEFORE last NMI crash";
+  if (address == 0x9234)              return " Before JSR $8ECF";
+  if (address == 0x9237)              return " After JSR $8ECF";
+  if (address == 0x9239)              return " After BSR $9249";
+  if (address == 0x9F91)              return " 1/1/2021 BEFORE last NMI crash";
 /*
     if (address == AF_1)                return "After reading sector: case 1";
     if (address == AF_2)                return "After reading sector: case 2";
@@ -361,11 +361,11 @@ void CPU6809::write(uint16_t address, uint8_t data) {
     PRG_RAM[address - RAM_START] = data;  
 
   // AF 1/1/2020 We will need to remove this: it is not accurate (the OS RAM has areas for writing data: see for instance 8E71-8ECE) and it is very OS Dependent.
-    if  (address < 0x9000 && address >= 0x828C) {  
-      if (os_img_start[address - RAM_START] != data) {
-        log_emergency("Attempted to write OS RAM at 0x%04x with data 0x%02x, which does not match expected 0x%02x", address, data, os_img_start[address - RAM_START]);
-      }
-    }
+  //  if  (address < 0x9000 && address >= 0x828C) {  
+  //    if (os_img_start[address - RAM_START] != data) {
+  //      log_emergency("Attempted to write OS RAM at 0x%04x with data 0x%02x, which does not match expected 0x%02x", address, data, os_img_start[address - RAM_START]);
+  //    }
+  //  }
     
     //log_debug("********************* Writing to PRG_RAM, address = %04x : DATA = %02x\n", address, data);
     /*if(address == 0x800F) log_debug("************* WRITING OS ENTRY JMP 0x800F = %02X *********************\n", data);

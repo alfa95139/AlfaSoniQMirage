@@ -339,7 +339,7 @@ uint8_t via_rreg(uint8_t reg) {
 #endif
       break;
     case 0x01:
-    val =  via.ora; // 
+    val =  via.ora | 0xE0; // Fake no keys are pressed
 #if VIA6522_DEBUG
       log_debug("*** VIA6522 >READ<: PoRT A =%0x TODO Add Display emulation \n", val);
 #endif
@@ -448,7 +448,7 @@ uint8_t via_rreg(uint8_t reg) {
 #endif
       break;  
      case 0x0F:       
-     val = via.ora;  
+     val = via.ora | 0xE0;  // Fake no keys are pressed
 #if VIA6522_DEBUG
      log_debug("VIA read  PORT A (NO HNDSHKE) = %0x TODO Add Keypad/Display emulation=====\n", val);
 #endif     

@@ -232,7 +232,9 @@ void fdc_run(CPU6809* cpu) {
   
 	switch (fdc.cr & 0xf0) {
 		case 0x00:  // Restore
+#if FDC1772_DEBUG
 			log_debug("fdc_run(): restore\n");
+#endif
 			fdc.trk_r = 0;  // Track 0
 			fdc.sr = 0x04;  // We are emulating TR00 HIGH from the FDC (track at 0), clear BUSY and DRQ INTERRUPT
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
@@ -241,7 +243,9 @@ void fdc_run(CPU6809* cpu) {
 			return;
       break;
 		case 0x10:  // Seek
+#if FDC1772_DEBUG
 			log_debug("fdc_run(): Seek\n");
+#endif
 			//fdc.trk_r = fdc.data_r;
 			fdc.sr = 0; // Clear BUSY and DRQ INTERRUPT
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
@@ -251,14 +255,18 @@ void fdc_run(CPU6809* cpu) {
 			return;
       break;
     case 0x50:  // Step In
+#if FDC1772_DEBUG
       log_debug("fdc_run(): Step In\n");
+#endif
       fdc.sr &= 0xfe; // Clear the Busy Bit  AF123020 // fdc.sr = 0; // Clear BUSY and DRQ INTERRUPT AF123020 
       fdc_cycles = get_cpu_cycle_count() + 5; // new
       cpu->nmi(true);
       return;
       break;
     case 0x60:  // Step Out
+#if FDC1772_DEBUG
       log_debug("fdc_run(): Step Out\n");
+#endif
       fdc.sr &= 0xfe; // Clear the Busy Bit  AF123020 // fdc.sr = 0; // Clear BUSY and DRQ INTERRUPT AF123020 - 
       fdc_cycles = get_cpu_cycle_count() + 5; // new
       cpu->nmi(true);
@@ -281,9 +289,11 @@ void fdc_run(CPU6809* cpu) {
 			//Serial.printf("**** fdc_run(): read sector %d\n", fdc.sec_r);
      
       if (ReadSectorDone) {
+#if FDC1772_DEBUG
         log_debug("fdc_run(): READ SECTOR. Performing Seek @ %d;  ", (1024*fdc.sec_r)+(5632*fdc.trk_r));
         log_debug("           Track: %d; Sector: %d;", fdc.trk_r, fdc.sec_r);
         log_debug("           s_byte = %d\n", s_byte);
+#endif
         disk.seek((1024*fdc.sec_r)+(5632*fdc.trk_r));
         disk.read(diskTrackdata, 1024);
       }
