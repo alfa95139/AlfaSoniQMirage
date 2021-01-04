@@ -183,11 +183,11 @@ const char* address_name(uint16_t address) {
   if (address == monitorPrintStr)     return "MONITOR ROM printstring Routine";
   if (address == monitorsendch1)      return "MONITOR ROM sendch1 Routine";
   if (address == loadopsys)           return "LOAD OS IN PRG RAM";
-  if (address == osentry)             return "*OS ENTRY";
+  if (address == osentry)             return "OS ENTRY";
   if (address == irqentry)            return "IRQ INTERRUPT ROUTINE ENTRY POINT";
   if (address == manageKeys)          return "*Manage Keys - assuming 6511 or UART????"; 
   if (address == entersDOCirq)        return "Check whether the DOC has generated the interrupt";
-  if (address == DOCirqService)       return "*DOC IRQ Service Routine";
+  if (address == DOCirqService)       return "DOC IRQ Service Routine";
   if (address ==  DualUARTrst)        return "Dual UART RST";
   if (address ==  UART_OUT)           return "UART OUT";
   if (address ==  AnotherUART)        return "ANOTHER UART";
@@ -256,42 +256,6 @@ const char* address_name(uint16_t address) {
   if (address == 0x8EF1)              return " starting point of the loop";
   if (address == 0x8EEB)              return " CHECK - $8EEB RTS - CHECK";
   
-  if (address == 0x9234)              return " Before JSR $8ECF";
-  if (address == 0x9237)              return " After JSR $8ECF";
-  if (address == 0x9239)              return " After BSR $9249";
-  if (address == 0x9F91)              return " 1/1/2021 BEFORE last NMI crash";
-/*
-    if (address == AF_1)                return "After reading sector: case 1";
-    if (address == AF_2)                return "After reading sector: case 2";
-  
-    if (address == AF_3)                return " Readsector";
-    if (address == AF_4)                return " After Readsector - case 1";
-    if (address == AF_5)                return " After Readsector - case 2";
- 
-  if (address == AF_6)                return " Sector Counter - check for A (up to 5)";
-  if (address == AF_7)                return " AT: JSR   fdcseekin";
-  if (address == AF_8)                return " AFTER     JSR fdcseekin: How Many NMIs????";
-  
-  if (address == AF_9)                return " 122820 NMI crash";
-  
-  if (address == AF_10)               return "* before NMI crash";
-  
-  if (address == AF_11)               return "* **** 1 after JD=S unknown3 1";
-  if (address == AF_12)               return "* **** 2 after JDS unknown2 2";
-  
-  if (address == AF_13)               return "* **** 3 after JSR $875E";
-  if (address == AF_14)               return "* **** 4 after JSR $896B";
-  if (address == 0xA07E)              return "* Entering 0xA07E";
-  if (address == 0x91F9)              return "* Before JSR $9249 ";
-  if (address == 0x91FC)              return "* Before JSR $9431 ";
-  if (address == 0x91FF)              return "* RTS (after JSR $941) ";
-  if (address == AF_15)               return "* **** 5 after JSR $A07E";
-  if (address == 0x9200)              return " Getting closer";
-
-//  if (address == 0x8EEC)              return " In a Few Lines";
-//  if (address == 0x8EF5)              return " STB A,U <<< CAUSING PROBLEMS";
-  if(address == 0x9239)               return "* After BSR $9249";
- */ 
   if (address == AF_16)               return " **** 16";
   if (address == AF_19)               return " @ JSR   gototrack2";
   if (address == AF_20)               return " @ RTI";
@@ -441,7 +405,6 @@ if ((DEVICES_START <= address) &  (address <= DEVICES_END)) {
     out = via_rreg(address & 0xFF);
   } else if ((address & 0xFF00) == FDC1770) {
     set_log("fdc");
-    if (address  == 0xE800) log_debug(" READING from FDC REGISTER %0x", address & 0xFF);
     out = fdc_rreg(address & 0xFF);
   } else if ((address & 0xFF00) == DOC5503 ) {
     set_log("doc5503");                       // AF: Added 11.1.2020
@@ -593,7 +556,7 @@ void CPU6809::on_nmi(uint16_t src, uint16_t dst) {
     invalid("Not allowed to branch below 0x8000 (nmi)");
   if (debug) {
     const char* name = address_name(dst);
-    log_debug("NMI from %04x to %04x (%s)\n", src, dst, name);
+  //  log_debug("NMI from %04x to %04x (%s)\n", src, dst, name);
   }
 }
 

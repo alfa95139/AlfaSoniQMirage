@@ -239,7 +239,7 @@ void fdc_run(CPU6809* cpu) {
 			fdc.sr = 0x04;  // We are emulating TR00 HIGH from the FDC (track at 0), clear BUSY and DRQ INTERRUPT
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
       fdc_cycles = get_cpu_cycle_count() + 5; // new
-      cpu->nmi(true);
+      cpu->nmi();
 			return;
       break;
 		case 0x10:  // Seek
@@ -251,7 +251,7 @@ void fdc_run(CPU6809* cpu) {
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 			if (fdc.trk_r == 0) fdc.sr |= 0x04;  // track at 0, emulates TR00 HIGH for Type 1 command
       fdc_cycles = get_cpu_cycle_count() + 5; // new
-		  cpu->nmi(true);
+		  cpu->nmi();
 			return;
       break;
     case 0x50:  // Step In
@@ -260,7 +260,7 @@ void fdc_run(CPU6809* cpu) {
 #endif
       fdc.sr &= 0xfe; // Clear the Busy Bit  AF123020 // fdc.sr = 0; // Clear BUSY and DRQ INTERRUPT AF123020 
       fdc_cycles = get_cpu_cycle_count() + 5; // new
-      cpu->nmi(true);
+      cpu->nmi();
       return;
       break;
     case 0x60:  // Step Out
@@ -269,7 +269,7 @@ void fdc_run(CPU6809* cpu) {
 #endif
       fdc.sr &= 0xfe; // Clear the Busy Bit  AF123020 // fdc.sr = 0; // Clear BUSY and DRQ INTERRUPT AF123020 - 
       fdc_cycles = get_cpu_cycle_count() + 5; // new
-      cpu->nmi(true);
+      cpu->nmi();
       return;
       break;
 		case 0x80:  // Read Sector
@@ -311,9 +311,10 @@ void fdc_run(CPU6809* cpu) {
 			if (s_byte > (fdc.sec_r == 5 ? 512 : 1024) ) {
         fdc.sr &= 0xfe; // Clear the Busy Bit, we will disregard the last value read anyway, this is needed to keep irq and nmi in sync
         ReadSectorDone = true; // NEXT TIME: This will force reading a new sector of 1024 bytes from the SD card
+#if FDC1772_DEBUG   
         log_debug("SDFDC: Done reading sector %d. Track %d, Sector %d\n", fdc.sec_r, fdc.trk_r, fdc.sec_r);
-        
-        cpu->nmi(true);
+#endif        
+        cpu->nmi();
       } else  
         ReadSectorDone = false;
       
@@ -438,16 +439,16 @@ log_debug("FDC_WREG cmd %02x: Step in %d\n", val, fdc.trk_r);
                       fdc.sr |= 0x01;  // busy
 					            ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 				              break;
-				     case 0x6: // Step Out
+				     case 0x6: // Step Out (NO Update)
 #if FDC1772_DEBUGWReg
 log_debug("FDC_WREG cmd %02x: Step out (with NO Update) %d\n", val, fdc.trk_r);
 #endif
 					            fdc_cycles = get_cpu_cycle_count() + 2;     // execute equivalent command in fdc_run asap. AF 1/1/2021
-					            //fdc.trk_r--; Without update
+					            //fdc.trk_r++; Without update
                       fdc.sr = 0x01;  // busy
 					            ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
 				              break;
-             case 0x7:
+             case 0x7: // Step Out (with UPDATE)
 #if FDC1772_DEBUGWReg
 log_debug("FDC_WREG cmd %02x: Step Out (WITH Update (%02x) (val = %02x)\n", cmd, val);
 #endif 

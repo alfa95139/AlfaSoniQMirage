@@ -163,26 +163,15 @@ PA7 (ROW 2), PA6 (ROW 1), PA5 (ROW 0) read the row. This will give the coordinat
 
    
 
-#define VIA6522_DEBUG 1
+#define VIA6522_DEBUG 0
 
 //#include "bus.h"
 #include "via.h"
 #include "log.h"
 #include "Arduino.h"
 
-struct {
-  uint8_t orb, irb;
-  uint8_t ora, ira;
-  uint8_t ddrb, ddra;
-  uint8_t t1LL, t1HL; // t1 Latches (Low and High) 
-  uint8_t t1l, t1h;   // t1 Counter (Low and High)
-  uint8_t t2l, t2h;   // t2 Counter (Low and High)
-  uint8_t ier, ifr;
-  uint8_t acr;
-  uint8_t pcr;
-  uint8_t sr;
 
-} via;
+
 
 /*
 VIA is clocked at 2MHz
@@ -341,7 +330,7 @@ uint8_t via_rreg(uint8_t reg) {
     case 0x01:
     val =  via.ora | 0xE0; // Fake no keys are pressed
 #if VIA6522_DEBUG
-      log_debug("*** VIA6522 >READ<: PoRT A =%0x TODO Add Display emulation \n", val);
+      log_debug("*** VIA6522 >READ<: PoRT A (via.ora) =%0x TODO Add Display emulation \n", val);
 #endif
      break;
     case 0x02:
@@ -450,7 +439,7 @@ uint8_t via_rreg(uint8_t reg) {
      case 0x0F:       
      val = via.ora | 0xE0;  // Fake no keys are pressed
 #if VIA6522_DEBUG
-     log_debug("VIA read  PORT A (NO HNDSHKE) = %0x TODO Add Keypad/Display emulation=====\n", val);
+     log_debug("VIA read  PORT A (no handshake) via.ora = %0x TODO Add Keypad/Display emulation=====\n", val);
 #endif     
      break;
     default:
@@ -489,10 +478,11 @@ void via_wreg(uint8_t reg, uint8_t val) {
       via.orb = val;
       break;
     case 0x01: // port A only used for keypad and display
-#if VIA6522_DEBUG
-       log_debug("*** VIA6522 >WRITE<: TODO Add Display emulation===========================\n");
-#endif
+
        via.ora = val | 0xE0; // fake No Kyes are pressed
+#if VIA6522_DEBUG
+       log_debug("*** VIA6522 >WRITE<: TODO Add Display emulation. via.ora = %0X\n", via.ora);
+#endif
       break;
     case 0x02:
  #if VIA6522_DEBUG

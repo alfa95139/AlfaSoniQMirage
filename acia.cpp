@@ -1,17 +1,14 @@
 /* vim: set noexpandtab ai ts=4 sw=4 tw=4:
    acia.c -- emulation of 6850 ACIA
    Copyright (C) 2020 Alessandro Fasan 2020
-
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
    any later version.
-
    This program is distributed in the hope that it will be useful,
    but WITHOUT ANY WARRANTY; without even the implied warranty of
    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
    GNU General Public License for more details.
-
    You should have received a copy of the GNU General Public License
    along with this program; if not, write to the Free Software
    Foundation, Inc., 675 Mass Ave, Cambridge, MA 02139, USA.  */
@@ -44,12 +41,9 @@
                 |   |          |      |    | Detect  |  Empty   |   Full   |
        (irq)    |   |  (ovr)   |      |    | (ndcd)  |  (tdre)  |  (rdrf)  |
   -------------------------------------------------------------------------+
-
    IRQ_ bit 7: 1'b1 -> IRQ_ LOW (INTERRUPT FIRED)
    IRQ_ bit 7: 1'b0 -> IRQ_ HIGH 
    The IRQ_ bit is cleared by a READ OPERATION to the Receive Data Register or a WRITE OPERATION to the Transmit Data Register
-
-
    MIDI: One start bit, eight data bits, and one stop bit result in a maximum transmission rate of 3125 bytes (characters) per second
 */
 
@@ -57,6 +51,7 @@
 #include "acia.h"
 #include "log.h"
 
+#define MIDISERIAL Serial1
 
 //unsigned long acia_cycles = ACIA_CLK;
 extern unsigned long get_cpu_cycle_count();
@@ -81,8 +76,8 @@ int m_tx_irq_enable, m_rx_irq_enable;
 // *******************************************
 void acia_init() {
 
-	// tx register empty        // IRQ PE OVRN FE CTS DCD TDRE RDRF
-	acia.sr = SR_TDRE;          //  0   0   0   0  0    0   1   0
+  // tx register empty        // IRQ PE OVRN FE CTS DCD TDRE RDRF
+  acia.sr = SR_TDRE;          //  0   0   0   0  0    0   1   0
   
   acia.cr = 0x00;
   
@@ -91,8 +86,10 @@ void acia_init() {
   
   acia.clk  = 0;
   acia.irq  = 0;
-	
-	return;
+
+  MIDISERIAL.begin(31250); // MIDI BAUD RATE
+  
+  return;
 }
 
 
@@ -124,17 +121,14 @@ irq = ( m_tx_irq_enable && ( acia.sr & SR_TDRE)) || ( m_rx_irq_enable && (acia.s
 acia.irq = irq;
 
 // update STATUS REGISTER
-
 if (acia.irq)
     acia.sr |= SR_IRQ;
-  else {
+  else
     acia.sr &= ~SR_IRQ;
-//    acia.sr |= SR_TDRE;
-  }
-  
+
 #if ACIA6850_DEBUG 
-log_debug("******** acia_SR = %0x (UPDATED)\n",   acia.sr );
-log_debug("         IRQ = %0x it %s fire FIRQ ", irq, (irq==1)? "WILL (if not masked)" : "will NOT");
+log_debug("*      acia_SR = %0x (UPDATED)\n",   acia.sr );
+log_debug("       IRQ = %0x it %s fire FIRQ ", irq, (irq==1)? "WILL (if not masked)" : "will NOT");
 #endif
   
 }
@@ -147,10 +141,20 @@ void acia_run(CPU6809* cpu) {
 
         if (acia.irq)   {      // && (m_tx_irq_enable || m_rx_irq_enable))
 #if ACIA6850_DEBUG
-log_debug("****** ACIA FIRQ ***** ACIA FIRQ ***** ACIA FIRQ *****\n");
+//log_debug("****** ACIA FIRQ ***** ACIA FIRQ ***** ACIA FIRQ *****\n");
 #endif             
              cpu->firq();
+             return;
         } 
+
+if (MIDISERIAL.available() > 0) {
+                acia.tdr = MIDISERIAL.read();
+                Serial.printf("UART received: %x\n", acia.tdr);
+                acia.sr &= ~SR_RDRF;         // clear  RDRF       1  1   1   1   1   1   1   0
+                acia_update_irq();           // This will clear the IRQ
+                return;
+                }
+
 
   if (acia_clk < 2) return;  // 1 character at the time
   acia_clk=0;
@@ -172,26 +176,13 @@ log_debug("************************** READING ACIA_SR: %0x\n ", acia.sr);
     break;
     
     case ACIA_RDR: // $E101
-    acia.sr &= 0x7e;  // clear IRQ, RDRF
 #if ACIA6850_DEBUG 
 log_debug("*************************** READING ACIA_RDR: %x: Will CLEAR IRQ and RDRF\n", acia.rdr);     //   IRQ PE OVRN FE CTS DCD TDRE RDRF
 #endif
-//read a (MIDI) byte ? NOTE: I DO NOT CHECK
-if (Serial.available()){
-                acia.rdr = Serial.read();            
-#if ACIA6850_DEBUG 
-log_debug("****** UART: ACIA6850 - READ - Value %0x\n", acia.rdr );
-#endif           
-                acia.sr |= SR_RDRF;   
-         }  // if MIDISerial.available
-        acia.sr &= ~SR_RDRF;         // clear  RDRF       1  1   1   1   1   1   1   0
-        acia_update_irq();           // This will clear the IRQ
+        acia.sr &= 0x7e;  // clear IRQ, RDRF
         return acia.rdr;
         break;
-    default:
-       Serial.printf("******************** ACIA: Unmapped Register ******************************\n");
-       return 0xff;
-      break;
+
   }
 }
 
@@ -219,23 +210,18 @@ log_debug("****************** ACIA CR = %0x\n", acia.cr);
       break;
     
 case ACIA_TDR:      // E101
-        acia.tdr = val;
-        acia.sr &= 0x7d;
-#if ACIA6850_DEBUG 
-log_debug("***** UART: ACIA6850 - TX DATA  char= >%0x< \n", acia.tdr);
-log_debug("***** UART: ACIA6850 - CR value =%0X, SR value =%0X \n", acia.cr, acia.sr);
-#endif
-//      if(m_tx_irq_enable) {
-        if(! (acia.sr & SR_TDRE)) {
-          Serial.printf("************************ >%c (%0x)< *************************\n",acia.tdr, acia.tdr);
-          acia.sr |= SR_TDRE; // since I just txmitted, now TDRE is empty          
+      acia.tdr = val;
+      if(m_tx_irq_enable) {
+//#if ACIA6850_DEBUG 
+log_debug("***** UART: ACIA6850 - TX DATA  char= >%0x< (%c) \n", acia.tdr, acia.tdr);
+log_debug("***** UART: ACIA6850 - With CR value =%0X \n", acia.cr);
+//#endif
+          Serial.write(acia.tdr);     
+          acia.sr |= SR_TDRE;
           acia_update_irq();    // This will clear the IRQ
           }
       break;
        
-default:
-      Serial.printf("******************** ACIA: Unmapped Register ******************************\n");
-      return 0xff;
-      break;
+
   }
 }

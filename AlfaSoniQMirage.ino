@@ -1,10 +1,14 @@
 ////////////////////////////////////////////////////////////////////
-// Ensoniq Mirage Retroshield 6809 Emulator for Teensy 3.5
+// Ensoniq Mirage Retroshield 6809 Emulator for Teensy 3.5 
 // 2020/06/14 Version 1.0 by A. Fasan
 // Contributions from Gordon J. Pierce, Erturk Kocalar (8bitforce.com)
 // 2020/11/2 Version 2.0 by D. Brophy, A. Fasan
 // Ensoniq Mirage with 6809 Emulator for Teensy 4.1
 // Made possible by Dylan Brophy (6809 sw emulator, which enabled to upgrade to Teensy 4.1 (speed + full 128K WAV memory))
+//
+// 2021/1/1 Version 2.1: boots Mirage OS 3.2 after redesigning acia.cpp and fdc.cpp
+// 2021/1/2 First integration of Touch Display (ILI ILI9341/9488 and XPP2046) to emulate keypad and display. Display is successfully emulated.
+// 2021/1/3
 //
 // The MIT License (MIT)
 //
@@ -44,6 +48,7 @@
 #include "fdc.h"
 #include "doc5503.h"
 #include "acia.h" // AF 11.28.20
+#include "KeypadNDisplay.h" // AF 1.2.21
 #include "log.h"
 #include "TeensyTimerTool.h"
 using namespace TeensyTimerTool;
@@ -93,27 +98,34 @@ bool do_continue = true;
 void setup() 
 {
   Serial.begin(115200);
-  MIDISerial.begin(19200); // MIDI Baud Rate
+ 
 
   while (!Serial);
- // while (!MIDISerial);
- 
+
  Tacia.beginPeriodic( acia_clk_CB, 3.125 );  //3.125 milliseconds, 320 characters per second
- //T2.beginPeriodic( via_irq_callback, 3.2);                 //2.5 milliseconds (1 / 400Hz = 2.5 millis)
+ //T2.beginPeriodic( KeypadNDisplay_CB, 2.5);                 //2.5 milliseconds (1 / 400Hz = 2.5 millis)
  
   Serial.println("\n");
-  Serial.println("========================================");
-  Serial.println("= Ensoniq Mirage Memory Configuration: =");
-  Serial.println("========================================");
-  Serial.print("SRAM Size:  "); Serial.print(RAM_END - RAM_START + 1, DEC); Serial.println(" Bytes");
-  Serial.print("SRAM_START: 0x"); Serial.println(RAM_START, HEX);
-  Serial.print("SRAM_END:   0x"); Serial.println(RAM_END, HEX);
-  Serial.print("WAV RAM Size:  "); Serial.print(WAV_END - WAV_START + 1, DEC); Serial.println(" Bytes");
-  Serial.print("WAV RAM START: 0x"); Serial.println(WAV_START, HEX);
-  Serial.print("WAV RAM END:   0x"); Serial.println(WAV_END, HEX);
-  Serial.print("ROM Size:  "); Serial.print(ROM_END - ROM_START + 1, DEC); Serial.println(" Bytes");
-  Serial.print("ROM_START: 0x"); Serial.println(ROM_START, HEX);
-  Serial.print("ROM_END:   0x"); Serial.println(ROM_END, HEX);
+  Serial.println("==========================================");
+  Serial.println("= ALFASoniQ Mirage Memory Configuration: =");
+  Serial.println("==========================================");
+  Serial.print  ("SRAM Size:  "); Serial.print(RAM_END - RAM_START + 1, DEC); Serial.println(" Bytes");
+  Serial.print  ("SRAM_START: 0x"); Serial.println(RAM_START, HEX);
+  Serial.print  ("SRAM_END:   0x"); Serial.println(RAM_END, HEX);
+  Serial.println();
+  Serial.print  ("WAV RAM Size:  "); Serial.print( ((WAV_END - WAV_START + 1) * 4 )/ 1024, DEC); Serial.println(" KBytes");
+  Serial.print  ("BANK 0: WAV RAM START: 0x"); Serial.println(WAV_START, HEX);
+  Serial.print  ("        WAV RAM END:   0x"); Serial.println(WAV_END, HEX);
+  Serial.print  ("BANK 1: WAV RAM START: 0x"); Serial.println(WAV_START, HEX);
+  Serial.print  ("        WAV RAM END:   0x"); Serial.println(WAV_END, HEX);
+  Serial.print  ("BANK 2: WAV RAM START: 0x"); Serial.println(WAV_START, HEX);
+  Serial.print  ("        WAV RAM END:   0x"); Serial.println(WAV_END, HEX);
+  Serial.print  ("BANK 3: WAV RAM START: 0x"); Serial.println(WAV_START, HEX);
+  Serial.print  ("        WAV RAM END:   0x"); Serial.println(WAV_END, HEX);
+  Serial.println();
+  Serial.print  ("ROM Size:  "); Serial.print(ROM_END - ROM_START + 1, DEC); Serial.println(" Bytes");
+  Serial.print  ("ROM_START: 0x"); Serial.println(ROM_START, HEX);
+  Serial.print  ("ROM_END:   0x"); Serial.println(ROM_END, HEX);
   Serial.println();
   Serial.println();
   Serial.flush();
@@ -131,6 +143,8 @@ void setup()
   doc_init();
   set_log("acia6850");
   acia_init();
+
+  KeypadNDisplay_init();
 
   set_log("setup()");
   log_info("Initializing processor...");
@@ -158,6 +172,9 @@ void tick_system() {
   doc_run(cpu);
   set_log("acia6950");
   acia_run(cpu);
+
+  KeypadNDisplay_run();
+  
 }
 
 uint16_t ask_address() {
