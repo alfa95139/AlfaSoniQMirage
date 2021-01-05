@@ -172,7 +172,7 @@ void tick_system() {
   doc_run(cpu);
   set_log("acia6950");
   acia_run(cpu);
-
+  set_log("keypad");
   KeypadNDisplay_run();
   
 }

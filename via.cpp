@@ -169,6 +169,8 @@ PA7 (ROW 2), PA6 (ROW 1), PA5 (ROW 0) read the row. This will give the coordinat
 #include "via.h"
 #include "log.h"
 #include "Arduino.h"
+#include "extern.h"
+via_struct via;
 
 
 
@@ -214,9 +216,10 @@ The boot rom sets both DDRA and DDRB to 0001_1111 => 0x1F
 // CB1 is +5Vcc per DMS-1 schematic. CB2 is floating
 
 
+
+
 extern unsigned long get_cpu_cycle_count();
 unsigned long via_cycles, via_t2=0;
-
 
 
 void via_init() {
@@ -324,13 +327,13 @@ uint8_t via_rreg(uint8_t reg) {
 #endif
       val = (via.orb & 0x1f) | 0x40; // fake disk ready, but I could check whether I have an *.img in the SD Card....  
 #if VIA6522_DEBUG 
-      if ((val & 0x00100000) == 0x00100000) log_debug("VIA 6522: Received synchronization signal CA3 from DOC"); 
+      if ((val & 0x00100000) == 0x00100000) log_debug("**** VIA 6522: Received synchronization signal CA3 from DOC ****"); 
 #endif
       break;
     case 0x01:
-    val =  via.ora | 0xE0; // Fake no keys are pressed
+    val =  via.ora;  // If keypad is not connected Fake no keys are pressed with | 0xE0
 #if VIA6522_DEBUG
-      log_debug("*** VIA6522 >READ<: PoRT A (via.ora) =%0x TODO Add Display emulation \n", val);
+      log_debug("*** VIA6522 >READ<: PoRT A (via.ora) =%0x\n", val);
 #endif
      break;
     case 0x02:
@@ -437,9 +440,9 @@ uint8_t via_rreg(uint8_t reg) {
 #endif
       break;  
      case 0x0F:       
-     val = via.ora | 0xE0;  // Fake no keys are pressed
+     val = via.ora; // If keypad is not connected Fake no keys are pressed with | 0xE0
 #if VIA6522_DEBUG
-     log_debug("VIA read  PORT A (no handshake) via.ora = %0x TODO Add Keypad/Display emulation=====\n", val);
+     log_debug("VIA read  PORT A (no handshake) via.ora = %0x\n", val);
 #endif     
      break;
     default:
@@ -479,9 +482,9 @@ void via_wreg(uint8_t reg, uint8_t val) {
       break;
     case 0x01: // port A only used for keypad and display
 
-       via.ora = val | 0xE0; // fake No Kyes are pressed
+       via.ora = val; // If keypad is not connected Fake no keys are pressed with | 0xE0
 #if VIA6522_DEBUG
-       log_debug("*** VIA6522 >WRITE<: TODO Add Display emulation. via.ora = %0X\n", via.ora);
+       log_debug("*** VIA6522 >WRITE<: via.ora = %0X\n", via.ora);
 #endif
       break;
     case 0x02:
@@ -600,65 +603,10 @@ void via_wreg(uint8_t reg, uint8_t val) {
       log_debug("      Check for rotating 1s for segments/columns and anodes\n");
  //     log_debug("      TODO: Here is where to add Display & Keypad emulation\n");
 #endif
-      via.ora = val | 0xE0; // Fake no keys are pressed
+      via.ora = val; // If keypad is not connected Fake no keys are pressed with | 0xE0
       break;
     default:  
     log_warning("VIA write >>>STILL UNMANAGED<<< via_wreg(%d, 0x%02x)\n", reg, val);
     break;  
   }
 }
-
-
-/*
-// port A: front panel
-// bits 0-2: column select from 0-7
-// bits 3/4 = right and left LED enable
-// bits 5/6/7 keypad rows 0/1/2 return
-via_keydisp()
-{
-  UINT8 seg = data & 7;
-  static const int segconv[8] =
-  {
-    16, 8, 32, 2, 1, 64, 128, 4
-  };
-
-//  printf("PA: %02x (PC=%x)\n", data, m_maincpu->pc());
-
-  // left LED selected?
-  if ((data & 0x10) == 0x10)
-  {
-    // if the segment number is lower than last time, we've
-    // started a new refresh cycle
-    if ((seg < m_l_hi) || (seg == 0))
-    {
-      m_l_segs = segconv[seg];
-    }
-    else
-    {
-      m_l_segs |= segconv[seg];
-    }
-
-    m_l_hi = seg;
-    output_set_digit_value(0, m_l_segs);
-//      printf("L LED: seg %d (hi %d conv %02x, %02x)\n", seg, m_l_hi, segconv[seg], m_l_segs);
-  }
-  // right LED selected?
-  if ((data & 0x08) == 0x08)
-  {
-    // if the segment number is lower than last time, we've
-    // started a new refresh cycle
-    if ((seg < m_r_hi) || (seg == 0))
-    {
-      m_r_segs = segconv[seg];
-    }
-    else
-    {
-      m_r_segs |= segconv[seg];
-    }
-
-    m_r_hi = seg;
-    output_set_digit_value(1, m_r_segs);
-//      printf("R LED: seg %d (hi %d conv %02x, %02x)\n", seg, m_r_hi, segconv[seg], m_r_segs);
-  }
-}
-*/

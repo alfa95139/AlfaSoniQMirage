@@ -11,18 +11,30 @@
  *    when LOW Drives RIGHT Display
  *   CAD0, CAD1, CAD2 are (PA0, PA1, PA2) ->  inputs to this model
  *   ROW0, ROW1, ROW2 are (PA5, PA6, PA7) -> outputs to this model
+ *   
+ *   Key Sampling happens when the Segments are OFF, which means both ANODES are LOW -> which means P3 and P4 are high.
  *    
  */
+#define KEYDISP_DEBUG 1
+
+
 #define KD_DEBUG 0
 #define KD_DEBUGWReg 0
 #define KD_DEBUGRReg 0
 
 #include "KeypadNDisplay.h"
+#include "log.h"
 #include "SPI.h"
 #include "Arduino.h"
 #include "stdint.h"
 #include "via.h"
+#include "extern.h"
 
+
+extern unsigned long get_cpu_cycle_count();
+unsigned long KeypadNDisplay_cycles;
+uint8_t COL; // emulating COL0, COL1, COL2 (keypad schematics) ROW0, ROW1, ROW2 (main digital schematics)
+ 
 //#include "bus.h"
 //#include "log.h"
 
@@ -80,29 +92,7 @@ ILI9341_t3 tft=ILI9341_t3(TFT_CS, TFT_DC);
 #define minYdim 9
 #define scaleFactor 2 // experiment with digit size
 
-// define segment truth table for each hex symbol
-static const int digit_array[17][8] = {
-  {1, 1, 1, 1, 1, 1, 0, 0},  // 0
-  {0, 1, 1, 0, 0, 0, 0, 0},  // 1
-  {1, 1, 0, 1, 1, 0, 1, 0},  // 2
-  {1, 1, 1, 1, 0, 0, 1, 0},  // 3
-  {0, 1, 1, 0, 0, 1, 1, 0},  // 4
-  {1, 0, 1, 1, 0, 1, 1, 0},  // 5
-  {1, 0, 1, 1, 1, 1, 1, 0},  // 6
-  {1, 1, 1, 0, 0, 0, 0, 0},  // 7
-  {1, 1, 1, 1, 1, 1, 1, 0},  // 8
-  {1, 1, 1, 0, 0, 1, 1, 0},  // 9
-  {1, 1, 1, 0, 1, 1, 1, 0},  // A
-  {0, 0, 1, 1, 1, 1, 1, 0},  // b
-  {1, 0, 0, 1, 1, 1, 0, 0},  // C
-  {0, 1, 1, 1, 1, 0, 1, 0},  // d
-  {1, 0, 0, 1, 1, 1, 1, 0},  // E
-  {1, 0, 0, 0, 1, 1, 1, 0},  // F
-  {0, 0, 0, 0, 0, 0, 0, 1}   // . (DP)
-};
 
-
- uint8_t button_array[8] = {0x7, 0x7, 0x7, 0x7, 0x7, 0x7, 0x7, 0x7};
 // Every combination of (PA7, PA6, PA5) identifies a COLUMN in the keypad (after being decoded by a 74LS145)
 // A key pressed will read as a 1'b0 in its corresponding row  
 // PA7 PA6 PA5    A B C D E F G Dp                                                  
@@ -115,41 +105,16 @@ static const int digit_array[17][8] = {
 //  1   1   0 => 1 1 1 1 1 1 0 1   { 1, 1, 1}, //  "VALUE",   "2",     "REQ SEQ"
 //  1   1   1 => 1 1 1 1 1 1 1 0   { 1, 1, 1}  //  "CANCEL",  "ENTER", "SAMPLE LOWER"
 
-/*
-void init_buttons() {
-  int i,j;
-  
-  for (i=0; i++; i<8) 
-      button_array[i] = 0x7;
-  
-    
-}
 
-*/
-
-uint8_t ORA_register_;
-uint8_t KeypadNDisplay_clk;
+uint8_t ORA_register, ORA_register_;
+bool PA3, PA4;      // Right and Left Digit Enable, Active Low
+uint8_t segment;
 
 
-void print_buttons() {
-  int i;
-   
-   for (i=0; i++; i<8) {
-    tft.setCursor(200, 200+i*4);
-        tft.print( (button_array[i]&0x4>>2));
-        tft.print( (button_array[i]&0x2>>1)); 
-        tft.print( (button_array[i]&0x1));
-   }
-}
-
-
+//********************************************************
+//*************** KeypadNDisplay_init() ******************
+//********************************************************
 void KeypadNDisplay_init()   {
- // Serial.begin(9600);
- // while (!Serial);
- // Serial.printf("I am in Setup\n");
- // init_buttons();
- // print_buttons();
-
   
   tft.begin();
   tft.setRotation(1);
@@ -353,44 +318,56 @@ tft.println("I will use this to detect whether the screen has been touched...");
 //render_digit(45, 60, 16,  SEG_ON_COLOR);
 //render_digit(79, 60, 16,  SEG_ON_COLOR);
 
+ORA_register = via.ora & 0x1F; // via_rreg(0xF) & 0x1F; 
 
+PA3 =  ORA_register & ANODE1;
+PA4 =  ORA_register & ANODE2;
+
+segment  = ORA_register & 0x07;
+
+render_segment( 45, 60, segment, !PA4 ? SEG_ON_COLOR : SEG_OFF_COLOR);
+render_segment( 79, 60, segment, !PA3  ? SEG_ON_COLOR : SEG_OFF_COLOR);
 }
+//***************END KeypadNDisplay_init() ***************
 
+//********************************************************
+//*************** KeypadNDisplay_run() *******************
+//********************************************************
 void KeypadNDisplay_run() {
-int i,j;
-int k;
-int bc;
-bool RightDigit_en;
-bool LeftDigit_en;
-uint8_t ORA_register;
-uint8_t leftSegment, rightSegment;
+
+uint8_t bc;
 
 
-ORA_register = via_rreg(0xF) & 0x1F; 
+ORA_register = (via.ora & 0x1F);       // via_rreg(0xF) & 0x1F; 
 bc = ORA_register_ ^ ORA_register;  // see if ORA has changed
+
 if (bc == 0)
           return;                   // otherswise there is nothing to do for now
 
 ORA_register_ = ORA_register;
 
-LeftDigit_en =  !(ORA_register & ANODE1);
-RightDigit_en = !(ORA_register & ANODE2);
-
-leftSegment = ORA_register & 0x07;
-rightSegment = ORA_register & 0x07;
-
-render_segment( 45, 60, rightSegment, RightDigit_en ? SEG_ON_COLOR : SEG_OFF_COLOR);
-render_segment( 79, 60, leftSegment,  LeftDigit_en  ? SEG_ON_COLOR : SEG_OFF_COLOR);
+PA3 = ORA_register & ANODE1;
+PA4 = ORA_register & ANODE2;
 
 
- 
-/*
-render_digit(45, 60, 2, SEG_ON_COLOR);
-render_digit(8, 60, 16, SEG_ON_COLOR);
-render_digit(79, 60, 1, SEG_ON_COLOR);
-render_digit(47, 60, 16, SEG_ON_COLOR);
-*/
+#if KEYDISP_DEBUG
+//log_debug(" (ANODE1,ANODE2) = %x%x", !LeftDigit_en, !RightDigit_en);
+//log_debug(" BEFORE RENDERING SEGMENT via.ora =%x", via.ora);
+#endif
 
+segment  = ORA_register & 0x07;
+
+render_segment( 45, 60, segment, !PA4 ? SEG_ON_COLOR : SEG_OFF_COLOR);
+render_segment( 79, 60, segment, !PA3 ? SEG_ON_COLOR : SEG_OFF_COLOR);
+
+#if KEYDISP_DEBUG
+//log_debug(" AFTER RENDERING SEGMENT via.ora =%x", via.ora);
+#endif
+
+
+COL = 0x7; // no keys pressed
+
+if(PA3 && PA3) // Scan keys when no display is active
 if (ts.touched()) {
   TS_Point p = ts.getPoint(); // p.x and p.y are the coordinates
   tft.fillRect(1, 240, 479, 80, CL(80,80,80)); 
@@ -402,175 +379,231 @@ if (ts.touched()) {
   tft.print("Button Pressed: ");
   tft.setCursor(230, 275);
 
- 
-  // Reset previous value
-  for (i=0; i++; i<8) {
-      button_array[i] = 0x7;
-      Serial.print(button_array[i]); 
-  }
+switch(segment) {
 
-//  "1"            1450 < x < 1700     750 < y < 1150
-//  "2"            1700 < x < 2100     750 < y < 1150   COL 1 / G
-//  "3"            2100 < x < 2500     750 < y < 1150
-// "Rec"           2600 < x < 3000     750 < y < 1150   COL 0 / G
-// "Sample Upper"  3000 < x < 3400     750 < y < 1150   COL 0 / C
+//  "1"            1450 < x < 1700     750 < y < 1150   COL 0 / A
+//  "3"            2100 < x < 2500     750 < y < 1150   COL 0 / A
 // "Load Upper"    3400 < x < 3800     750 < y < 1150   COL 0 / A
+// PA7 PA6 PA5    A B C D E F G Dp                                                  
+//  0   0   0  => 0 1 1 1 1 1 1 1   { 1, 1, 1}, //  "1",       "3",     "LOAD UPPER"
+  
+  case 0x0:   if ( (p.y> 650) && (p.y < 1150) ) {  // p.y in the same range
+                  if ( (p.x > 1450) && (p.x < 1700) ) {
+                          COL = 0x3;      //(0,1,1);
+                          tft.print("1"); 
+                          break;
+                          
+                  } 
+                  else if ( (p.x > 2100) && ( p.x < 2500) ) { 
+                          COL = 0x5;     //(1,0,1);
+                          tft.print("3");
+                          break;
+                  }
+                  else if ( ( p.x > 3400) && ( p.x < 3800) ) { 
+                          COL =  0x6;     // (1,1,0);
+                          tft.print("LOAD UPPER");
+                          break;
+                  }
+              }
+  break;
 
-if ( (p.y> 650) && (p.y < 1150) ) { // "1", "2", "3", "REC", "Sample Upper", "Load Upper"
-    if( (p.x>1450) && (p.x < 1700)) { 
-        button_array[1] = 0x3; //(0,1,1);
-        tft.print("1"); 
-    }
-      else if (p.x<2100) { 
-        button_array[7] = 0x5; //(1,0,1);
-        tft.print("2");
-      }
-      else if (p.x<2500) { 
-        button_array[1] = 0x5; //(1,0,1);
-        tft.print("3");
-      }  
-      else if (p.x<3000) { 
-        button_array[7] = 0x6; //(1,1,0);
-        tft.print("REC");
-      }
-      else if (p.x<3400) { 
-        button_array[3] = 0x6; //(1,1,0);
-        tft.print("SAMPLE UPPER");
-      }
-     else if (p.x<3800) { 
-        button_array[1] = 0x6; // (1,1,0);
-        tft.print("LOAD UPPER");
-     }
-
-//  "4"           1450 < x < 1700    1150 < y < 1550 
-//  "5"           1700 < x < 2100    1150 < y < 1550 
-//  "6"           2100 < x < 2500    1150 < y < 1550 
-// "Play"         2600 < x < 3000    1150 < y < 1550  COL 0 / D
-// "Sample Lower" 3000 < x < 3400    1150 < y < 1550  COL 0 / DP
+//  "4"           1450 < x < 1700    1150 < y < 1550  COL 0 / B
+//  "6"           2100 < x < 2500    1150 < y < 1550  COL 0 / B
 // "Load Lower"   3400 < x < 3800    1150 < y < 1550  COL 0 / B
-    
-} else if ( (p.y>= 1150) && (p.y < 1750) ) { // "4", "5", "6", "PLAY", "Sample Lower", "Load Lower"
-    if( (p.x > 1450) && (p.x < 1700)) { 
-        button_array[2] = 0x3; //(0,1,1);
-        tft.print("4"); 
-    }
-      else if (p.x<2100) { 
-        button_array[4] = 0x5; //(1,0,1);
-        tft.print("5");
-      }
-      else if (p.x<2500) { 
-        button_array[2] = 0x5; //(1,0,1);
-        tft.print("6");
-      }  
-      else if (p.x<3000) { 
-        button_array[4] = 0x6; //(1,1,0);
-        tft.print("PLAY");
-      }
-      else if (p.x<3400) { 
-        button_array[7] = 0x6; //(1,1,0);
-        tft.print("SAMPLE LOWER");
-      }
-     else if (p.x<3800) { 
-        button_array[2] = 0x6; //(1,1,0);
-        tft.print("LOAD LOWER");
-      }
+// PA7 PA6 PA5    A B C D E F G Dp  
+//  0   0   1  => 1 0 1 1 1 1 1 1   { 1, 1, 1}, //  "4",       "6",     "LOAD LOWER"
+  
+  case 0x1: if ( (p.y>= 1150) && (p.y < 1750) ) { // p.y in the same range
+                  if  ( (p.x > 1450) && (p.x < 1700) ) { 
+                        COL = 0x3;    //(0,1,1);
+                        tft.print("4"); 
+                        break;
+                        }
+                  else if ( (p.x > 2500) && (p.x<2500) ) { 
+                        COL = 0x5;    //(1,0,1);
+                        tft.print("6");
+                        break;
+                  }
+                  else if ( (p.x > 3400) && (p.x<3800) ) { 
+                        COL = 0x6;     //(1,1,0);
+                        tft.print("LOAD LOWER");
+                        break;
+                        }
+               }
+  break;
+
+
+//  "7"             1450 < x < 1700            1900 < y < 2400           COL 2 /  C      
+//  "9"             2100 < x < 2500            1900 < y < 2400           COL 1 /  C
+// "Sample Upper"   3000 < x < 3400             750 < y < 1150           COL 0 /  C
+// PA7 PA6 PA5     A B C D E F G Dp  
+//  0   1   0   => 1 1 0 1 1 1 1 1   { 1, 1, 1}, //  "7",       "9",     "SAMPLE UPPER"      
+
+  case 0x2: if ( (p.y>= 1750) && (p.y < 2400) ) { 
+                if ( (p.x > 1450) && (p.x<1700) ) {  
+                        COL = 0x3;    //(0,1,1);
+                        tft.print("7");
+                        break;
+                }
+                else if ( (p.x > 2100) && (p.x<2500) ) { 
+                        COL = 0x5;    //(1,0,1);
+                        tft.print("9");
+                        break;
+                }
+            }    
+            if ((p.y> 650) && (p.y < 1150)  && (p.x>3000) && (p.x<3400) )  { 
+                        COL = 0x6;     //(1,1,0);
+                        tft.print("SAMPLE UPPER");
+                        break;
+            }
+  break;
+
+
+//   "On"             800 < x < 1120   2400 < y < 2900
+//   "5"            1700 < x < 2100    1150 < y < 1550 
+// "Play"           2600 < x < 3000    1150 < y < 1550  COL 0 / D
+// PA7 PA6 PA5     A B C D E F G Dp 
+//  0   1   1  =>  1 1 1 0 1 1 1 1   { 1, 1, 1}, //  "ON/^",       "5",     "PLAY SEQ"
+  
+  case 0x3: if ( (p.y> 2400) && (p.y < 2900) && ( p.x > 800) && (p.x<1200) ) { 
+                    COL = 0x3;    //(0,1,1);
+                    tft.print("ON/^");
+                    break;
+              }
+            if ( (1150 > p.y) && (p.y < 1550) ) {
+                if ( (p.x>1700) && (p.x <2100) ) {
+                    COL = 0x5;    //(1,0,1); 
+                    tft.print("5");
+                    break;
+                }
+                else if ( (p.x> 2600) && (p.x <3000) ) {
+                    COL = 0x6;     //(1,1,0);
+                    tft.print("PLAY");
+                    break;
+                }
+            }
+  break;
 
 //  "Param" 480 < x < 800     1900 < y < 2400           COL 2 /  E
-//  "Value" 800 < x < 1120    1900 < y < 2400           COL 2 /  G
-//  "7"    1450 < x < 1700    1900 < y < 2400           COL 2 /  C      
 //  "8"    1700 < x < 2100    1900 < y < 2400           COL 1 /  E 
-//  "9"    2100 < x < 2500    1900 < y < 2400           COL 1 /  C
 // "Load"  2600 < x < 3000    1900 < y < 2400           COL 0 /  E
-} else if ( (p.y>= 1750) && (p.y < 2400) ) { // "PARAM", "VALUE", "7", "8", "9",  "LOAD SEQ"
-        if(p.x < 900) { 
-        button_array[5] = 0x3; //(0,1,1);
-        tft.print("Param"); 
+// PA7 PA6 PA5     A B C D E F G Dp 
+//  1   0   0   => 1 1 1 1 0 1 1 1   { 1, 1, 1}, //  "PARAM",   "8",     "LOAD SEQ"
+
+  case 0x4: if ( (p.y> 1900) && (p.y < 2400) ) { 
+                 if ( (p.x > 480) && (p.x < 800) ) { 
+                    COL = 0x3;    //(0,1,1);
+                    tft.print("PARAM");
+                    break;
+              }
+            else if ( (p.x > 1700) && (p.x < 2100) ) {
+                    COL = 0x5;    //(1,0,1); 
+                    tft.print("8");
+                    break;
+                }
+           else if ( (p.x > 2600) && (p.x < 3000) ) {
+                    COL = 0x6;     //(1,1,0);
+                    tft.print("LOAD SEQ");
+                    break;
+           }
+        }
+  break;
+
+//  "Off/v"        480 < x <  800   2400 < y < 2900
+// "0/Prog"       1700 < x < 2100   2400 < y < 2900 
+// "Save"          2600 < x < 3000   2400 < y < 2900           COL 0 / F
+// PA7 PA6 PA5     A B C D E F G Dp 
+//  1   0   1   => 1 1 1 1 1 0 1 1   { 1, 1, 1}, //  "v",       "0",     "SAVE SEQ"
+  case 0x5: if ( (p.y> 2400) && (p.y < 2900)) {
+              if ( (p.x > 480) && (p.x < 800)) {
+                  COL = 0x3;    //(0,1,1);
+                  tft.print("OFF/v"); 
+                  break;
+              }
+          else if ( (p.x > 1700) && (p.x<2100) ) { 
+                  COL = 0x5;    //(1,0,1); 
+                  tft.print("0/PROG");
+                  break;
+              }
+          else if ( (p.x > 2600) && (p.x<3000) ) { 
+                  COL =  0x6;     //(1,1,0);
+                  tft.print("SAVE SEQ");
+                  break;
+              }
+          } 
+  break;
+
+
+//  "Value"         800 < x < 1120    1900 < y < 2400           COL 2 /  G
+//  "2"            1700 < x < 2100     750 < y < 1150   COL 1 / G
+// "Rec"           2600 < x < 3000     750 < y < 1150   COL 0 / G
+// PA7 PA6 PA5     A B C D E F G Dp 
+//  1   1   0   => 1 1 1 1 1 1 0 1   { 1, 1, 1}, //  "VALUE",   "2",     "REQ SEQ"
+ 
+  case 0x6:  if ( (p.y > 1750) && (p.y < 2400) && (p.x > 800) && (p.x < 1200) ) { 
+                      COL =  0x3;    //(0,1,1);
+                      tft.print("Value");
+                      break;
+             }
+             if ( (p.y > 750) && (p.y < 1150) && (p.x > 1700) && (p.x < 2100) ) {  
+                      COL = 0x5;    //(1,0,1); 
+                      tft.print("2");
+                      break;
+             }    
+             if ( (p.y > 750) && (p.y < 1150) && ( p.x > 2600) && (p.x < 3000) )  {
+                      COL =  0x6;     //(1,1,0);
+                      tft.print("REC");
+                      break;
+             }
+  break;
+  
+// "Cancel"         1450 < x < 1700   2400 < y < 2900           COL 2 / DP
+// "Enter"          2100 < x < 2500   2400 < y < 2900           COL 1 / DP
+// "Sample Lower"   3000 < x < 3400   1150 < y < 1550           COL 0 / DP
+ // PA7 PA6 PA5     A B C D E F G Dp
+ //  1   1   1   => 1 1 1 1 1 1 1 0   { 1, 1, 1}  //  "CANCEL",  "ENTER", "SAMPLE LOWER"
+  
+  case 0x7:  if ( (p.y> 2400) && (p.y < 2900) ) {
+                if ( ( p.x > 1450 ) && ( p.x<1700 ) ) { 
+                        COL = 0x3;    //(0,1,1);
+                        tft.print("CANCEL");
+                        break;
+                        }   
+                else if ( (p.x > 2100) && (p.x<2500) ) { 
+                        COL = 0x5;    //(1,0,1); 
+                        tft.print("ENTER");
+                        break;
+                        }
+              }
+            if (  (p.x > 3000 ) && (p.x < 3400) && (p.y > 1150) && (p.y < 1750)) {
+                      COL = 0x6;     //(1,1,0);
+                      tft.print("SAMPLE LOWER");
+                      break;
+                      }
+  break;
     }
-      else if (p.x<1200) { 
-        button_array[6] = 0x3; //(0,1,1);
-        tft.print("Value");
-      }
-      else if (p.x<1700) { 
-        button_array[3] = 0x3; //(0,1,1);
-        tft.print("7");
-      }  
-      else if (p.x<2100) { 
-        button_array[5] = 0x5; //(1,0,1);
-        tft.print("8");
-      }
-      else if (p.x<2500) { 
-        button_array[3] = 0x5; //(1,0,1);
-        tft.print("9");
-      }
-     else if (p.x<3000) { 
-        button_array[5] = 0x5; //(1,1,0);
-        tft.print("LOAD SEQ");
-      }
 
-//   "Off"   480 < x <  800   2400 < y < 2900
-//   "On"    800 < x < 1120   2400 < y < 2900
-//"Cancel"  1450 < x < 1700   2400 < y < 2900           COL 2 / DP
-//"0/Prog"  1700 < x < 2100   2400 < y < 2900 
-//"Enter"   2100 < x < 2500   2400 < y < 2900           COL 1 / DP
-// "Save"    2600 < x < 3000  2400 < y < 2900           COL 0 / F
-} else if ( (p.y> 2400) && (p.y < 2900) ) { // "OFF", "ON", "CANCEL", "0/PROG", "ENTER",  "SAVE SEQ"
-    if(p.x < 900) { 
-        button_array[6] = 0x3; //(0,1,1);
-        tft.print("OFF/v"); 
 
-    }
-      else if (p.x<1200) { 
-        button_array[4] = 0x3; //(0,1,1);
-        tft.print("ON/^");
-      }
-      else if (p.x<1700) { 
-        button_array[8] = 0x3; //(0,1,1);
-        tft.print("CANCEL");
-      }  
-      else if (p.x<2100) { 
-        button_array[6] = 0x5; //(1,0,1);
-        tft.print("0/PROG");
-      }
-      else if (p.x<2500) { 
-        button_array[7] = 0x5; //(1,0,1);
-        tft.print("ENTER");
-      }
-     else if (p.x<3000) { 
-        button_array[6] = 0x6; //(1,1,0);
-        tft.print("SAVE SEQ");
-      }
-           
-  } // else if
+  }  // if ts.touched()
 
- //print_buttons();
-}  // if ts.touched()
-/*
-for (i=0; i<16; i++) {
-  render_digit(45, 60, i,  SEG_ON_COLOR);
-   for (j=0; j<16; j++) {
-     render_digit(79, 60, j,  SEG_ON_COLOR);
-     delay(500);
-     render_digit(79, 60, j,  SEG_OFF_COLOR);
+
+via.ora = ( (COL << 5) | via.ora );
+
+#if KEYDISP_DEBUG
+
+if (COL != 0x7) {
+  log_debug("+-----------------------------------------");
+  log_debug(" SCREEN TOUCHED segment = %x     COL = %x",  segment, COL);
+  log_debug(" SCREEN TOUCHED segment = %x via.ora = %x",  segment,via.ora);
    }
-  delay(500);
-  render_digit(45, 60, i,  SEG_OFF_COLOR);
-  }
-*/
+#endif
    
-} // end KeypadNDisplay_run
+} 
+//***************END KeypadNDisplay_run() ***************
 
-
-// TO EMULATE THE DISPLAY WE WILL NEED
-// ANODE 1 and ANODE 2 (PA4 and PA3 respectively)
-// EACH DISPLAY WILL BE ACTIVE WHEN AN is ZERO
-// ANODE 1 (PA4)
-// 0    Select the Segment chosen by PA7, PA6, PA5
-// 1    Display not selected - all segments are OFF
-// ANODE 2 (PA3)
-// 0    Select the Segment chosen by PA7, PA6, PA5
-// 1    Display not selected - all segments are off
-
-
+//**************************************************
+//*************** render_segment *******************
+//**************************************************
 void render_segment(uint8_t pos_x, uint8_t pos_y, 
                     uint8_t segment, uint16_t color) {
 
@@ -597,8 +630,8 @@ void render_segment(uint8_t pos_x, uint8_t pos_y,
         tft.fillRect(2 * scaleFactor + pos_x, 10 * scaleFactor + pos_y, minYdim * scaleFactor, minXdim * scaleFactor, color); // SEG g
           break;
         case 7: 
-        tft.fillRect(-5 * scaleFactor + pos_x,  20 * scaleFactor + pos_y, minXdim * scaleFactor,  minXdim * scaleFactor, color); // . (DP)  // ori 14* scaleFactor + posx_x
+        tft.fillRect(-4 * scaleFactor + pos_x,  20 * scaleFactor + pos_y, minXdim * scaleFactor,  minXdim * scaleFactor, color); // . (DP)  // ori 14* scaleFactor + posx_x
          break;
       }
 }
- 
+//***************END render_segment() ***************

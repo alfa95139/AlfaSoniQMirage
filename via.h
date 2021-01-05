@@ -22,7 +22,7 @@
 #include "bus.h"
 #include <stdint.h>
 
-struct {
+ typedef struct {
   uint8_t orb, irb;
   uint8_t ora, ira;
   uint8_t ddrb, ddra;
@@ -34,7 +34,7 @@ struct {
   uint8_t pcr;
   uint8_t sr;
 
-} via;
+} via_struct;
 
 
 uint8_t via_rreg(uint8_t reg);
