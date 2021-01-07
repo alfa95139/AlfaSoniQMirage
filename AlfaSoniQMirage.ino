@@ -8,7 +8,7 @@
 //
 // 2021/1/1 Version 2.1: boots Mirage OS 3.2 after redesigning acia.cpp and fdc.cpp
 // 2021/1/2 First integration of Touch Display (ILI ILI9341/9488 and XPP2046) to emulate keypad and display. Display is successfully emulated.
-// 2021/1/3
+// 2021/1/4 Keypad is successfully emulated. Response is kind of slow, we will address later.
 //
 // The MIT License (MIT)
 //
@@ -57,6 +57,7 @@ CPU6809* cpu;
 
 Timer Tacia;  // generate a timer for the ACIA
 Timer T2;     // VIA T2
+Timer T_AudioStream; // Audio Timer: 1ms -> 2 x 1kbytes buffer
 
 typedef struct reg_save_s {
   uint16_t u, s, x, y, d;
@@ -102,13 +103,21 @@ void setup()
 
   while (!Serial);
 
- Tacia.beginPeriodic( acia_clk_CB, 3.125 );  //3.125 milliseconds, 320 characters per second
+//Tacia.beginPeriodic( acia_clk_CB , 1 );  // make sure that we trigger the ACIA to receive 
  //T2.beginPeriodic( KeypadNDisplay_CB, 2.5);                 //2.5 milliseconds (1 / 400Hz = 2.5 millis)
+ //T_AudioStream.beginPeriodic (audio_update_CB, 1); // 1 millisecond
  
   Serial.println("\n");
-  Serial.println("==========================================");
-  Serial.println("= ALFASoniQ Mirage Memory Configuration: =");
-  Serial.println("==========================================");
+  Serial.println("=======================================================");
+  Serial.println("=           ALFASoniQ Mirage Digital Sampler          =");
+  Serial.println("= A Teensyduino-based emulation of the EnsoniQ MIrage =");
+  Serial.println("=       - by Alessandro Fasan                         =");
+  Serial.println("=                                                     =");
+  Serial.println("= Contributors:                                       =");
+  Serial.println("= Ray Bellis, Gordon JC Pearce, Erturk Kocalar,       =");
+  Serial.println("= Dylan Brophy, Tim Lindner                           =");
+  Serial.println("=======================================================");
+  /*
   Serial.print  ("SRAM Size:  "); Serial.print(RAM_END - RAM_START + 1, DEC); Serial.println(" Bytes");
   Serial.print  ("SRAM_START: 0x"); Serial.println(RAM_START, HEX);
   Serial.print  ("SRAM_END:   0x"); Serial.println(RAM_END, HEX);
@@ -126,6 +135,7 @@ void setup()
   Serial.print  ("ROM Size:  "); Serial.print(ROM_END - ROM_START + 1, DEC); Serial.println(" Bytes");
   Serial.print  ("ROM_START: 0x"); Serial.println(ROM_START, HEX);
   Serial.print  ("ROM_END:   0x"); Serial.println(ROM_END, HEX);
+  */
   Serial.println();
   Serial.println();
   Serial.flush();
@@ -163,15 +173,17 @@ void setup()
 void tick_system() {
   set_log("cpu");
   cpu->tick();
-
+  
   set_log("via");
   via_run(cpu);
   set_log("fdc");
   fdc_run(cpu);
   set_log("doc5503");
   doc_run(cpu);
+  
   set_log("acia6950");
   acia_run(cpu);
+  
   set_log("keypad");
   KeypadNDisplay_run();
   

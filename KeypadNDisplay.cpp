@@ -367,17 +367,22 @@ render_segment( 79, 60, segment, !PA3 ? SEG_ON_COLOR : SEG_OFF_COLOR);
 
 COL = 0x7; // no keys pressed
 
+
+
 if(PA3 && PA3) // Scan keys when no display is active
 if (ts.touched()) {
   TS_Point p = ts.getPoint(); // p.x and p.y are the coordinates
-  tft.fillRect(1, 240, 479, 80, CL(80,80,80)); 
-  tft.setCursor(20,300);
-  tft.print(p.x);
-  tft.setCursor(200,300);
-  tft.print(p.y);
-  tft.setCursor(20, 275); 
-  tft.print("Button Pressed: ");
-  tft.setCursor(230, 275);
+
+ 
+//  tft.fillRect(1, 240, 479, 80, CL(80,80,80)); 
+//  tft.setCursor(20,300);
+//  tft.print(p.x);
+//  tft.setCursor(200,300);
+//  tft.print(p.y);
+//  tft.setCursor(20, 275); 
+//  tft.print("Button Pressed: ");
+//  tft.setCursor(230, 275);
+
 
 switch(segment) {
 
@@ -390,18 +395,18 @@ switch(segment) {
   case 0x0:   if ( (p.y> 650) && (p.y < 1150) ) {  // p.y in the same range
                   if ( (p.x > 1450) && (p.x < 1700) ) {
                           COL = 0x3;      //(0,1,1);
-                          tft.print("1"); 
+                          //tft.print("1"); 
                           break;
                           
                   } 
                   else if ( (p.x > 2100) && ( p.x < 2500) ) { 
                           COL = 0x5;     //(1,0,1);
-                          tft.print("3");
+                          //tft.print("3");
                           break;
                   }
                   else if ( ( p.x > 3400) && ( p.x < 3800) ) { 
                           COL =  0x6;     // (1,1,0);
-                          tft.print("LOAD UPPER");
+                          //tft.print("LOAD UPPER");
                           break;
                   }
               }
@@ -416,17 +421,17 @@ switch(segment) {
   case 0x1: if ( (p.y>= 1150) && (p.y < 1750) ) { // p.y in the same range
                   if  ( (p.x > 1450) && (p.x < 1700) ) { 
                         COL = 0x3;    //(0,1,1);
-                        tft.print("4"); 
+                        //tft.print("4"); 
                         break;
                         }
                   else if ( (p.x > 2500) && (p.x<2500) ) { 
                         COL = 0x5;    //(1,0,1);
-                        tft.print("6");
+                        //tft.print("6");
                         break;
                   }
                   else if ( (p.x > 3400) && (p.x<3800) ) { 
                         COL = 0x6;     //(1,1,0);
-                        tft.print("LOAD LOWER");
+                        //tft.print("LOAD LOWER");
                         break;
                         }
                }
@@ -442,18 +447,18 @@ switch(segment) {
   case 0x2: if ( (p.y>= 1750) && (p.y < 2400) ) { 
                 if ( (p.x > 1450) && (p.x<1700) ) {  
                         COL = 0x3;    //(0,1,1);
-                        tft.print("7");
+                        //tft.print("7");
                         break;
                 }
                 else if ( (p.x > 2100) && (p.x<2500) ) { 
                         COL = 0x5;    //(1,0,1);
-                        tft.print("9");
+                        //tft.print("9");
                         break;
                 }
             }    
             if ((p.y> 650) && (p.y < 1150)  && (p.x>3000) && (p.x<3400) )  { 
                         COL = 0x6;     //(1,1,0);
-                        tft.print("SAMPLE UPPER");
+                        //tft.print("SAMPLE UPPER");
                         break;
             }
   break;
@@ -467,18 +472,18 @@ switch(segment) {
   
   case 0x3: if ( (p.y> 2400) && (p.y < 2900) && ( p.x > 800) && (p.x<1200) ) { 
                     COL = 0x3;    //(0,1,1);
-                    tft.print("ON/^");
+                    //tft.print("ON/^");
                     break;
               }
             if ( (1150 > p.y) && (p.y < 1550) ) {
                 if ( (p.x>1700) && (p.x <2100) ) {
                     COL = 0x5;    //(1,0,1); 
-                    tft.print("5");
+                    //tft.print("5");
                     break;
                 }
                 else if ( (p.x> 2600) && (p.x <3000) ) {
                     COL = 0x6;     //(1,1,0);
-                    tft.print("PLAY");
+                    //tft.print("PLAY");
                     break;
                 }
             }
@@ -493,17 +498,17 @@ switch(segment) {
   case 0x4: if ( (p.y> 1900) && (p.y < 2400) ) { 
                  if ( (p.x > 480) && (p.x < 800) ) { 
                     COL = 0x3;    //(0,1,1);
-                    tft.print("PARAM");
+                    //tft.print("PARAM");
                     break;
               }
             else if ( (p.x > 1700) && (p.x < 2100) ) {
                     COL = 0x5;    //(1,0,1); 
-                    tft.print("8");
+                    //tft.print("8");
                     break;
                 }
            else if ( (p.x > 2600) && (p.x < 3000) ) {
                     COL = 0x6;     //(1,1,0);
-                    tft.print("LOAD SEQ");
+                    //tft.print("LOAD SEQ");
                     break;
            }
         }
@@ -517,17 +522,17 @@ switch(segment) {
   case 0x5: if ( (p.y> 2400) && (p.y < 2900)) {
               if ( (p.x > 480) && (p.x < 800)) {
                   COL = 0x3;    //(0,1,1);
-                  tft.print("OFF/v"); 
+                  //tft.print("OFF/v"); 
                   break;
               }
           else if ( (p.x > 1700) && (p.x<2100) ) { 
                   COL = 0x5;    //(1,0,1); 
-                  tft.print("0/PROG");
+                  //tft.print("0/PROG");
                   break;
               }
           else if ( (p.x > 2600) && (p.x<3000) ) { 
                   COL =  0x6;     //(1,1,0);
-                  tft.print("SAVE SEQ");
+                  //tft.print("SAVE SEQ");
                   break;
               }
           } 
@@ -542,17 +547,17 @@ switch(segment) {
  
   case 0x6:  if ( (p.y > 1750) && (p.y < 2400) && (p.x > 800) && (p.x < 1200) ) { 
                       COL =  0x3;    //(0,1,1);
-                      tft.print("Value");
+                      //tft.print("Value");
                       break;
              }
              if ( (p.y > 750) && (p.y < 1150) && (p.x > 1700) && (p.x < 2100) ) {  
                       COL = 0x5;    //(1,0,1); 
-                      tft.print("2");
+                      //tft.print("2");
                       break;
              }    
              if ( (p.y > 750) && (p.y < 1150) && ( p.x > 2600) && (p.x < 3000) )  {
                       COL =  0x6;     //(1,1,0);
-                      tft.print("REC");
+                      //tft.print("REC");
                       break;
              }
   break;
@@ -566,18 +571,18 @@ switch(segment) {
   case 0x7:  if ( (p.y> 2400) && (p.y < 2900) ) {
                 if ( ( p.x > 1450 ) && ( p.x<1700 ) ) { 
                         COL = 0x3;    //(0,1,1);
-                        tft.print("CANCEL");
+                        //tft.print("CANCEL");
                         break;
                         }   
                 else if ( (p.x > 2100) && (p.x<2500) ) { 
                         COL = 0x5;    //(1,0,1); 
-                        tft.print("ENTER");
+                        //tft.print("ENTER");
                         break;
                         }
               }
             if (  (p.x > 3000 ) && (p.x < 3400) && (p.y > 1150) && (p.y < 1750)) {
                       COL = 0x6;     //(1,1,0);
-                      tft.print("SAMPLE LOWER");
+                      //tft.print("SAMPLE LOWER");
                       break;
                       }
   break;
@@ -586,11 +591,9 @@ switch(segment) {
 
   }  // if ts.touched()
 
-
 via.ora = ( (COL << 5) | via.ora );
 
 #if KEYDISP_DEBUG
-
 if (COL != 0x7) {
   log_debug("+-----------------------------------------");
   log_debug(" SCREEN TOUCHED segment = %x     COL = %x",  segment, COL);

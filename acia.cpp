@@ -53,7 +53,7 @@
 
 #define MIDISERIAL Serial1
 
-//unsigned long acia_cycles = ACIA_CLK;
+unsigned long acia_cycles;
 extern unsigned long get_cpu_cycle_count();
 
 #define ACIA6850_DEBUG 0
@@ -63,8 +63,6 @@ struct {
   uint8_t sr;
   uint8_t tdr;
   uint8_t rdr;
-  uint8_t clk;
-  uint8_t irq;
 } acia;
 
 uint16_t acia_clk;
@@ -83,97 +81,43 @@ void acia_init() {
   
   acia.tdr  = 0;
   acia.rdr  = 0;
-  
-  acia.clk  = 0;
-  acia.irq  = 0;
 
   MIDISERIAL.begin(31250); // MIDI BAUD RATE
   
   return;
 }
 
-
-// *********************************************
-// *************** ACIA_CLK_CB *****************
-// ** provide a clock to the ACIA, 31250 baud **
-// *********************************************
-void acia_clk_CB() {
-  acia.clk++;
-}
-//********* END  acia_clk_CB()  **************
-
-// *******************************************
-// ************ ACIA_UDPDATE_IRQ *************
-// *******************************************
-void acia_update_irq(){
-uint8_t irq;
-         
-//                    TX IRQ                                         RX_IRQ
-irq = ( m_tx_irq_enable && ( acia.sr & SR_TDRE)) || ( m_rx_irq_enable && (acia.sr & SR_RDRF) );
-
-#if ACIA6850_DEBUG 
-      log_debug("****** UART: ACIA6850: TX_irq_en = %0x, RX_irq_en = %0x\n", m_tx_irq_enable, m_rx_irq_enable);
-      log_debug("                         acia_CR = %0x, acia_SR = %0x\n",  acia.cr, acia.sr );
-      log_debug("       TX IRQ = %0x, RX IRQ = %0x\n", m_tx_irq_enable && ( acia.sr & SR_TDRE), ( m_rx_irq_enable && (acia.sr & SR_RDRF) ) );
-      
-#endif
-
-
-acia.irq = irq;
-
-// update STATUS REGISTER
-if (acia.irq)
-    acia.sr |= SR_IRQ;
-  else
-    acia.sr &= ~SR_IRQ;
-
-#if ACIA6850_DEBUG 
-log_debug("*      acia_SR = %0x (UPDATED)\n",   acia.sr );
-log_debug("       IRQ = %0x it %s fire FIRQ ", irq, (irq==1)? "WILL (if not masked)" : "will NOT");
-#endif
-  
-}
-//**************** END acia_update_irq() ******************
-
-uint8_t bc, irq;
-
 //*********************************************************
 //******************** ACIA_RUN ***************************
 //*********************************************************
 void acia_run(CPU6809* cpu) { 
 
+if ( (m_tx_irq_enable && ( acia.sr & SR_TDRE)) || (m_rx_irq_enable && (acia.sr & SR_RDRF)) )   {
+        acia.sr |= SR_IRQ;
+        cpu->firq();
+        return;
+}
 
-// UART RECEIVE
-if (! acia.irq)
-if (MIDISERIAL.available() > 0) {
+if (get_cpu_cycle_count() < acia_cycles) return;  // nothing to do yet
+acia_cycles = get_cpu_cycle_count() + ACIA_CLK;  // nudge timer
+
+if (MIDISERIAL.available() > 0) {    
                 acia.rdr = MIDISERIAL.read();
-                Serial.printf("UART received: %x\n", acia.rdr);
-                if(m_rx_irq_enable) {
-                     // acia.sr |= SR_IRQ;           // set the IRQ
-                      acia.sr |= SR_RDRF;          // flag data ready
-                      acia_update_irq();           // This will clear the IRQ
-                      return;
-                      }
+                acia.sr |= SR_RDRF;          // flag that data is ready
+//#if ACIA6850_DEBUG 
+                log_debug("UART data received, but not read yet        %x\n", acia.rdr);
+//#endif
             }
-            
-// INTERRUPT GENERATION
-bc = irq ^ acia.irq;
-if(bc == 0) return; // detect changes in acia.irq. continues only if detect interrupt
-
-if (acia.irq)   {      
-#if ACIA6850_DEBUG
-//log_debug("****** ACIA FIRQ ***** ACIA FIRQ ***** ACIA FIRQ *****\n");
-#endif             
-             cpu->firq();
-             return;
-        } 
-
-irq = acia.irq; // update irq with acia.irq to detect next change
-
-if (acia_clk <= 20) return;  // 1 character at the time
-acia_clk=0;
 
 
+if( !(acia.sr & SR_TDRE)) {
+//#if ACIA6850_DEBUG 
+log_debug("***** UART: ACIA6850 - TX DATA  char= >%0x< (%c) \n", acia.tdr, acia.tdr);
+//#endif  
+                MIDISERIAL.write(acia.tdr);  
+                Serial.printf("MIDI OUT %0x\n", acia.tdr);
+                acia.sr |= SR_TDRE;             // we just sent a data, so the queue is now empty
+            }    
 
 }
 //***************** END acia_run(CPU6809* cpu) ******************
@@ -194,10 +138,9 @@ log_debug("********************** READING ACIA_SR: %0x\n ", acia.sr);
     
     case ACIA_RDR: // $E101
 //#if ACIA6850_DEBUG 
-log_debug("********************* READING ACIA_RDR: %x. (CLEAR IRQ and RDRF)\n", acia.rdr);     //   IRQ PE OVRN FE CTS DCD TDRE RDRF
+log_debug("UART data received and read                              %x\n", acia.rdr);     //  
 //#endif
         acia.sr &= 0x7e;  // clear IRQ, RDRF
-        acia_update_irq(); // <<<<
         return acia.rdr;
         break;
 
@@ -224,21 +167,11 @@ log_debug("*                  m_rx_irq_enable will %s trigger a RX request\n", (
 log_debug("*                  m_tx_irq_enable will %s trigger a TX request\n", (m_tx_irq_enable == 1) ? "" : "not");
 log_debug("****************** ACIA CR = %0x\n", acia.cr);
 #endif
-      acia_update_irq(); // <<<<
       break;
     
 case ACIA_TDR:      // E101
       acia.tdr = val;
-      if(m_tx_irq_enable) {
-//#if ACIA6850_DEBUG 
-log_debug("***** UART: ACIA6850 - TX DATA  char= >%0x< (%c) \n", acia.tdr, acia.tdr);
-log_debug("***** UART: ACIA6850 - With CR value =%0X \n", acia.cr);
-//#endif
-          //Serial.write(acia.tdr);   
-          MIDISERIAL.write(acia.tdr);  
-          acia.sr |= SR_TDRE;
-          acia_update_irq();    // This will clear the IRQ
-          }
+      acia.sr &= 0x7d;  // clear IRQ, TDRE
       break;
        
 

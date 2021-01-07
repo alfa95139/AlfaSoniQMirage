@@ -187,9 +187,9 @@ and pin 13 feeding the ADC
 |---------------+-------------------+---------------+
 |   0   0 -> 0  |   mic (sample)    |  compressed   |
 |   0   1 -> 1  |   line            |  uncompressed |
-|   1   0 -> 2  |   gnd             |  pitch wheel  |
-|   1   1 -> 3  |   gnd             |  modwheel     |
-+---------------+-----------------------+---------------+
+|   1   0 -> 2  |   gnd             |  pitch wheel  | ALFASoniQ Mirage will model this as always connected to GND  (Same as EnsoniQ DMS-1)
+|   1   1 -> 3  |   gnd             |  modwheel     | ALFASoniQ MIrage will model this as always connected to +VCC (Same as EnsoniQ DMS-1)
++---------------+-----------------------+-----------+
 note that bit 4 (PB3)  also drives the top of the volume control, so selecting the
 sample input mutes the audio.
 When bit 4 is high (which means that the volume control is active) it means that the keyboard is playing.

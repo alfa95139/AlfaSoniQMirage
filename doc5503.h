@@ -11,6 +11,7 @@ uint8_t doc_rreg(uint8_t reg);
 void doc_wreg(uint8_t reg, uint8_t val);
 void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift);
 void audio_update ();
+void audio_update_CB(); // todo: build audioout
 
 enum {
 	MODE_FREE = 0,
@@ -19,6 +20,7 @@ enum {
 	MODE_SWAP = 3
 	};
 
+#define output_channels  2 
 
 typedef struct
 {

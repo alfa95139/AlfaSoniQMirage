@@ -34,10 +34,9 @@
 #define MIDISerial Serial1
 
 // at 31250bps there will be 320 clocks between characters (Gordon JCP)
-//#define ACIA_CLK 320
+#define ACIA_CLK 320
 
 void    acia_init();
-void    acia_clk_CB();
 void    acia_run(CPU6809* cpu);
 uint8_t acia_rreg(uint8_t reg);
 void    acia_wreg(uint8_t reg, uint8_t val);

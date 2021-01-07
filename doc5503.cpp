@@ -64,6 +64,9 @@
 #include "Arduino.h"
 #include "log.h"
 #include "doc5503.h"
+#include "via.h"
+#include "extern.h"  // For access to control 5503 DAC with VIA PB2, PB3
+
 
 extern uint8_t WAV_RAM[4][WAV_END - WAV_START+1]; 
 extern uint8_t PRG_RAM[RAM_END - RAM_START+1];  // we will remove once we know it works
@@ -80,7 +83,7 @@ uint8_t     regE0, regE1, regE2;            // contents of register 0xe0
 uint8_t m_channel_strobe;
 uint32_t CLK = 8000000; // 8Mhz
 uint32_t output_rate;
-int output_channels;
+
 
 
 uint8_t doc_irq;
@@ -128,6 +131,17 @@ void doc_run(CPU6809* cpu) {
   // In the Mirage, the DOC runs at 8MHz, while the 6809 runs at 1MHz
   // so for every clock cycle, the DOC calculates for each oscillator the sample to append to the relative queue
 
+if(doc_irq==1) {
+#if DOC5503_DEBUG
+    log_debug("DOC5503: IRQ FIRING");  
+#endif
+    cpu->irq();
+
+#if DOC5503_DEBUG
+    log_debug("DOC5503: doc_run() - invoking audio_update()");  
+#endif
+audio_update ();
+
   if (get_cpu_cycle_count() < doc_cycles) {
           //log_debug(" DOC WAITS - %ld\n", get_cpu_cycle_count());
           return; // not ready yet
@@ -135,7 +149,11 @@ void doc_run(CPU6809* cpu) {
   //log_debug(" DOC DID NOT WAIT - %ld\n", get_cpu_cycle_count());
   doc_cycles = get_cpu_cycle_count() + 2;
 
-  if(doc_irq==1) cpu->irq();
+
+
+
+
+  }
 // for each oscillator
 //          is the oscillator HALT bit set? -> skip to next oscillator
 //              else
@@ -201,6 +219,9 @@ void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
  
 }
 
+void audio_update_CB(){
+}
+
 // ************************************************************
 // ******************* AUDIO UPDATE ********************
 // ************************************************************
@@ -211,13 +232,23 @@ void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_
   
   int samples = 256; // int samples = outputs[0].samples(); THIS IS THE LENGTH OF THE QUEUE
 
+#if DOC5503_DEBUG
+    log_debug("DOC5503: Entering audio_update()");  
+#endif
+
  // assert(samples < (44100/50));
  // std::fill_n(&m_mix_buffer[0], samples*output_channels, 0);
 
   for (int chan = 0; chan < output_channels; chan++)      // for each channel
   {
+#if DOC5503_DEBUG
+    log_debug("DOC5503: audio_update() chan = %d", chan);  
+#endif
     for (osc = 0; osc < (oscsenabled+1); osc++)           // for each oscillator
     {
+#if DOC5503_DEBUG
+    log_debug("DOC5503: audio_update() osc = %d", osc);  
+#endif
       DOC5503Osc *pOsc = &oscillators[osc];
 
       if (!(pOsc->control & 1) && ((pOsc->control >> 4) & (output_channels - 1)) == chan)
@@ -243,12 +274,15 @@ void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_
 
           // channel strobe is always valid when reading; this allows potentially banking per voice
           m_channel_strobe = (ctrl>>4) & 0xf;
- //       data = (int32_t)read_byte(ramptr + wtptr) ^ 0x80;
- //       data = (int32_t) WAV_RAM[BANK][ramptr + wtptr] ^ 0x80;
-          data = (int32_t) WAV_RAM[0][ramptr + wtptr] ^ 0x80;
+
+          data = (int32_t) WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80;  // normalize waveform, 0x7F becomes "stop"
+  #if DOC5503_DEBUG
+        log_debug("DOC5503: ADDRESS = %X (ramptr = %x wptr = %x)\n",ramptr + wtptr, ramptr, wtptr);
+        log_debug("DOC5503: DATA sent to DAC = %x\n", data);
+#endif
 
 //        if (WAV_RAM[BANK][ramptr + wtptr] == 0x00)
-          if (WAV_RAM[0][ramptr + wtptr] == 0x00)
+          if (WAV_RAM[via.orb & 0x03][ramptr + wtptr] == 0x00)  // I thought the oscillator stops when finds 0x7F
           {
             doc_halt_osc(osc, 1, &acc, resshift);
           }
@@ -278,18 +312,18 @@ void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_
     }
   }
 
-/*
+
 // RE-INSERT THESE (OR EQUIVALENT
-  mixp = &m_mix_buffer[0];
-  
-  for (int chan = 0; chan < output_channels; chan++)
-  {
-    for (i = 0; i < outputs[chan].samples(); i++)
-    {
-      outputs[chan].put_int(i, *mixp++, 32768*8);
-    }
-  }
-*/
+//  mixp = &m_mix_buffer[0];
+//
+//  for (int chan = 0; chan < output_channels; chan++)
+//  {
+//    for (i = 0; i < outputs[chan].samples(); i++)
+//    {
+//      outputs[chan].put_int(i, *mixp++, 32768*8);
+//    }
+//  }
+
 
 }
 
@@ -310,13 +344,13 @@ uint8_t doc_rreg(uint8_t reg) {
     {
       case 0x00:     // freq lo
 #if DOC5503_DEBUG
-        log_debug("DOC5503 READ: Freq LOW %02x  value = %02x\n", reg, oscillators[osc].freq & 0xff);
+//        log_debug("DOC5503 READ: Freq LOW %02x  value = %02x\n", reg, oscillators[osc].freq & 0xff);
 #endif
         return (oscillators[osc].freq & 0xff);
         break;
       case 0x20:      // freq hi
 #if DOC5503_DEBUG
-        log_debug("DOC5503 READ: Freq HIGH %02x  value = %02x\n", reg, (oscillators[osc].freq>>8) );
+//        log_debug("DOC5503 READ: Freq HIGH %02x  value = %02x\n", reg, (oscillators[osc].freq>>8) );
 #endif        
         return (oscillators[osc].freq >> 8);
         break;
@@ -411,16 +445,42 @@ uint8_t doc_rreg(uint8_t reg) {
         break;
       case 0xe1:  // oscillator enable
 #if DOC5503_DEBUG 
-        log_debug("DOC5503 READ OSCILLATOR ENABLE REGISTER %0x\n", oscsenabled<<1);
+//        log_debug("DOC5503 READ OSCILLATOR ENABLE REGISTER %0x\n", oscsenabled<<1);
 #endif        
         return oscsenabled<<1;
         break;
+/*
++---------------+-----------------------------------+
+|   Port B      |               4052 pins           |
+|  PB3  PB2     |       pin 3       |    pin 13     |
+|---------------+-------------------+---------------+
+|   0   0 -> 0  |   mic (sample)    |  compressed   |
+|   0   1 -> 1  |   line            |  uncompressed |
+|   1   0 -> 2  |   gnd             |  pitch wheel  | ALFASoniQ Mirage will model this as always connected to GND  (Same as EnsoniQ DMS-1)
+|   1   1 -> 3  |   gnd             |  modwheel     | ALFASoniQ MIrage will model this as always connected to +VCC (Same as EnsoniQ DMS-1)
++---------------+-----------------------+-----------+
+*/
       case 0xe2:  //A/D converter: reads from: pitch/mod wheel, output signal path, and line-in (sampling) 
+
+          switch( (via.orb >> 2) & 0x3)  {
+            case 0b00:
+            case 0b01:
+               regE2 = 0x88; //A/D converter: rom.asm comparing between $90 and $70 (144 and 112)
+            break;
+            case 0b10: // Pitch Wheel
+              regE2 = 0x7F; // GND - This is equivalent of 0 for the DOC
+            break;
+            case 0b11: // Mod WHeel
+              regE2 = 0xFF; // GND should be correct (DMS-1 shows VCC - But that would cause modulation?)
+            break;
+        }
 #if DOC5503_DEBUG 
-        log_debug("DOC5503 READ A/D Converter, faking %d value\n", regE2);
+//        log_debug("DOC5503 READ A/D Converter, value = %x\n", regE2);
+//        log_debug("                            MUX is set to %x", (via.orb >> 2) & 0x3); 
 #endif
-        return(regE2);
-        break; 
+      return regE2;
+    
+     break;
     }
   }
 }
@@ -444,7 +504,7 @@ if (reg < 0xe0)
         oscillators[osc].freq &= 0xff00;
         oscillators[osc].freq |= val;
 #if DOC5503_DEBUG 
-        log_debug("DOC5503 WRITE: Freq LOW %02x with value = %02x\n", reg, oscillators[osc].freq );
+ //       log_debug("DOC5503 WRITE: Freq LOW %02x with value = %02x\n", reg, oscillators[osc].freq );
 #endif          
         break;
 
@@ -452,7 +512,7 @@ if (reg < 0xe0)
         oscillators[osc].freq &= 0x00ff;
         oscillators[osc].freq |= (val<<8);
 #if DOC5503_DEBUG 
-        log_debug("DOC5503 WRITE: Freq High %02x with value = %02x\n", reg, oscillators[osc].freq );
+//        log_debug("DOC5503 WRITE: Freq High %02x with value = %02x\n", reg, oscillators[osc].freq );
 #endif          
         break;
 

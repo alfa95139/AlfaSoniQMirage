@@ -7,6 +7,7 @@
 #include "acia.h"    //AF: Added: 11/28/2020
 #include "log.h"
 #include "os.h"
+#include "extern.h"
 #include <stdint.h>
 #include <Arduino.h>
 
@@ -339,7 +340,7 @@ void CPU6809::write(uint16_t address, uint8_t data) {
   } else if ( (WAV_START <= address) && (address <= WAV_END) ) {              // 0x0000 to 0xFFFF + Page
     // WAV RAM
     set_log("waveram");
-    page = via_rreg(0) & 0b0011;
+    page = via.orb & 0x3;
     WAV_RAM[page][address - WAV_START] = data;
 //    log_debug("Writing to WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, data);
   } else if ( (address & 0xFF00) == VIA6522) {
@@ -389,7 +390,7 @@ if ((DEVICES_START <= address) &  (address <= DEVICES_END)) {
   } else if ((WAV_START <= address) && (address <= WAV_END)) {
     // WAVE RAM? NOTE: VIA 6522 PORT B contains info about the page, when we will be ready to manage 4 banks
     set_log("wavram");
-    page = via_rreg(0) & 0b0011;
+    page = via.orb & 0x3;
     out = WAV_RAM[page][address - WAV_START];
     //log_debug("READING FROM WAV RAM: PAGE %hhu address = %04x, DATA = %02x\n", page, address, out);
  } else if ((CART_START <= address) && (address <= CART_END)) { // Will load the Monitor first. The command "Q" will Quit the monitor and continue the regular boot
@@ -480,7 +481,7 @@ void CPU6809::printRegs() { // AF 1/1/21 same order as MAME debugger to speed up
   Serial.printf("X  %04x (%s)\n", x, address_name(x));
   Serial.printf("Y  %04x (%s)\n", y, address_name(y));
   Serial.printf("U  %04x (%s)\n", u, address_name(u));
-  Serial.printf("MEMORY BANK (0, 1, 2, 3)= %d\n",via_rreg(0) & 0b0011);
+  Serial.printf("MEMORY BANK (0, 1, 2, 3)= %d\n",via.orb & 0b0011);
   Serial.printf("Condition Code Register (Breakdown)\n");
   Serial.printf("   E F H I N Z V C\n");
   //Serial.printf("  | + + + + + + + |\n");
