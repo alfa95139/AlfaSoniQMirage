@@ -105,7 +105,7 @@ void setup()
 
 //Tacia.beginPeriodic( acia_clk_CB , 1 );  // make sure that we trigger the ACIA to receive 
  //T2.beginPeriodic( KeypadNDisplay_CB, 2.5);                 //2.5 milliseconds (1 / 400Hz = 2.5 millis)
- //T_AudioStream.beginPeriodic (audio_update_CB, 1); // 1 millisecond
+ //T_AudioStream.beginPeriodic (audio_update_CB, 1000); // 1 millisecond
  
   Serial.println("\n");
   Serial.println("=======================================================");
@@ -171,15 +171,18 @@ void setup()
 }
 
 void tick_system() {
+  
   set_log("cpu");
   cpu->tick();
   
   set_log("via");
   via_run(cpu);
+  
   set_log("fdc");
   fdc_run(cpu);
+  
   set_log("doc5503");
-  doc_run(cpu);
+  //doc_run(cpu);
   
   set_log("acia6950");
   acia_run(cpu);

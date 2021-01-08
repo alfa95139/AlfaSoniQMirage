@@ -1,6 +1,9 @@
 /* vim: set noexpandtab ai ts=4 sw=4 tw=4:
    fdc.cpp -- emulation of 1772 FDC based on (c) 2012 implementation by Gordon JC Pearce
 
+   Copyright (C) 2012 Gordon JC Pearce
+   Copyright (C) 2020 Alessandro Fasan
+
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)

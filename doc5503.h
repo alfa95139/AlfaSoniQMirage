@@ -20,8 +20,7 @@ enum {
 	MODE_SWAP = 3
 	};
 
-#define output_channels  2 
-
+#define output_channels  2 // stereo
 typedef struct
 {
   uint16_t freq;

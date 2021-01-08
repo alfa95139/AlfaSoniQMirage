@@ -1,6 +1,7 @@
 /* vim: set noexpandtab ai ts=4 sw=4 tw=4:
    acia.c -- emulation of 6850 ACIA
-   Copyright (C) 2020 Alessandro Fasan 2020
+   Copyright (C) 2012 Gordon JC Pearce
+   Copyright (C) 2020 Alessandro Fasan
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
    the Free Software Foundation; either version 2, or (at your option)
@@ -104,16 +105,16 @@ acia_cycles = get_cpu_cycle_count() + ACIA_CLK;  // nudge timer
 if (MIDISERIAL.available() > 0) {    
                 acia.rdr = MIDISERIAL.read();
                 acia.sr |= SR_RDRF;          // flag that data is ready
-//#if ACIA6850_DEBUG 
+#if ACIA6850_DEBUG 
                 log_debug("UART data received, but not read yet        %x\n", acia.rdr);
-//#endif
+#endif
             }
 
 
 if( !(acia.sr & SR_TDRE)) {
-//#if ACIA6850_DEBUG 
+#if ACIA6850_DEBUG 
 log_debug("***** UART: ACIA6850 - TX DATA  char= >%0x< (%c) \n", acia.tdr, acia.tdr);
-//#endif  
+#endif  
                 MIDISERIAL.write(acia.tdr);  
                 Serial.printf("MIDI OUT %0x\n", acia.tdr);
                 acia.sr |= SR_TDRE;             // we just sent a data, so the queue is now empty
@@ -137,9 +138,9 @@ log_debug("********************** READING ACIA_SR: %0x\n ", acia.sr);
     break;
     
     case ACIA_RDR: // $E101
-//#if ACIA6850_DEBUG 
+#if ACIA6850_DEBUG 
 log_debug("UART data received and read                              %x\n", acia.rdr);     //  
-//#endif
+#endif
         acia.sr &= 0x7e;  // clear IRQ, RDRF
         return acia.rdr;
         break;

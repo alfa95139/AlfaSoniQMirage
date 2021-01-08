@@ -1,6 +1,7 @@
 /* vim: set noexpandtab ai ts=4 sw=4 tw=4:
    via.h -- emulation of 6522 VIA
    Copyright (C) 2012 Gordon JC Pearce
+   Copyright (C) 2020 Alessandro Fasan
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License as published by
