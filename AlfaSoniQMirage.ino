@@ -105,17 +105,18 @@ void setup()
 
 //Tacia.beginPeriodic( acia_clk_CB , 1 );  // make sure that we trigger the ACIA to receive 
  //T2.beginPeriodic( KeypadNDisplay_CB, 2.5);                 //2.5 milliseconds (1 / 400Hz = 2.5 millis)
- //T_AudioStream.beginPeriodic (audio_update_CB, 1000); // 1 millisecond
  
   Serial.println("\n");
   Serial.println("=======================================================");
   Serial.println("=           ALFASoniQ Mirage Digital Sampler          =");
   Serial.println("= A Teensyduino-based emulation of the EnsoniQ MIrage =");
-  Serial.println("=       - by Alessandro Fasan                         =");
+  Serial.println("=       (C) 2021 Alessandro Fasan                     =");
+  Serial.println("=                Gordon JC Pearce                     =");
+  Serial.println("=                Ray Bellis                           =");
+  Serial.println("=                Dylan Brophy                         =");
   Serial.println("=                                                     =");
-  Serial.println("= Contributors:                                       =");
-  Serial.println("= Ray Bellis, Gordon JC Pearce, Erturk Kocalar,       =");
-  Serial.println("= Dylan Brophy, Tim Lindner                           =");
+  Serial.println("= Additional Contributors:                            =");
+  Serial.println("= Erturk Kocalar (8bitforce), Tim Lindner             =");
   Serial.println("=======================================================");
   /*
   Serial.print  ("SRAM Size:  "); Serial.print(RAM_END - RAM_START + 1, DEC); Serial.println(" Bytes");
@@ -150,11 +151,14 @@ void setup()
   set_log("fdc");
   fdc_init();
   set_log("doc5503");
-  doc_init();
+  doc_init();             // This should quiet down the oscillators...
   set_log("acia6850");
   acia_init();
 
   KeypadNDisplay_init();
+
+ 
+
 
   set_log("setup()");
   log_info("Initializing processor...");
@@ -182,7 +186,7 @@ void tick_system() {
   fdc_run(cpu);
   
   set_log("doc5503");
-  //doc_run(cpu);
+  doc_run(cpu);
   
   set_log("acia6950");
   acia_run(cpu);

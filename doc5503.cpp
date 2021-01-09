@@ -63,12 +63,36 @@
 
 #include <iterator>     // For std::fill_n
 #include <vector>
+
+
+
 #include "Arduino.h"
 #include "log.h"
 #include "doc5503.h"
 #include "via.h"
 #include "extern.h"  // For access to control 5503 DAC with VIA PB2, PB3
 
+// Audio Library - BEGIN
+#include <Audio.h>
+#include <Wire.h>
+// SPI, SD, SerialFlash not needed for pt8211
+
+// GUItool: begin automatically generated code
+AudioPlayQueue           audio_R;         // Queue for the Right Channel
+AudioPlayQueue           audio_L;         // Queue for the Left  Channel
+AudioOutputPT8211        pt8211_1;       //xy=442.0056915283203,1519.8237991333008
+AudioConnection          patchCord1(audio_R, 0, pt8211_1, 0);
+AudioConnection          patchCord2(audio_L, 0, pt8211_1, 1);
+// GUItool: end automatically generated code
+
+const uint8_t MAX_QSAMPLES = 128;      // size of queue
+
+//Functions: 
+// getBuffer(); - Returns a pointer to an array of 128 int16. The buffer is within the audio lib memory pool, most efficient way to input data to the audio system. Request only one buffer at a time. NULL if no mem is avail.
+// playBuffer(); - Tranmsit the buffer previously obtained from getBuffer();
+// Examples
+//https://forum.pjrc.com/threads/52745-Custom-Audio-Source
+// Audio Library - END
 
 extern uint8_t WAV_RAM[4][WAV_END - WAV_START+1]; 
 extern uint8_t PRG_RAM[RAM_END - RAM_START+1];  // we will remove once we know it works
@@ -81,7 +105,7 @@ DOC5503Osc oscillators[32];
 uint32_t altram;
 
 uint8_t  oscsenabled;      // # of oscillators enabled
-uint8_t     regE0, regE1, regE2;            // contents of register 0xe0
+uint8_t  regE0, regE1, regE2;            // contents of register 0xe0
 
 uint8_t m_channel_strobe;
 uint32_t CLK = 8000000; // 8Mhz
@@ -102,6 +126,8 @@ static constexpr int      resshifts[8] = { 9, 10, 11, 12, 13, 14, 15, 16 };
 // ******************* DOC INIT  ********************
 // **************************************************
 void doc_init() {
+
+    AudioMemory(64);  // reserve some Teensy mem for audio purposes...
   
     regE0 = 0xff;
     regE1 = 0;
@@ -117,7 +143,7 @@ void doc_init() {
     log_debug("* m_stream = stream_alloc(0, = %d , output_rate = %ld\n", output_channels, output_rate); 
     log_debug("**********");
 
-  output_rate = (CLK / 8) / (2 + oscsenabled);
+ // T_AudioStream.beginPeriodic (audio_update, ( 1/output_rate ) * 1000 ); // 3.4ms
 
  // we need to allocate this, or equivalent. This is the audio queue, two channels (Check the PJRC Audio Library for implementation ideas)
  //  -------------------------------------------------------------------------------------------------------------------------------------
@@ -162,11 +188,6 @@ if(doc_irq==1) {
 #endif
     cpu->irq();
     }
-
-#if DOC5503_DEBUG
-    log_debug("DOC5503: doc_run() - invoking audio_update()");  
-#endif
-audio_update ();
 
 #if DOC5503_DEBUG
     log_debug("DOC5503: doc_run() - DONE audio_update() DONE");  
@@ -249,20 +270,15 @@ void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
 }
 // **************************** END doc_alt_osc() *******************************
 
-
-//void audio_update_CB(){
-//}
-
 // ************************************************************
 // ******************* AUDIO UPDATE ********************
 // ************************************************************
 void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_sample_t **outputs, int samples) {
-  int32_t *mixp;
+  int32_t *mixpR, *mixpL;
   int osc, snum, i;
   uint32_t ramptr;
-  //int samples = outputs[0].samples(); this is the buffer in MAME
+  //int samples = outputs[0].samples(); this is the number of samples in the buffer in MAME
 
-  
   uint32_t  wtptr;
   uint32_t  acc;
   uint16_t  wtsize;
@@ -273,15 +289,22 @@ void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_
   int       resshift;
   uint32_t  sizemask;
 
-  std::vector<int32_t> m_mix_buffer;
-  int samples = 1024; // int samples = outputs[0].samples(); THIS IS THE LENGTH OF THE QUEUE
+
+
+//  std::vector<int32_t> m_mix_buffer;
+ int samples = 128; // int samples = outputs[0].samples(); THIS IS THE LENGTH OF THE QUEUE
+  
+ int16_t buffer_R[samples]={0};
+ int16_t buffer_L[samples]={0};  
+
+noInterrupts();
 
 #if DOC5503_DEBUG
     log_debug("DOC5503: Entering audio_update()");  
 #endif
 
- // assert(samples < (44100/50)); // MAME: does this mean that there are at most 50 sound "frames" per second?
-  std::fill_n(&m_mix_buffer[0], samples*output_channels, 0);  // this fills the buffer with  (samples * output_channels) zeros
+//  assert(samples < (44100/50)); // MAME: does this mean that there are at most 50 sound "frames" per second?
+//  std::fill_n(&m_mix_buffer[0], samples*output_channels, 0);  // this fills the buffer with  (samples * output_channels) zeros
 
   for (int chan = 0; chan < output_channels; chan++)      // for each channel, chan = 0, or chan = 1
   {
@@ -320,7 +343,7 @@ void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_
         data      = -128;
         resshift  = resshifts[pOsc->resolution] - pOsc->wavetblsize;
         sizemask  = accmasks[pOsc->wavetblsize];
-        mixp = &m_mix_buffer[0] + chan;  // is  &m_mix_buffer[0] for Left Channel, or  &m_mix_buffer[0] + 1 for Right Channel
+       // mixp = &m_mix_buffer[0] + chan;  // is  &m_mix_buffer[0] for Left Channel, or  &m_mix_buffer[0] + 1 for Right Channel
         
         for (snum = 0; snum < samples; snum++)
         {
@@ -346,45 +369,60 @@ void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_
           }
           else
           {
-            *mixp += data * vol;                                // otherwise we store to mixp
-            mixp += output_channels;                            // We are advancing to the next mixp location
+           // *mixp += data * vol;                                // otherwise we store to mixp
+           // mixp += output_channels;                            // We are advancing to the next mixp location
+            if(chan == 0) 
+              buffer_R[snum] += data * vol;
+               else           
+              buffer_L[snum] += data * vol;
 
+            
             if (altram >= wtsize)   // End of the table has been reached - halt the oscillator
             {
               doc_halt_osc(osc, 0, &acc, resshift);
             }
           }
 
-          // if oscillator halted, we are done generating samples for that oscillator
+          // if oscillator halted, we are done generating samples for that oscillator, so we exit the loop
           if (pOsc->control & 1)
           {
             ctrl |= 1;
             break;
           }
-        }   // for all the samples in the buffer
+        }   // for all the samples in the buffer (128)
 
         pOsc->control     = ctrl;
         pOsc->accumulator = acc;
         pOsc->data        = data ^ 0x80;
       }     // for each active oscillator in the respective channel
-    }      // for each oscillator
-  }       // for each channel
+    }      // for each oscillator 
+  }       // for each channel (2)
 
 
 
-  mixp = &m_mix_buffer[0]; // get to the head of m_mix_buffer
+
+ // mixp = &m_mix_buffer[0]; // get to the head of m_mix_buffer
+
+   int16_t *b_R = audio_R.getBuffer();
+   int16_t *b_L = audio_L.getBuffer();
+
+   memcpy(b_R, buffer_R, samples);
+   memcpy(b_L, buffer_L, samples);
+   
+   audio_R.playBuffer();
+   audio_L.playBuffer();
 
 // In MAME, std::vector<write_stream_view> &outputs is an output of void es5503_device::sound_stream_update
 // THIS IS WHERE WE CONNECT TO THE "SOUND PIPE"  
-
-  for (int chan = 0; chan < output_channels; chan++)    // - for the two channels
-  {
+// for (int chan = 0; chan < output_channels; chan++)    // - for the two channels
+//  {
 //    for (i = 0; i < outputs[chan].samples(); i++)     // - - for all the samples of the current channel
-    {
+//    {
 //      outputs[chan].put_int(i, *mixp++, 32768*8);     //     Update the sample of the output channel
-    }
-  }
+//    }
+//  }
 
+interrupts();
 
 }
 
@@ -567,14 +605,14 @@ if (reg < 0xe0)
         oscillators[osc].freq &= 0xff00;
         oscillators[osc].freq |= val;
 #if DOC5503_DEBUG 
-        log_debug("DOC5503 WRITE: Freq LOW %02x with value = %02x\n", reg, oscillators[osc].freq );
+ //       log_debug("DOC5503 WRITE: Freq LOW %02x with value = %02x\n", reg, oscillators[osc].freq );
 #endif            
         break;
       case 0x20:      // freq hi
         oscillators[osc].freq &= 0x00ff;
         oscillators[osc].freq |= (val<<8);
 #if DOC5503_DEBUG 
-        log_debug("DOC5503 WRITE: Freq High %02x with value = %02x\n", reg, oscillators[osc].freq );
+ //       log_debug("DOC5503 WRITE: Freq High %02x with value = %02x\n", reg, oscillators[osc].freq );
 #endif          
         break;
       case 0x40:  // volume
