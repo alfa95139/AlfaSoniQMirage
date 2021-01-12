@@ -1,3 +1,4 @@
+
 ////////////////////////////////////////////////////////////////////
 // Ensoniq Mirage Retroshield 6809 Emulator for Teensy 3.5 
 // 2020/06/14 Version 1.0 by A. Fasan
@@ -104,7 +105,7 @@ void setup()
   while (!Serial);
 
 //Tacia.beginPeriodic( acia_clk_CB , 1 );  // make sure that we trigger the ACIA to receive 
- //T2.beginPeriodic( KeypadNDisplay_CB, 2.5);                 //2.5 milliseconds (1 / 400Hz = 2.5 millis)
+
  
   Serial.println("\n");
   Serial.println("=======================================================");

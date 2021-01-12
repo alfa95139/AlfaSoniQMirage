@@ -15,7 +15,7 @@
  *   Key Sampling happens when the Segments are OFF, which means both ANODES are LOW -> which means P3 and P4 are high.
  *    
  */
-#define KEYDISP_DEBUG 0
+#define KEYDISP_DEBUG 1
 
 
 #define KD_DEBUG 0
@@ -369,7 +369,7 @@ COL = 0x7; // no keys pressed
 
 
 
-if(PA3 && PA3) // Scan keys when no display is active
+if(PA3 && PA4) // Scan keys when no display is active
 if (ts.touched()) {
   TS_Point p = ts.getPoint(); // p.x and p.y are the coordinates
 

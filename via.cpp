@@ -297,7 +297,7 @@ void via_run(CPU6809* cpu) {
                         // at this point the IRQ has been set. 
   }
   
-  via_cycles = get_cpu_cycle_count() + (via_t2)>>1;  // half, because the clock frequency is 2MHz
+  via_cycles = get_cpu_cycle_count() + ( (via_t2)>>1 );  // half, because the clock frequency is 2MHz
 
   // The portion of the model that clears timer 2 will also need to clear IRQ
    if (via_irq()) {

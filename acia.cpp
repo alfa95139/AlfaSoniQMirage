@@ -146,6 +146,7 @@ log_debug("UART data received and read                              %x\n", acia.
         break;
 
   }
+return -1;
 }
 
 // ****************************************************************
