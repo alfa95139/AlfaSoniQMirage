@@ -51,14 +51,25 @@
 #include "acia.h" // AF 11.28.20
 #include "KeypadNDisplay.h" // AF 1.2.21
 #include "log.h"
-#include "TeensyTimerTool.h"
-using namespace TeensyTimerTool;
+//#include "TeensyTimerTool.h"
+//using namespace TeensyTimerTool;
+
+// Audio Library - BEGIN
+#include <Audio.h>
+#include <Wire.h>
+
+
+Q                        DOC_5503;         //  Digital Oscillator Chip
+AudioOutputPT8211        pt8211_1; 
+AudioConnection          patchCord1(DOC_5503, 0, pt8211_1, 0); 
+AudioConnection          patchCord2(DOC_5503, 1, pt8211_1, 1);  
+
 
 CPU6809* cpu;
 
-Timer Tacia;  // generate a timer for the ACIA
-Timer T2;     // VIA T2
-Timer T_AudioStream; // Audio Timer: 1ms -> 2 x 1kbytes buffer
+//Timer Tacia;  // generate a timer for the ACIA
+//Timer T2;     // VIA T2
+//Timer T_AudioStream; // Audio Timer: 1ms -> 2 x 1kbytes buffer
 
 typedef struct reg_save_s {
   uint16_t u, s, x, y, d;
@@ -101,16 +112,14 @@ void setup()
 {
   Serial.begin(115200);
  
-
+  AudioMemory(32);  // reserve some Teensy mem for audio purposes...
+ 
   while (!Serial);
-
-//Tacia.beginPeriodic( acia_clk_CB , 1 );  // make sure that we trigger the ACIA to receive 
-
  
   Serial.println("\n");
   Serial.println("=======================================================");
   Serial.println("=           ALFASoniQ Mirage Digital Sampler          =");
-  Serial.println("= A Teensyduino-based emulation of the EnsoniQ MIrage =");
+  Serial.println("= A Teensyduino-based emulation of the EnsoniQ Mirage =");
   Serial.println("=       (C) 2021 Alessandro Fasan                     =");
   Serial.println("=                Gordon JC Pearce                     =");
   Serial.println("=                Ray Bellis                           =");
@@ -152,14 +161,16 @@ void setup()
   set_log("fdc");
   fdc_init();
   set_log("doc5503");
-  doc_init();             // This should quiet down the oscillators...
+
+
+  DOC_5503.init();
+ // DOC_5503.init();
   set_log("acia6850");
   acia_init();
 
   KeypadNDisplay_init();
 
- 
-
+  
 
   set_log("setup()");
   log_info("Initializing processor...");

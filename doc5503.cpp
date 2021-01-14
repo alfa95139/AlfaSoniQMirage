@@ -75,23 +75,10 @@
 #include "arm_math.h"
 //#include "utility/dspinst.h" //  multiply_32x32_rshift32, etc.
 
-// Audio Library - BEGIN
-#include <Audio.h>
-#include <Wire.h>
-// SPI, SD, SerialFlash not needed for pt8211
 
-
-/*
-Q *Qchip;
-
-Q                        DOC_output;         // Queue for DOC
-AudioOutputPT8211        pt8211_1;       
-AudioConnection          patchCord1(DOC_output, 0, pt8211_1, 0); 
-AudioConnection          patchCord2(DOC_output, 1, pt8211_1, 1);  
-*/
 
 // there will be a patchcord for each oscillator to its associated filter
-//AudioConnection        patchord(DOC_output, ch0, filter0, 0)
+//AudioConnection        patchord(DOC_output, ch0, filter0, 0)  
 //AudioConnection        patchord(DOC_output, ch1, filter0, 0)
 //AudioConnection        patchord(DOC_output, ch2, filter0, 0)
 //AudioConnection        patchord(DOC_output, ch3, filter0, 0)
@@ -138,13 +125,11 @@ static constexpr uint32_t accmasks[8]  = { 0xff, 0x1ff, 0x3ff, 0x7ff, 0xfff, 0x1
 static constexpr int      resshifts[8] = { 9, 10, 11, 12, 13, 14, 15, 16 };
 
 
+
 // **************************************************
 // ******************* DOC INIT  ********************
 // **************************************************
-void doc_init() {
-
- //   Qchip = new Q(); 
- //   AudioMemory(64);  // reserve some Teensy mem for audio purposes...
+void Q::init() {
   
     regE0 = 0xff;
     regE1 = 0;
@@ -155,10 +140,10 @@ void doc_init() {
     m_channel_strobe = 0;
     output_rate = CLK / ((32 +2) *8);  // 1 cycle per 32 oscillators + 2 refresh cycles = 34 cycles = 29,412 Hz
                                      // for 16 oscillators -> 8Mhz/ (18*8) = 55,5556 Hz
-//    log_debug("**********************************************");
-//    log_debug("* DOC5503: Sampling Frequency %ld\n", output_rate);
-//    log_debug("* m_stream = stream_alloc(0, = %d , output_rate = %ld\n", output_channels, output_rate); 
-//    log_debug("**********************************************");
+    log_debug("*************************************************");
+    log_debug("* DOC5503: Sampling Frequency %ld\n", output_rate);
+    log_debug("* m_stream = stream_alloc(0, = %d , output_rate = %ld\n", output_channels, output_rate); 
+    log_debug("*************************************************");
 
 
  // we need to allocate this, or equivalent. This is the audio queue, two channels (Check the PJRC Audio Library for implementation ideas)
@@ -185,7 +170,9 @@ void doc_init() {
     elem.accumulator = 0;
     elem.irqpend = 0;
   }
+
   
+  isQplaying = false;
 return;
 }
 // ***************** END doc_init() ****************
@@ -193,6 +180,7 @@ return;
 // *************************************************
 // ******************* DOC RUN  ********************
 // *************************************************
+
 void doc_run(CPU6809* cpu) {
   // this function will append to each audio queue the new associated sample
   // In the Mirage, the DOC runs at 8MHz, while the 6809 runs at 1MHz
@@ -221,8 +209,8 @@ return;
 // ***  halt_osc: handle halting an oscillator
 // ***  onum = oscillator #
 // ***  type = 1 for 0 found in sample data, 0 for hit end of table size
-//
-void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
+void Q::doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
+//void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
   uint16_t wtsize;
   
 	DOC5503Osc *pOsc = &oscillators[onum];
@@ -286,12 +274,12 @@ void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
 // *****************************************************
 // ******************* AUDIO UPDATE ********************
 // *****************************************************
-//void Q::update (void) { //sound_stream &stream, stream_sample_t **inputs, stream_sample_t **outputs, int samples) {
-void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_sample_t **outputs, int samples) {
+
+
+void Q::update (void) { //sound_stream &stream, stream_sample_t **inputs, stream_sample_t **outputs, int samples) {
 
   int osc, snum, i;
   uint32_t ramptr;
-  //int samples = outputs[0].samples(); this is the number of samples in the buffer in MAME
 
   uint32_t  wtptr;
   uint32_t  acc;
@@ -303,13 +291,14 @@ void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_
   int       resshift;
   uint32_t  sizemask;
 
+//if (!isQplaying) return; // nothing to do if Q is not playing
  
-//  std::vector<int32_t> m_mix_buffer;
- int samples = 128; // int samples = outputs[0].samples(); THIS IS THE LENGTH OF THE QUEUE
 
-/*
+
+
  audio_block_t *block_ch0;
  audio_block_t *block_ch1; 
+ /*
  //audio_block_t *block_ch2;
  //audio_block_t *block_ch3; 
  //audio_block_t *block_ch4;
@@ -320,15 +309,19 @@ void audio_update () { //sound_stream &stream, stream_sample_t **inputs, stream_
  int16_t *buffer_0;
  int16_t *buffer_1;
 
-/*
+
 block_ch0 = allocate();
 block_ch1 = allocate();
+
+if ( (block_ch0 == 0) || (block_ch1 == 0) ) {
+  log_debug("DOC5503 - CAN'T ALLOCATE AUDIO MEMORY");
+  return;
+}
 
 // add check for correct exit for allocate()
 
 buffer_0 = block_ch0->data;
 buffer_1 = block_ch1->data;
-*/
 
 
 //  assert(samples < (44100/50)); // MAME: does this mean that there are at most 50 sound "frames" per second?
@@ -417,13 +410,12 @@ std::fill_n(&buffer_1, samples, 0);
     }      // for each oscillator 
   }       // for each channel (2)
 
-/*
 
 transmit(block_ch0, 0);
 transmit(block_ch1, 1);
 release(block_ch0);
 release(block_ch1);
-*/
+
 
 //transmit(block_ch2,2);
 //transmit(block_ch3,3);

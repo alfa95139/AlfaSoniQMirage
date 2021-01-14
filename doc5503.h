@@ -7,32 +7,30 @@
 #include "AudioStream.h"
 #include "arm_math.h"
 
-
-
 class Q : public AudioStream
 {
-  public:
-    Q(void) : AudioStream (2, outputQueueArray) { }   // let's start with stereo
-//  Q(void) : AudioStream (8, outputQueueArray) { }   //  8 channels mod
-    virtual void update(void);
-    void begin(void);
-//protected:
+public:
+  Q(void) : AudioStream(0,NULL) { begin();  }  
+  virtual void update(void);
+  void init();
+
+
 private:
-  audio_block_t *outputQueueArray[2];
-//audio_block_t *outputQueueArray[8]; //  8 channels mod
+void begin(){
+    isQplaying = false;
+  }
+ 
+ void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift);
+   bool isQplaying;
+ const int samples =  AUDIO_BLOCK_SAMPLES ; // determines how many samples the audio library processes per update.
+ const int output_channels = 2; // stereo
 };
 
 
-
-
-//uint8_t doc5503_irq();
-void doc_init();
 void doc_run(CPU6809* cpu);
 uint8_t doc_rreg(uint8_t reg);
 void doc_wreg(uint8_t reg, uint8_t val);
 void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift);
-void audio_update ();
-//void audio_update_CB(); // todo: build audioout
 
 enum {
 	MODE_FREE = 0,
@@ -41,7 +39,7 @@ enum {
 	MODE_SWAP = 3
 	};
 
-#define output_channels  2 // stereo
+
 typedef struct
 {
   uint16_t freq;
