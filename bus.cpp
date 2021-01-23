@@ -6,7 +6,7 @@
 #include "doc5503.h" //AF: Added: 11/1/2020
 #include "acia.h"    //AF: Added: 11/28/2020
 #include "log.h"
-#include "os.h"
+//#include "os.h"
 #include "extern.h"
 #include <stdint.h>
 #include <Arduino.h>
@@ -44,7 +44,7 @@
 // Monitor Code
 ////////////////////////////////////////////////////////////////////
 #include "EnsoniqRom.h"
-#include "CartridgeROM.h"
+//#include "CartridgeROM.h"
 
 ////////////////////////////////////////////////////////////////////
 // Debug Vectors
@@ -184,9 +184,9 @@ const char* address_name(uint16_t address) {
   if (address == monitorPrintStr)     return "MONITOR ROM printstring Routine";
   if (address == monitorsendch1)      return "MONITOR ROM sendch1 Routine";
   if (address == loadopsys)           return "LOAD OS IN PRG RAM";
-  if (address == osentry)             return "OS ENTRY";
+  if (address == osentry)             return "*OS ENTRY";
   if (address == irqentry)            return "IRQ INTERRUPT ROUTINE ENTRY POINT";
-  if (address == manageKeys)          return "*Manage Keys - assuming 6511 or UART????"; 
+  if (address == manageKeys)          return "Manage Keys - assuming 6511 or UART????"; 
   if (address == entersDOCirq)        return "Check whether the DOC has generated the interrupt";
   if (address == DOCirqService)       return "DOC IRQ Service Routine";
   if (address ==  DualUARTrst)        return "Dual UART RST";
@@ -202,7 +202,7 @@ const char* address_name(uint16_t address) {
   if (address == fdcskipsector)       return "fdcskipsector"; 
   if (address == fdcwritesector)      return "fdcwritesector"; 
   if (address == fdcfillsector)       return "fdcfillsector"; 
-  if (address == fdcreadtrack)        return "fdcreadtrack"; 
+  if (address == fdcreadtrack)        return "*fdcreadtrack"; 
   if (address == fdcwritetrack)       return "fdcwritetrack"; 
   if (address == fdcrestore)          return "fdcrestore"; 
   if (address == fdcseektrack)        return "fdcseektrack"; 

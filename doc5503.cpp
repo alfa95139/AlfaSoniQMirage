@@ -59,7 +59,7 @@
 // E4_0001_0000 (E410) to E4_0001_0111 (E417): CUT OFF
 // E4_0000_1000 (E408) to E4_0000_1111 (E40F): Resonance
 
-#define DOC5503_DEBUG 1
+#define DOC5503_DEBUG 0
 
 #include <iterator>     // For std::fill_n
 #include <vector>
@@ -74,19 +74,6 @@
 
 #include "arm_math.h"
 //#include "utility/dspinst.h" //  multiply_32x32_rshift32, etc.
-
-
-
-// there will be a patchcord for each oscillator to its associated filter
-//AudioConnection        patchord(DOC_output, ch0, filter0, 0)  
-//AudioConnection        patchord(DOC_output, ch1, filter0, 0)
-//AudioConnection        patchord(DOC_output, ch2, filter0, 0)
-//AudioConnection        patchord(DOC_output, ch3, filter0, 0)
-//AudioConnection        patchord(DOC_output, ch4, filter0, 0)
-//AudioConnection        patchord(DOC_output, ch5, filter0, 0)
-//AudioConnection        patchord(DOC_output, ch6, filter0, 0)
-//AudioConnection        patchord(DOC_output, ch7, filter0, 0)
-
 
 const uint8_t MAX_QSAMPLES = 128;      // size of queue
 
@@ -119,7 +106,7 @@ uint32_t output_rate;
 uint8_t doc_irq;
 
 // useful constants
-static constexpr uint16_t wavesizes[8] = { 256, 512, 1024, 2048, 4096, 8192, 16384, 32768 }; // T2, T1, T0
+static constexpr uint16_t wavesizes[8] = { 256, 512, 1024, 2048, 4096, 8192, 16384, 32768 };        // T2, T1, T0
 static constexpr uint32_t wavemasks[8] = { 0x1ff00, 0x1fe00, 0x1fc00, 0x1f800, 0x1f000, 0x1e000, 0x1c000, 0x18000 };
 static constexpr uint32_t accmasks[8]  = { 0xff, 0x1ff, 0x3ff, 0x7ff, 0xfff, 0x1fff, 0x3fff, 0x7fff };
 static constexpr int      resshifts[8] = { 9, 10, 11, 12, 13, 14, 15, 16 };
@@ -172,7 +159,7 @@ void Q::init() {
   }
 
   
-  isQplaying = false;
+
 return;
 }
 // ***************** END doc_init() ****************
@@ -291,21 +278,17 @@ void Q::update (void) { //sound_stream &stream, stream_sample_t **inputs, stream
   int       resshift;
   uint32_t  sizemask;
 
-//if (!isQplaying) return; // nothing to do if Q is not playing
- 
-
-
 
  audio_block_t *block_ch0;
  audio_block_t *block_ch1; 
- /*
+ 
  //audio_block_t *block_ch2;
  //audio_block_t *block_ch3; 
  //audio_block_t *block_ch4;
  //audio_block_t *block_ch5; 
  //audio_block_t *block_ch6;
  //audio_block_t *block_ch7; 
- */
+ 
  int16_t *buffer_0;
  int16_t *buffer_1;
 
@@ -313,20 +296,23 @@ void Q::update (void) { //sound_stream &stream, stream_sample_t **inputs, stream
 block_ch0 = allocate();
 block_ch1 = allocate();
 
-if ( (block_ch0 == 0) || (block_ch1 == 0) ) {
+if ( (block_ch0 == 0) || (block_ch1 == 0) ) {   // ALWAYS CHECK FOR SUCCESSFUL ALLOCATE()
+//if (block_ch0 == 0)  {
   log_debug("DOC5503 - CAN'T ALLOCATE AUDIO MEMORY");
   return;
 }
 
-// add check for correct exit for allocate()
-
 buffer_0 = block_ch0->data;
 buffer_1 = block_ch1->data;
 
+for(i=0; i<samples; i++) {  // ALWAYS INITIALIZE W ZEROS
+  *buffer_0++ = 0;
+  *buffer_1++ = 0;
+}
 
-//  assert(samples < (44100/50)); // MAME: does this mean that there are at most 50 sound "frames" per second?
-std::fill_n(&buffer_0, samples, 0);  
-std::fill_n(&buffer_1, samples, 0);  
+
+
+/*
 
   for (int chan = 0; chan < output_channels; chan++)      // for each channel, chan = 0, or chan = 1
   {
@@ -410,6 +396,7 @@ std::fill_n(&buffer_1, samples, 0);
     }      // for each oscillator 
   }       // for each channel (2)
 
+*/
 
 transmit(block_ch0, 0);
 transmit(block_ch1, 1);

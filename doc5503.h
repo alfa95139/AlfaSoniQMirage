@@ -14,14 +14,12 @@ public:
   virtual void update(void);
   void init();
 
-
 private:
-void begin(){
-    isQplaying = false;
+void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift);
+void begin(){   
   }
  
- void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift);
-   bool isQplaying;
+
  const int samples =  AUDIO_BLOCK_SAMPLES ; // determines how many samples the audio library processes per update.
  const int output_channels = 2; // stereo
 };
@@ -30,7 +28,7 @@ void begin(){
 void doc_run(CPU6809* cpu);
 uint8_t doc_rreg(uint8_t reg);
 void doc_wreg(uint8_t reg, uint8_t val);
-void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift);
+ void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift);
 
 enum {
 	MODE_FREE = 0,

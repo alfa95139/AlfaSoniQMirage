@@ -59,11 +59,22 @@
 #include <Wire.h>
 
 
-Q                        DOC_5503;         //  Digital Oscillator Chip
+Q                        DOC_5503;         //  Digital Oscillator Chip/
 AudioOutputPT8211        pt8211_1; 
 AudioConnection          patchCord1(DOC_5503, 0, pt8211_1, 0); 
 AudioConnection          patchCord2(DOC_5503, 1, pt8211_1, 1);  
-
+// there will be a patchcord for each oscillator to its associated filter
+//AudioConnection        patchord(DOC_5503, ch0, filter0, 0)  
+//AudioConnection        patchord(DOC_5503, ch1, filter1, 0)
+//AudioConnection        patchord(DOC_5503, ch2, filter2, 0)
+//AudioConnection        patchord(DOC_5503, ch3, filter3, 0)
+//AudioConnection        patchord(DOC_5503, ch4, filter4, 0)
+//AudioConnection        patchord(DOC_5503, ch5, filter5, 0)
+//AudioConnection        patchord(DOC_5503, ch6, filter6, 0)
+//AudioConnection        patchord(DOC_5503, ch7, filter7, 0) 
+//=> then filters will be mixed
+//=> then mix will go to pt8211
+// Audio Library - END
 
 CPU6809* cpu;
 
@@ -161,10 +172,8 @@ void setup()
   set_log("fdc");
   fdc_init();
   set_log("doc5503");
-
-
-  DOC_5503.init();
- // DOC_5503.init();
+   DOC_5503.init();
+ 
   set_log("acia6850");
   acia_init();
 
