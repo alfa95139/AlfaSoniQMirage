@@ -424,7 +424,7 @@ switch(segment) {
                         //tft.print("4"); 
                         break;
                         }
-                  else if ( (p.x > 2500) && (p.x<2500) ) { 
+                  else if ( (p.x > 2100) && (p.x<2500) ) { 
                         COL = 0x5;    //(1,0,1);
                         //tft.print("6");
                         break;
@@ -475,7 +475,7 @@ switch(segment) {
                     //tft.print("ON/^");
                     break;
               }
-            if ( (1150 > p.y) && (p.y < 1550) ) {
+            if ( ( p.y > 1150 ) && (p.y < 1750) ) {
                 if ( (p.x>1700) && (p.x <2100) ) {
                     COL = 0x5;    //(1,0,1); 
                     //tft.print("5");

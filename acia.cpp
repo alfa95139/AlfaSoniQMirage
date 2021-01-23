@@ -57,7 +57,7 @@
 unsigned long acia_cycles;
 extern unsigned long get_cpu_cycle_count();
 
-#define ACIA6850_DEBUG 0
+#define ACIA6850_DEBUG 1
 
 struct {
   uint8_t cr;
