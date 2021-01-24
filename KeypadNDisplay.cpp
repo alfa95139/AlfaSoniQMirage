@@ -342,7 +342,7 @@ ORA_register = (via.ora & 0x1F);       // via_rreg(0xF) & 0x1F;
 bc = ORA_register_ ^ ORA_register;  // see if ORA has changed
 
 if (bc == 0)
-          return;                   // otherswise there is nothing to do for now
+          return;                   // otherswise there is nothing to do for nowc
 
 ORA_register_ = ORA_register;
 
@@ -351,7 +351,7 @@ PA4 = ORA_register & ANODE2;
 
 
 #if KEYDISP_DEBUG
-//log_debug(" (ANODE1,ANODE2) = %x%x", !LeftDigit_en, !RightDigit_en);
+//log_debug(" (ANODE1,ANODE2) = %x%x", PA3, PA4);
 //log_debug(" BEFORE RENDERING SEGMENT via.ora =%x", via.ora);
 #endif
 

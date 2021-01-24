@@ -197,9 +197,40 @@ int a;
 
 extern unsigned long get_cpu_cycle_count();
 
+
+void printSpaces(int num) {
+  for (int i=0; i < num; i++) {
+    Serial.print(" ");
+  }
+}
+
+void printDirectory(File dir, int numSpaces) {
+   while(true) {
+     File entry = dir.openNextFile();
+     if (! entry) {
+       //Serial.println("** no more files **");
+       break;
+     }
+     printSpaces(numSpaces);
+     Serial.print(entry.name());
+     //if (entry.isDirectory()) {
+     //  Serial.println("/");
+     //  printDirectory(entry, numSpaces+2);
+     //} else {
+       // files have sizes, directories do not
+       printSpaces(48 - numSpaces - strlen(entry.name()));
+       Serial.print("  ");
+       Serial.println(entry.size(), DEC);
+     //}
+     entry.close();
+   }
+}
+
+
 int fdc_init() {
-  //char mybuffer[100000];
-  //int z, k;
+  File dir;
+   String str;
+   char mystring[40];
   
   ReadSectorDone = true;
 
@@ -211,18 +242,22 @@ int fdc_init() {
   }
   log_info("SD CARD Initialization: Completed.");
 
-  // open the file.
-  disk = SD.open("A1.img"); // TO DO: CHOOSE FROM AVAIL IMGs IN SD ROOT DIRECTORY
+
+   dir = SD.open("/");
+   printDirectory(dir, 0);
+
+
+  //disk = SD.open("forth.img");
+    disk = SD.open("A1.img"); // TO DO: CHOOSE FROM AVAIL IMGs IN SD ROOT DIRECTORY
   if (disk) 
     log_info("Found Mirage image disk: A1.img");
   else {
     log_emergency("Error: Mirage image disk not found!!!");
     return(-1);
-  }
-
 	return(0);
 }
 
+}
 
 void fdc_run(CPU6809* cpu) {
   // int i, z;
