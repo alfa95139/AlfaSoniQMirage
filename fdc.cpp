@@ -248,7 +248,7 @@ int fdc_init() {
 
 
   //disk = SD.open("forth.img");
-    disk = SD.open("A1.img"); // TO DO: CHOOSE FROM AVAIL IMGs IN SD ROOT DIRECTORY
+    disk = SD.open("A1.IMG"); // TO DO: CHOOSE FROM AVAIL IMGs IN SD ROOT DIRECTORY
   if (disk) 
     log_info("Found Mirage image disk: A1.img");
   else {

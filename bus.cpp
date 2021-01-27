@@ -184,7 +184,7 @@ const char* address_name(uint16_t address) {
   if (address == monitorPrintStr)     return "MONITOR ROM printstring Routine";
   if (address == monitorsendch1)      return "MONITOR ROM sendch1 Routine";
   if (address == loadopsys)           return "LOAD OS IN PRG RAM";
-  if (address == osentry)             return "*OS ENTRY";
+  if (address == osentry)             return "OS ENTRY";
   if (address == irqentry)            return "IRQ INTERRUPT ROUTINE ENTRY POINT";
   if (address == manageKeys)          return "Manage Keys - assuming 6511 or UART????"; 
   if (address == entersDOCirq)        return "Check whether the DOC has generated the interrupt";
