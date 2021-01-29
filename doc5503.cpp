@@ -94,7 +94,7 @@ DOC5503Osc oscillator[32];
 
 uint32_t altram;
 
-uint8_t  oscsenabled;      // # of oscillators enabled
+uint8_t  oscsenabled;                     // # of oscillators enabled
 uint8_t  regE0, regE1, regE2;            // contents of register 0xe0
 
 uint8_t m_channel_strobe;
@@ -140,7 +140,7 @@ for (i=0; i<32; i++)
 
 
     doc_irq = 0;
-    oscsenabled = 1;
+    oscsenabled = 0;
     m_channel_strobe = 0;
     output_rate = CLK / ((32 +2) *8);  // 1 cycle per 32 oscillators + 2 refresh cycles = 34 cycles = 29,412 Hz
                                      // for 16 oscillators -> 8Mhz/ (18*8) = 55,5556 Hz
@@ -222,6 +222,10 @@ void Q::doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
   
   const int mode = (pOsc->control>>1) & 3;              // {M2,M1}
   const int partnerMode = (pPartner->control>>1) & 3;
+
+#if DOC5503_DEBUG
+log_debug("DOC5503: halt_osc\n");
+#endif
   
 	// if 0 found in sample data or mode is not free-run, instruct the oscillator to HALT
 	if ((mode != MODE_FREE) || (type != 0)) 
@@ -260,7 +264,7 @@ void Q::doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
   //                            If the interrupt has been stored into the interrupt table while IE = 0, when IE is changed to a 1 the IRQ will be passed to the OIR.
 	{
 		pOsc->irqpend = 1;
-		doc_irq = 1;            //  This will flag the irq in doc_run()
+		doc_irq = 1;            //  This will flag the irq in doc_run() **** USE irq.set(0) here with new usim
 	}
  
 }
@@ -322,9 +326,10 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
         *buffer_1++ = 0;
         }
 
+
   for (int chan = 0; chan < output_channels; chan++)      // for each channel, chan = 0, or chan = 1
   {
-    for (osc = 0; osc < (oscsenabled+1); osc++)           // for each oscillator that is enabled
+    for (osc = 0; osc < (oscsenabled); osc++)           // for each oscillator that is enabled
     {
       DOC5503Osc *pOsc = &oscillator[osc];               // for each enabled oscillator, get its handle 
 
@@ -368,7 +373,7 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
           data = (int32_t) WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80;  // normalize waveform
 
 
-          if (WAV_RAM[via.orb & 0x03][ramptr + wtptr] == 0x7f)  // If encountering "stop" data
+          if (WAV_RAM[via.orb & 0x03][ramptr + wtptr] == 0x7f)  // If encountering "stop" data SHOULD IT BE 0x00?
           {                                                     //
             doc_halt_osc(osc, 1, &acc, resshift);               // we will stop the oscillator
           }
@@ -413,6 +418,195 @@ release(block_ch1);
 
 
 }
+
+/***************************************************************
+
+void debug_doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
+//void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
+  uint16_t wtsize;
+
+//#if DOC5503_DEBUG
+log_debug("**** DOC5503: Entering halt_osc. onum = %d, type = %d, accumulator = %d, res shift = %d\n", onum, type, accumulator, resshift);
+log_debug("**** DOC5503: onum = %d, onum^1 = %d\n", onum, onum^1);
+
+//#endif
+  
+  DOC5503Osc *pOsc = &oscillator[onum];
+  DOC5503Osc *pPartner = &oscillator[onum^1];
+  
+  const int mode = (pOsc->control>>1) & 3;              // {M2,M1}
+  const int partnerMode = (pPartner->control>>1) & 3;
+
+
+  
+  // if 0 found in sample data or mode is not free-run, instruct the oscillator to HALT
+  if ((mode != MODE_FREE) || (type != 0)) 
+  {
+    pOsc->control |= 1;   // HALT
+  }
+  else    // preserve the relative phase of the oscillator when looping
+  {
+     wtsize = pOsc->wtsize - 1;
+     altram = (*accumulator) >> resshift;
+
+    if (altram > wtsize)
+    {
+      altram -= wtsize;
+    }
+    else
+    {
+      altram = 0;
+    }
+
+    *accumulator = altram << resshift;
+  }
+
+  // if swap mode, start the partner
+  if ((mode == MODE_SWAP) || ((partnerMode == MODE_SWAP) && ((onum & 1)==0)))
+  {
+    pPartner->control &= ~1;    // toggle mode
+    pPartner->accumulator = 0;  // and make sure it starts from the top (does this also need phase preservation?)
+  }
+
+  // IRQ enabled for this voice?
+  if (pOsc->control & 0x08) //  0000_1000 D3 is bit IE of the Control register of the oscillator.
+  //                            If IE is set it will cause an interrupt to be passed to the Ocillator Interrupt Register (0xE0) when it completes a cycle, which in turn will interrupt the processor.
+  //                            If IE is clear, then the interrupt will be put into the oscillator interrupt table, but not passed to the OIR.
+  //                            When more than one oscillator interrupt occurs, the interrupt stack will retain the status and pass interrupts to the OIR as they are serviced by the processor.
+  //                            If the interrupt has been stored into the interrupt table while IE = 0, when IE is changed to a 1 the IRQ will be passed to the OIR.
+  {
+    pOsc->irqpend = 1;
+//    doc_irq = 1;            //  This will flag the irq in doc_run()
+  }
+ 
+}
+
+
+void debug_update (void) { //sound_stream &stream, stream_sample_t **inputs, stream_sample_t **outputs, int samples) {
+
+  int osc, snum, i;
+  uint32_t ramptr;
+
+  uint32_t  wtptr;
+  uint32_t  acc;
+  uint16_t  wtsize;
+  uint8_t   ctrl;
+  uint16_t  freq;
+  int16_t   vol;
+  int8_t    data; 
+  int       resshift;
+  uint32_t  sizemask;
+
+int16_t buffer_0[128];
+int16_t buffer_1[128];
+
+
+for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
+        buffer_0[i] = 0;
+        buffer_1[i]= 0;
+        }
+
+  for (int chan = 0; chan < 2; chan++)      // for each channel, chan = 0, or chan = 1
+  {
+ #if DOC5503_DEBUG
+ #endif
+    for (osc = 0; osc < (oscsenabled); osc++)           // for each oscillator that is enabled
+    {
+ #if DOC5503_DEBUG
+ #endif
+      DOC5503Osc *pOsc = &oscillator[osc];               // for each enabled oscillator, get its handle 
+
+// Explanation of ((pOsc->control >> 4) & (output_channels - 1)) == chan
+//                ------------------------------------------------------
+// (pOsc->control >> 4) is (CA3, CA2, CA1, CA0) of Control Register (A0-BF). Theese bits control the final voice multiplexor, so we have 16 choices for the DOC5503
+// The Mirage only uses 8 voices, so will only look for CA2, CA1, CA0. This is important because we need to connect the filters here later.
+// Also, not clear yet (1/7/21) how we are going to use CA3. 
+// For us output_channels is 2. So (output_channels - 1) is always 1
+// The operation   (CA3 CA2 CA1 CA0) & (0001)) always return CA0, which can be either 0 or 1. chan can also be only 0 or 1
+// Basicall for each oscillator, it is mapping the voice to either the right or left channel (in this case), depending whether the voice # is even or odd
+// Explanation of (pOsc->control & 1)
+//                -------------------
+// This checks the HALT BIT. !(pOsc->control & 1) means "halt bit is not set".
+
+      if (!(pOsc->control & 1) && ((pOsc->control >> 4) & (2 - 1)) == chan)
+      {
+        
+         log_debug("DOC5503: ACTIVE osc = %d\n",osc);
+         
+        wtptr     = pOsc->wavetblpointer & wavemasks[pOsc->wavetblsize];//, altram; WHAT DOES altram DO?
+        acc       = pOsc->accumulator;
+        wtsize    = pOsc->wtsize - 1;
+        ctrl      = pOsc->control;
+        freq      = pOsc->freq;
+        vol       = pOsc->vol;
+        data      = -128;
+        resshift  = resshifts[pOsc->resolution] - pOsc->wavetblsize;
+        sizemask  = accmasks[pOsc->wavetblsize];
+       // mixp = &m_mix_buffer[0] + chan;  // is  &m_mix_buffer[0] for Left Channel, or  &m_mix_buffer[0] + 1 for Right Channel
+
+
+        for (snum = 0; snum < AUDIO_BLOCK_SAMPLES; snum++)
+        {
+          altram = acc >> resshift;
+          ramptr = altram & sizemask;
+
+          acc += freq;
+
+          // In MAME it is defined but not used by the MIRAGE Driver uint8_t get_channel_strobe() { return m_channel_strobe; }
+          // channel strobe is always valid when reading; this allows potentially banking per voice
+          m_channel_strobe = (ctrl>>4) & 0xf;           // it is 1 when (CA3 CA2 CA1 CA0) == 4'b1111;
+
+       //   data = (int32_t) WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80;  // normalize waveform
+       data =  WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80;
+ //#if DOC5503_DEBUG
+//          log_debug("snum = %d Data = %x (%d)\n",snum, data, data);
+ //#endif
+
+          if (WAV_RAM[via.orb & 0x03][ramptr + wtptr] == 0x7f)  // If encountering "stop" data 
+          {          
+            log_debug("Found STOP Data snum = %x Data = (%x, dec: %d)\n",snum, WAV_RAM[via.orb & 0x03][ramptr + wtptr], WAV_RAM[via.orb & 0x03][ramptr + wtptr]);
+            debug_doc_halt_osc(osc, 1, &acc, resshift);               // we will stop the oscillator
+          }
+          else
+          {
+           // *mixp += data * vol;                                // otherwise we store to mixp
+           // mixp += output_channels;                            // We are advancing to the next mixp location
+            if(chan == 0) 
+              buffer_0[snum] += data * vol;
+               else           
+              buffer_1[snum] += data * vol;
+
+            
+            if (altram >= wtsize)   // End of the table has been reached - halt the oscillator
+            {
+              debug_doc_halt_osc(osc, 0, &acc, resshift);
+            }
+          }
+
+          // if oscillator halted, we are done generating samples for that oscillator, so we exit the loop
+          if (pOsc->control & 1)
+          {
+            ctrl |= 1;
+            break;
+          }
+        }   // for all the samples in the buffer (128)
+
+
+
+        pOsc->control     = ctrl;
+        pOsc->accumulator = acc;
+        pOsc->data        = data ^ 0x80;
+        log_debug("DOC5503: Completed Active Oscillator osc = %d\n", osc);
+      }     // for each active oscillator in the respective channel
+      //log_debug("DCO5503: (END) Oscillator osc = %d\n", osc);
+    }      // for each oscillator 
+    log_debug("DOC5503: (END) For each Channel chan = %d\n", chan);
+  }       // for each channel (2)
+
+
+}
+*/
+/***************************************************************/
 
 // ************************************************************
 // ******************* DOC READ REGISTERS  ********************
@@ -494,10 +688,10 @@ uint8_t doc_rreg(uint8_t reg) {
 #endif      
         retval = regE0;
 
-        doc_irq = 0; // clear DOC interrupt
+        doc_irq = 0; // clear DOC interrupt  // use irq.set(1) in new usim ****AF 012821 ****
 
         // scan all oscillators
-        for (i = 0; i < oscsenabled+1; i++)
+        for (i = 0; i < oscsenabled; i++)
         {
           if (oscillator[i].irqpend)
           {
@@ -513,7 +707,7 @@ uint8_t doc_rreg(uint8_t reg) {
         }
 
         // if any oscillators still need to be serviced, assert IRQ again immediately
-        for (i = 0; i < oscsenabled+1; i++)
+        for (i = 0; i < oscsenabled; i++)
         {
           if (oscillator[i].irqpend)
           {
@@ -521,14 +715,14 @@ uint8_t doc_rreg(uint8_t reg) {
             log_debug("DOC5503 -> GENERATE IRQ!!! ");
 #endif
             doc_irq=1;
-            //cpu->irq();
+            //cpu->irq();   // use irq.set(0) in new usim ****AF 012821 ****
             break;
           }
         }
 #if DOC5503_DEBUG
         log_debug("DOC5503: READ INTERRUPT STATUS WILL RETURN %02x\n", retval);
 #endif        
-        return retval;
+        return regE0 | 0x41; // 0100_0001 fix by Tim Lindner, Jan 4th 2021
         break;
       case 0xe1:  // oscillator enable
 #if DOC5503_DEBUG 
@@ -653,6 +847,7 @@ if (val ==0x08)
 //            }
 //        }
 #endif
+//        debug_update();
         break;
       case 0xc0:  // bank select / wavetable size / resolution
 #if DOC5503_DEBUG 
@@ -687,8 +882,8 @@ if (val ==0x08)
       // This  register determines  the  number of  active oscillators on  the DOC. 
       //  Load  the register with  the  number of  oscillators  to be  enabled, multiplied by 2,  
       //  e.g.,  to  enable all  oscillators, load register with a  62.
-      //
-        oscsenabled = (val>>1) & 0x1f; //[H H E4 E3 E2 E1 E0 H] >> 1 -> [ X H H E4 E3 E2 E1 E0] & 0x1F -> [0 0 0 E4 E3 E2 E1 E0]
+      // AF: 1/28/21: oscenabled + 1, otherwise up to 31. Removed +1 in the boundary checks in the rest of the code.
+        oscsenabled = (val>>1) & 0x1f + 1; //[H H E4 E3 E2 E1 E0 H] >> 1 -> [ X H H E4 E3 E2 E1 E0] & 0x1F -> [0 0 0 E4 E3 E2 E1 E0]
         output_rate = (CLK / 8) / (2 + oscsenabled);
         
 //#if DOC5503_DEBUG  
@@ -697,6 +892,7 @@ if (val ==0x08)
 //#endif
 	// The number of oscillators selected will cause changes to the output_rate and sampling rate
 	// as such this will cause a change in timer that we will use to sample the data out
+  // HOWEVER: THE SAMPLING FREQUENCY SHOULD NEVER CHANGE, AS THE NUMBER OF ENABLED OSCILLATOR IS FIXED BY THE OS (AF 012821)
         //m_stream->set_sample_rate(output_rate);  // how will output_rate affect the pjrc audio library? 
 
         //attotime update_rate = output_rate ? attotime::from_hz(output_rate) : attotime::never;  // This may not be necessary with the pjrc audio lib
