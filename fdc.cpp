@@ -46,6 +46,7 @@ June 2020:  fdc.cpp -- ported emulation to work with SD card in Teensy 3.5/3.6
 // Teensy 3.5 & beyond on-board: BUILTIN_SDCARD
 const int chipSelect = BUILTIN_SDCARD;
 
+  bool  loop_irqORnmi; // split the fdc read sector in two, since nmi and irq are not supposed to work together (and they will not in the new usim)
 
 /*
  Quick technical rundown on the Ensoniq Mirage Disk Format 
@@ -233,6 +234,7 @@ int fdc_init() {
    char mystring[40];
   
   ReadSectorDone = true;
+  loop_irqORnmi = true; // FDC_READ will start with data xfer first
 
   log_info("Initializing SD card...");
 
@@ -276,6 +278,7 @@ void fdc_run(CPU6809* cpu) {
 			fdc.trk_r = 0;  // Track 0
 			fdc.sr = 0x04;  // We are emulating TR00 HIGH from the FDC (track at 0), clear BUSY and DRQ INTERRUPT
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
+      loop_irqORnmi = true; 
       fdc_cycles = get_cpu_cycle_count() + 5; // new
       cpu->nmi();
 			return;
@@ -287,6 +290,7 @@ void fdc_run(CPU6809* cpu) {
 			//fdc.trk_r = fdc.data_r;
 			fdc.sr = 0; // Clear BUSY and DRQ INTERRUPT
       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
+			loop_irqORnmi = true; 
 			if (fdc.trk_r == 0) fdc.sr |= 0x04;  // track at 0, emulates TR00 HIGH for Type 1 command
       fdc_cycles = get_cpu_cycle_count() + 5; // new
 		  cpu->nmi();
@@ -311,6 +315,10 @@ void fdc_run(CPU6809* cpu) {
       return;
       break;
 		case 0x80:  // Read Sector
+      // AF012521: we are splitting Read Sector into two parts, this way we stay consistent with the way usim manages interrupts
+      // AF012521: Ray: "At each tick the emulator will do only one of NMI, FIRQ or IRQ, in that order"
+      // AF012521: Ray: "you need to split the read processing in two - i.e. it either does the NMI, or the IRQ, but not both"
+      // AF012521: so will use loop_irqORnmi: if true we are in the irq (DRQ_) loop, if false we are in the nmi(INTRQ_)loop;
       // TODO : If this is a NEW read sector request (ReadSectorDone == TRUE)
       // TODO :   Calculate the memory location: (1024*fdc.sec_r)+(5632*fdc.trk_r)
       // TODO :   do a seek there
@@ -325,7 +333,8 @@ void fdc_run(CPU6809* cpu) {
       // TODO:  while a Read Sector is being performed? No, because the FDC has the Busy flag asserted.
       // TOOD:
 			//Serial.printf("**** fdc_run(): read sector %d\n", fdc.sec_r);
-     
+
+ if(loop_irqORnmi) {
       if (ReadSectorDone) {
 #if FDC1772_DEBUG
         log_debug("fdc_run(): READ SECTOR. Performing Seek @ %d;  ", (1024*fdc.sec_r)+(5632*fdc.trk_r));
@@ -336,7 +345,7 @@ void fdc_run(CPU6809* cpu) {
         disk.read(diskTrackdata, 1024);
       }
       a = s_byte;
-      if(s_byte > 1024) log_error("SOMETHING IS WRONG"); // remove this after debug
+      if(s_byte >= 1024) log_error("SOMETHING IS WRONG"); // remove this after debug
 			fdc.data_r = diskTrackdata[a];
       //Serial.printf("*** fdc_run(): s_byte=%04x trk=%d sec=%d disk addr = %04x data=%02x\n",s_byte, fdc.trk_r, fdc.sec_r, a, fdc.data_r);
       
@@ -345,8 +354,24 @@ void fdc_run(CPU6809* cpu) {
 			s_byte++;
 
       fdc_cycles = get_cpu_cycle_count() + 5;// 5 is minimum if less it hangs // original 32
+
       
-			if (s_byte > (fdc.sec_r == 5 ? 512 : 1024) ) {
+        if (s_byte >= (fdc.sec_r == 5 ? 512 : 1024) ) 
+                          loop_irqORnmi = false;
+                    else  ReadSectorDone = false;
+        } 
+      else  { // (loop_irqORnmi==false) nmi part of the loop, we have read a full sector
+#if FDC1772_DEBUG   
+        log_debug("SDFDC: Done reading sector %d. Track %d, Sector %d\n", sec_r, trk_r, sec_r);
+#endif     
+              fdc.sr &= 0xfe;             // Clear the Busy Bit, we will disregard the last value read anyway, this is needed to keep irq and nmi in sync
+              ReadSectorDone = true;  // NEXT TIME: This will force reading a new sector of 1024 bytes from the SD card
+              loop_irqORnmi = true;   // NEXT TIME: we will start with the  DRQ(IRQ)-driven data loop
+              cpu->nmi();
+              fdc_cycles = get_cpu_cycle_count() + 5;
+      } // end nmi part of the loop
+      /*
+			if (s_byte >= (fdc.sec_r == 5 ? 512 : 1024) ) {
         fdc.sr &= 0xfe; // Clear the Busy Bit, we will disregard the last value read anyway, this is needed to keep irq and nmi in sync
         ReadSectorDone = true; // NEXT TIME: This will force reading a new sector of 1024 bytes from the SD card
 #if FDC1772_DEBUG   
@@ -355,7 +380,7 @@ void fdc_run(CPU6809* cpu) {
         cpu->nmi();
       } else  
         ReadSectorDone = false;
-      
+      */
 			return;
       break;
 		default: // Others
@@ -476,6 +501,7 @@ log_debug("FDC_WREG cmd %02x: Step in %d\n", val, fdc.trk_r);
 					            fdc.trk_r++;
                       fdc.sr |= 0x01;  // busy
 					            ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
+                      loop_irqORnmi = true;
 				              break;
 				     case 0x6: // Step Out (NO Update)
 #if FDC1772_DEBUGWReg
@@ -485,6 +511,7 @@ log_debug("FDC_WREG cmd %02x: Step out (with NO Update) %d\n", val, fdc.trk_r);
 					            //fdc.trk_r++; Without update
                       fdc.sr = 0x01;  // busy
 					            ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
+                      loop_irqORnmi = true;
 				              break;
              case 0x7: // Step Out (with UPDATE)
 #if FDC1772_DEBUGWReg
@@ -502,6 +529,7 @@ log_debug("FDC_WREG cmd %02x: read sector\n", val);
 					            s_byte = 0;
 					            fdc.sr = 0x01; // busy
                       ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
+                      loop_irqORnmi = true;
 					            break;
              case 0xa: // Write Single Sector
                       log_warning("FDC WRITING COMMAND: Write Single Sector (%02x) CURRENTLY NOT SUPPORTED (val = %02x)\n", cmd, val);
@@ -531,6 +559,7 @@ log_debug("FDC_WREG cmd %02x: read sector\n", val);
 #endif
 			fdc.trk_r = val; 
 			ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
+      loop_irqORnmi = true;
 			break;
 		case FDC_SECTOR:  // 0x02
 #if FDC1772_DEBUGWReg
@@ -538,6 +567,7 @@ log_debug("FDC_WREG cmd %02x: read sector\n", val);
 #endif
 			fdc.sec_r = val;
 			ReadSectorDone = true; // This will force reading a new sector of 1024 bytes from the SD card
+     loop_irqORnmi = true;
 			break;
 		case FDC_DATA:  // 0x03
 #if FDC1772_DEBUGWReg
