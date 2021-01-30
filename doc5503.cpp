@@ -92,7 +92,7 @@ unsigned long doc_cycles;
 
 DOC5503Osc oscillator[32];
 
-uint32_t altram;
+
 
 uint8_t  oscsenabled;                     // # of oscillators enabled
 uint8_t  regE0, regE1, regE2;            // contents of register 0xe0
@@ -101,6 +101,7 @@ uint8_t m_channel_strobe;
 uint32_t CLK = 8000000; // 8Mhz
 uint32_t output_rate;
 
+ uint32_t altram;
 
 
 uint8_t doc_irq;
@@ -137,8 +138,6 @@ for (i=0; i<32; i++)
     oscillator[i].irqpend = 0;
   }
   
-
-
     doc_irq = 0;
     oscsenabled = 0;
     m_channel_strobe = 0;
@@ -157,25 +156,21 @@ for (i=0; i<32; i++)
  // m_stream = stream_alloc(0, output_channels, output_rate); 
 
  
-//block_ch0 = allocate();
-//block_ch1 = allocate();
+block_ch0 = allocate();
+block_ch1 = allocate();
 
-//if ( (block_ch0 == 0) ) { // || (block_ch1 == 0) )    { // ALWAYS CHECK FOR SUCCESSFUL ALLOCATE()
-  //                  log_debug("DOC5503 - CAN'T ALLOCATE AUDIO MEMORY**********************\n");
-   //                 return;
-   //                 }
+if ( (block_ch0 == 0) ) { // || (block_ch1 == 0) )    { // ALWAYS CHECK FOR SUCCESSFUL ALLOCATE()
+                    log_debug("DOC5503 - CAN'T ALLOCATE AUDIO MEMORY**********************\n");
+                    return;
+                   }
 
 
-//  The next instructions in MAME set the sampling frequency. We probably need a HW timer interrupt for Teensyduino.
-//  We will have to find the equivalent. Check the PJRC Audio Library for implementation ideas.
+//   MAME sets the sampling frequency. 
+//  In the Mirage, the sampling frequency is fixed, because OS 3.2 sets oscenabled = 31 (+1)
 //  -----------------------------------------------------------------------------------------------------------------
 //  m_timer = timer_alloc(0, nullptr);
 //  attotime update_rate = output_rate ? attotime::from_hz(output_rate) : attotime::never;
 //  m_timer->adjust(update_rate, 0, update_rate);
-
-
-
-  
 
 return;
 }
@@ -234,8 +229,8 @@ log_debug("DOC5503: halt_osc\n");
 	}
 	else    // preserve the relative phase of the oscillator when looping
 	{
-		 wtsize = pOsc->wtsize - 1;
-     altram = (*accumulator) >> resshift;
+		uint16_t  wtsize = pOsc->wtsize - 1;
+    altram = (*accumulator) >> resshift;
 
 		if (altram > wtsize)
 		{
@@ -303,8 +298,8 @@ int16_t *buffer_0;
 int16_t *buffer_1;
 
 // for now here, per Gordon we will move to ::init or ::reset
-block_ch0 = allocate();
-block_ch1 = allocate();
+//block_ch0 = allocate();
+//block_ch1 = allocate();
 
 if ( (block_ch0 == 0) || (block_ch1 == 0) )    { // ALWAYS CHECK FOR SUCCESSFUL ALLOCATE()
                     log_debug("DOC5503 - CAN'T ALLOCATE AUDIO MEMORY**********************\n");
@@ -348,7 +343,7 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
       if (!(pOsc->control & 1) && ((pOsc->control >> 4) & (output_channels - 1)) == chan)
       {
         
-        wtptr     = pOsc->wavetblpointer & wavemasks[pOsc->wavetblsize];//, altram; WHAT DOES altram DO?
+        wtptr     = pOsc->wavetblpointer & wavemasks[pOsc->wavetblsize], altram; //WHAT DOES altram DO?
         acc       = pOsc->accumulator;
         wtsize    = pOsc->wtsize - 1;
         ctrl      = pOsc->control;
@@ -370,10 +365,11 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
           // channel strobe is always valid when reading; this allows potentially banking per voice
           m_channel_strobe = (ctrl>>4) & 0xf;           // it is 1 when (CA3 CA2 CA1 CA0) == 4'b1111;
 
-          data = (int32_t) WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80;  // normalize waveform
+         // data = (int32_t) WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80;  // normalize waveform
+          
+          data = WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80; 
 
-
-          if (WAV_RAM[via.orb & 0x03][ramptr + wtptr] == 0x7f)  // If encountering "stop" data SHOULD IT BE 0x00?
+          if (data == 0)  // If encountering "stop" 
           {                                                     //
             doc_halt_osc(osc, 1, &acc, resshift);               // we will stop the oscillator
           }
@@ -382,9 +378,9 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
            // *mixp += data * vol;                                // otherwise we store to mixp
            // mixp += output_channels;                            // We are advancing to the next mixp location
             if(chan == 0) 
-              *buffer_0 += data * vol;
+              *buffer_0 += data * 0xff ;//* vol;
                else           
-              *buffer_1 += data * vol;
+              *buffer_1 += data * 0xff ;//* vol;
 
             
             if (altram >= wtsize)   // End of the table has been reached - halt the oscillator
@@ -411,15 +407,15 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
 
 transmit(block_ch0, 0);
 transmit(block_ch1, 1);
-release(block_ch0);
-release(block_ch1);
+//release(block_ch0);
+//release(block_ch1);
 
 
 
 
 }
 
-/***************************************************************
+/***************************************************************/
 
 void debug_doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
 //void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
@@ -559,10 +555,10 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
        //   data = (int32_t) WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80;  // normalize waveform
        data =  WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80;
  //#if DOC5503_DEBUG
-//          log_debug("snum = %d Data = %x (%d)\n",snum, data, data);
+          log_debug("snum = %d Data = %x (%d)\n",snum, data, data);
  //#endif
 
-          if (WAV_RAM[via.orb & 0x03][ramptr + wtptr] == 0x7f)  // If encountering "stop" data 
+          if (data == 0) // (WAV_RAM[via.orb & 0x03][ramptr + wtptr] == 0x7f)  // If encountering "stop" data 
           {          
             log_debug("Found STOP Data snum = %x Data = (%x, dec: %d)\n",snum, WAV_RAM[via.orb & 0x03][ramptr + wtptr], WAV_RAM[via.orb & 0x03][ramptr + wtptr]);
             debug_doc_halt_osc(osc, 1, &acc, resshift);               // we will stop the oscillator
@@ -603,9 +599,13 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
     log_debug("DOC5503: (END) For each Channel chan = %d\n", chan);
   }       // for each channel (2)
 
+for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {
+  log_debug("         buffer_0[%d] = %x (%d)\n", i, buffer_0[i], buffer_0[i]);
+  log_debug("         buffer_1[%d] = %x (%d)\n", i, buffer_1[i], buffer_1[i]);
+}
 
 }
-*/
+/**/
 /***************************************************************/
 
 // ************************************************************
@@ -847,7 +847,7 @@ if (val ==0x08)
 //            }
 //        }
 #endif
-//        debug_update();
+        debug_update();  //<<< remove when you get sound out!!!
         break;
       case 0xc0:  // bank select / wavetable size / resolution
 #if DOC5503_DEBUG 
