@@ -188,7 +188,7 @@ const char* address_name(uint16_t address) {
   if (address == irqentry)            return "IRQ INTERRUPT ROUTINE ENTRY POINT";
   if (address == manageKeys)          return "Manage Keys - assuming 6511 or UART????"; 
   if (address == entersDOCirq)        return "Check whether the DOC has generated the interrupt";
-  if (address == DOCirqService)       return "DOC IRQ Service Routine";
+  if (address == DOCirqService)       return "*DOC IRQ Service Routine";
   if (address ==  DualUARTrst)        return "Dual UART RST";
   if (address ==  UART_OUT)           return "UART OUT";
   if (address ==  AnotherUART)        return "ANOTHER UART";

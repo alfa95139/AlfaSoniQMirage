@@ -22,11 +22,12 @@ public:
   virtual void update(void);
   void init();
  
+  void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift);
 
 private:
-void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift);
 void begin(){   
   }
+  
 
 
 

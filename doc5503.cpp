@@ -95,9 +95,9 @@ extern uint8_t WAV_RAM[4][WAV_END - WAV_START+1];
 extern unsigned long get_cpu_cycle_count();
 unsigned long doc_cycles;
 
+
+
 DOC5503Osc oscillator[32];
-
-
 
 uint8_t  oscsenabled;                     // # of oscillators enabled
 uint8_t  regE0, regE1, regE2;            // contents of register 0xe0
@@ -145,7 +145,7 @@ for (i=0; i<32; i++)
   }
   
     doc_irq = 0;
-    oscsenabled = 0;
+    oscsenabled = 1; // this per the specs
     m_channel_strobe = 0;
     output_rate = CLK / ((32 +2) *8);  // 1 cycle per 32 oscillators + 2 refresh cycles = 34 cycles = 29,412 Hz
                                      // for 16 oscillators -> 8Mhz/ (18*8) = 55,5556 Hz
@@ -169,7 +169,10 @@ if ( (block_ch0 == 0) || (block_ch1 == 0) )    { // ALWAYS CHECK FOR SUCCESSFUL 
                     log_debug("DOC5503 - CAN'T ALLOCATE AUDIO MEMORY**********************\n");
                     return;
                    }
-                   else QinitDone = true; // now ::update can go
+                   else {
+                    log_debug("DOC5503: AUDIO MEMORY: Successfully Allocated\n");
+                    QinitDone = true; // now ::update can go
+                   }
                    
 return;
 }
@@ -184,7 +187,7 @@ void doc_run(CPU6809* cpu) {
   // In the Mirage, the DOC runs at 8MHz, while the 6809 runs at 1MHz
   // so for every clock cycle, the DOC calculates for each oscillator the sample to append to the relative queue
 
-if(doc_irq==1) {
+if(doc_irq == 1) {
 //#if DOC5503_DEBUG
 //    log_debug("DOC5503: IRQ FIRING");  
 //#endif
@@ -219,7 +222,7 @@ void Q::doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
   const int partnerMode = (pPartner->control>>1) & 3;
 
 #if DOC5503_DEBUG
-log_debug("DOC5503: halt_osc\n");
+log_debug("DOC5503: ::halt_osc (REAL) *****************\n");
 #endif
   
 	// if 0 found in sample data or mode is not free-run, instruct the oscillator to HALT
@@ -260,6 +263,9 @@ log_debug("DOC5503: halt_osc\n");
 	{
 		pOsc->irqpend = 1;
 		doc_irq = 1;            //  This will flag the irq in doc_run() **** USE irq.set(0) here with new usim
+#if DOC5503_DEBUG
+		log_debug("DOC5503: ******************* IRQ ****************************\n");
+#endif
 	}
  
 }
@@ -281,7 +287,7 @@ log_debug("DOC5503: halt_osc\n");
 
 void Q::update (void) { //sound_stream &stream, stream_sample_t **inputs, stream_sample_t **outputs, int samples) {
 
-  int osc, snum, i;
+  int osc, snum, i, bank;
   uint32_t ramptr;
 uint32_t altram;
   uint32_t  wtptr;
@@ -293,9 +299,14 @@ uint32_t altram;
   int8_t    data; 
   int       resshift;
   uint32_t  sizemask;
+  bool bankselect;
 
 int16_t *buffer_0;
 int16_t *buffer_1;
+
+uint32_t memaddr_l;
+uint16_t memaddr;
+uint16_t memaddr_bank;
 
 if(QinitDone) {  // we moved the allocate() to ::init, so ::init needs to finish correctly before we can use block_chN
 
@@ -309,6 +320,7 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
         }
 
 
+      
   for (int chan = 0; chan < output_channels; chan++)      // for each channel, chan = 0, or chan = 1
   {
     for (osc = 0; osc < (oscsenabled); osc++)           // for each oscillator that is enabled
@@ -329,7 +341,9 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
 
       if (!(pOsc->control & 1) && ((pOsc->control >> 4) & (output_channels - 1)) == chan)
       {
-        
+//#if DOC5503_DEBUG
+//        log_debug("DOC5503 UPDATE (REAL): ACTIVE osc = %d\n",osc);
+//#endif        
         wtptr     = pOsc->wavetblpointer & wavemasks[pOsc->wavetblsize];
         acc       = pOsc->accumulator;
         wtsize    = pOsc->wtsize - 1;
@@ -339,7 +353,9 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
         data      = -128;
         resshift  = resshifts[pOsc->resolution] - pOsc->wavetblsize;
         sizemask  = accmasks[pOsc->wavetblsize];
-       // mixp = &m_mix_buffer[0] + chan;  // is  &m_mix_buffer[0] for Left Channel, or  &m_mix_buffer[0] + 1 for Right Channel
+        // mixp = &m_mix_buffer[0] + chan;  // is  &m_mix_buffer[0] for Left Channel, or  &m_mix_buffer[0] + 1 for Right Channel
+
+        bankselect = pOsc->bankselect;
         
         for (snum = 0; snum < AUDIO_BLOCK_SAMPLES; snum++)
         {
@@ -348,16 +364,40 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
 
           acc += freq;
 
+//#if DOC5503_DEBUG        
+//        if (snum == 0) {
+//                log_debug("altram = %d \n", altram );
+//                log_debug("ramptr = %d \n", ramptr );
+//                log_debug("acc    = %d \n", acc);
+//                }
+//#endif                
           // In MAME it is defined but not used by the MIRAGE Driver uint8_t get_channel_strobe() { return m_channel_strobe; }
           // channel strobe is always valid when reading; this allows potentially banking per voice
           m_channel_strobe = (ctrl>>4) & 0xf;           // it is 1 when (CA3 CA2 CA1 CA0) == 4'b1111;
 
-         // data = (int32_t) WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80;  // normalize waveform
+        memaddr_l = ramptr+wtptr;
+        memaddr = memaddr_l & 0xFFFF;
+        if (bankselect) { // bank 3 or 4
+                if (memaddr<= 0x7FFF) {  bank = 3;    memaddr_bank = memaddr; }
+                  else                {  bank = 4;    memaddr_bank = memaddr - 0x8000; };
+        } else {          // bank 1 or 2
+                if (memaddr<= 0x7FFF) {  bank = 1;   memaddr_bank = memaddr; }
+                  else       {           bank = 2;   memaddr_bank = memaddr - 0x8000; };
+        }
+        /*
+        if      (ramptr+wtptr <=  0x7fff) {   log_debug("*********** Bank 0"); bank = 0;  }
+        else if (ramptr+wtptr <=  0xffff) {   log_debug("*********** Bank 1"); bank = 1;  }
+        else if (ramptr+wtptr <= 0x17fff) {   log_debug("*********** Bank 2"); bank = 2;  }
+        else                              {   log_debug("*********** Bank 3"); bank = 3;  }
+        */
           
-          data = WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80; 
+          data = WAV_RAM[bank][memaddr_bank] ^ 0x80; // normalize waveform
 
           if (data == 0)  // If encountering "stop" 
-          {                                                     //
+          {     
+#if DOC5503_DEBUG       
+            log_debug("DOC5503 ::update: Found STOP Data snum = %x Data = (%x, dec: %d)\n",snum, data, data);
+#endif
             doc_halt_osc(osc, 1, &acc, resshift);               // we will stop the oscillator
           }
           else
@@ -365,13 +405,16 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
            // *mixp += data * vol;                                // otherwise we store to mixp
            // mixp += output_channels;                            // We are advancing to the next mixp location
             if(chan == 0) 
-              *buffer_0 += data * 0xff ;//* vol;
+              *buffer_0 += data * vol;
                else           
-              *buffer_1 += data * 0xff ;//* vol;
+              *buffer_1 += data * vol;
 
             
             if (altram >= wtsize)   // End of the table has been reached - halt the oscillator
             {
+#if DOC5503_DEBUG  
+              log_debug("DOC5503 ::update: End of table reached (halt_osc next)\n");
+#endif
               doc_halt_osc(osc, 0, &acc, resshift);
             }
           }
@@ -386,7 +429,7 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
 
         pOsc->control     = ctrl;
         pOsc->accumulator = acc;
-        pOsc->data        = data ^ 0x80;
+        pOsc->data        = data ^ 0x80; // return to the current value of data
       }     // for each active oscillator in the respective channel
     }      // for each oscillator 
   }       // for each channel (2)
@@ -459,6 +502,7 @@ log_debug("**** DOC5503: onum = %d, onum^1 = %d\n", onum, onum^1);
   //                            If the interrupt has been stored into the interrupt table while IE = 0, when IE is changed to a 1 the IRQ will be passed to the OIR.
   {
     pOsc->irqpend = 1;
+    log_debug("DOC5503 DEBUG: ******************* IRQ ****************************\n");
 //    doc_irq = 1;            //  This will flag the irq in doc_run()
   }
  
@@ -494,6 +538,10 @@ void debug_update (void) { //sound_stream &stream, stream_sample_t **inputs, str
   uint32_t  sizemask32;
 
 int bank;
+bool bankselect;
+uint32_t memaddr_l;
+uint16_t memaddr;
+uint16_t memaddr_bank;
 
 int16_t buffer_0[128];
 int16_t buffer_1[128];
@@ -540,7 +588,7 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
         resshift  = resshifts[pOsc->resolution] - pOsc->wavetblsize;
         sizemask  = accmasks[pOsc->wavetblsize];
        // mixp = &m_mix_buffer[0] + chan;  // is  &m_mix_buffer[0] for Left Channel, or  &m_mix_buffer[0] + 1 for Right Channel
-
+        bankselect = pOsc->bankselect;
 
         wtptr8     = (pOsc->wavetblpointer) & (wavemasks[pOsc->wavetblsize]);
         acc32       = pOsc->accumulator;
@@ -551,7 +599,7 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
         data8      = -128;
         resshift8  = (resshifts[pOsc->resolution]) - (pOsc->wavetblsize);
         sizemask32  = accmasks[pOsc->wavetblsize];
-/*
+
         log_debug("wtptr    = %d (%d)\n", wtptr, wtptr8);
         log_debug("acc      = %d (%d)\n", acc, acc32);
         log_debug("wtsize   = %d (%d)\n", wtsize,wtsize8);
@@ -560,8 +608,7 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
         log_debug("vol      = %d (%d)\n", vol, vol8);
         log_debug("data     = %d (%d)\n", data, data8);
         log_debug("resshift = %d (%d)\n", resshift, resshift8);
-        log_debug("sizemask = %d (%d)\n", sizemask, sizemask32);
-*/        
+        log_debug("sizemask = %d (%d)\n", sizemask, sizemask32);        
   
         for (snum = 0; snum < AUDIO_BLOCK_SAMPLES; snum++)
         {
@@ -573,13 +620,13 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
           altram32 = acc32 >> resshift8;
           ramptr32 = altram32 & sizemask32;
           acc32 += freq16;
- /*
+ 
         if (snum == 0) {
                 log_debug("altram = %d (%d)\n", altram, altram32);
                 log_debug("ramptr = %d (%d)\n", ramptr, ramptr32);
                 log_debug("acc    = %d (%d)\n", acc,acc32);
                 }
-*/
+
           // In MAME it is defined but not used by the MIRAGE Driver uint8_t get_channel_strobe() { return m_channel_strobe; }
           // channel strobe is always valid when reading; this allows potentially banking per voice
           m_channel_strobe = (ctrl>>4) & 0xf;           // it is 1 when (CA3 CA2 CA1 CA0) == 4'b1111;
@@ -587,20 +634,31 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
        //   data = (int32_t) WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80;  // normalize waveform
    //     log_debug("ramptr  + wtptr = %d\n", ramptr  + wtptr);
         
-        if      (ramptr+wtptr <=  0x7fff) {   log_debug("*********** Bank 0"); bank = 0;  }
-        else if (ramptr+wtptr <=  0xffff) {   log_debug("*********** Bank 1"); bank = 1;  }
-        else if (ramptr+wtptr <= 0x17fff) {   log_debug("*********** Bank 2"); bank = 2;  }
-        else                              {   log_debug("*********** Bank 3"); bank = 3;  }
-//        log_debug("ramptr32 + wtptr8 = %d\n", ramptr32 + wtptr8);
-        //data =  (int) WAV_RAM[bank][ramptr  + wtptr] ^ 0x80;  //  WRONG: It is not via.orb & 0x03
-        data8 =   WAV_RAM[bank] [ramptr32 + wtptr8] ;  // WRONG: It is not via.orb & 0x03
+    //    if      (ramptr+wtptr <=  0x7fff) {   log_debug("*********** Bank 0"); bank = 0;  }
+     //   else if (ramptr+wtptr <=  0xffff) {   log_debug("*********** Bank 1"); bank = 1;  }
+      //  else if (ramptr+wtptr <= 0x17fff) {   log_debug("*********** Bank 2"); bank = 2;  }
+       // else                              {   log_debug("*********** Bank 3"); bank = 3;  }
+
+        memaddr_l = ramptr+wtptr;
+        memaddr = memaddr_l & 0xFFFF;
+        if (bankselect) { // bank 3 or 4
+                if (memaddr<= 0x7FFF) {  bank = 3;    memaddr_bank = memaddr; }
+                  else                {  bank = 4;    memaddr_bank = memaddr - 0x8000; };
+        } else {          // bank 1 or 2
+                if (memaddr<= 0x7FFF) {  bank = 1;   memaddr_bank = memaddr; }
+                  else       {           bank = 2;   memaddr_bank = memaddr - 0x8000; };
+        }
+        
+
+        data  =   WAV_RAM[bank] [memaddr_bank] ^ 0x80 ;  
+        data8 =    WAV_RAM[bank] [memaddr_bank];  
  //#if DOC5503_DEBUG
-          log_debug("snum = %d Data = %d (%d [NOT NORMALIZED])\n",snum, data, data8);
+        if (snum <10)  log_debug("snum = %d Data = %d (%d [NOT NORMALIZED])\n",snum, data, data8);
  //#endif
 
-          if (data == 0) // (WAV_RAM[via.orb & 0x03][ramptr + wtptr] == 0x7f)  // If encountering "stop" data 
+          if (data == 0x00)   // If encountering "stop" data 
           {          
-            log_debug("Found STOP Data snum = %x Data = (%x, dec: %d)\n",snum, WAV_RAM[bank] [ramptr32 + wtptr8], WAV_RAM[bank] [ramptr32 + wtptr8]);
+            log_debug("Found STOP Data snum = %x Data = (%x, dec: %d)\n",snum, data, data);
             debug_doc_halt_osc(osc, 1, &acc, resshift);               // we will stop the oscillator
           }
           else
@@ -608,9 +666,9 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
            // *mixp += data * vol;                                // otherwise we store to mixp
            // mixp += output_channels;                            // We are advancing to the next mixp location
             if(chan == 0) 
-              buffer_0[snum] += data * vol;
+              buffer_0[snum] += data *1 ;// * vol;
                else           
-              buffer_1[snum] += data * vol;
+              buffer_1[snum] += data *1 ;// * vol;
 
             
             if (altram >= wtsize)   // End of the table has been reached - halt the oscillator
@@ -639,10 +697,11 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
     log_debug("DOC5503: (END) For each Channel chan = %d\n", chan);
   }       // for each channel (2)
 
-for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {
+for(i=0; i<AUDIO_BLOCK_SAMPLES/8; i++) 
   log_debug("         buffer_0[%d] = %x (%d)\n", i, buffer_0[i], buffer_0[i]);
+for(i=0; i<AUDIO_BLOCK_SAMPLES/8; i++) 
   log_debug("         buffer_1[%d] = %x (%d)\n", i, buffer_1[i], buffer_1[i]);
-}
+
 
 }
 /**/
@@ -880,7 +939,7 @@ if (val ==0x08)
 //            }
 //        }
 #endif
-       // debug_update();  //<<< remove when you get sound out!!!
+ //       debug_update();  //<<< remove when you get sound out!!!
         break;
       case 0xc0:  // bank select / wavetable size / resolution
 #if DOC5503_DEBUG 
