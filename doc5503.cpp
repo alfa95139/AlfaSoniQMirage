@@ -20,7 +20,11 @@
 // Fundamental Output Frequency = [ SR / 2 ^(17 + RES)] * FC
 // where FC is Frequency High and Frequency Low registers concatenated
 // The waveform fundamental frequency length is equal to on page of memory
-
+//
+//+---------+-----+-----+-----+-----+----+----+----+---+
+//|CONTROL  | CA3 | CA2 | CA1 | CA0 | IE | M2 | M1 | H |
+//+---------+-----+-----+-----+-----+----+----+----+---+
+//
 //OSCILLATOR MODES
 // M2 	M1      MODE 
 // 0	  0   - Free Run
@@ -56,13 +60,14 @@
 
 //
 // We may consider including the filters as part of this model
-// E4_0001_0000 (E410) to E4_0001_0111 (E417): CUT OFF
-// E4_0000_1000 (E408) to E4_0000_1111 (E40F): Resonance
+// E4_0001_0000 (E410) to E4_0001_0111 (to E417): CUT OFF
+// E4_0000_1000 (E408) to E4_0000_1111 (to E40F): Resonance
+
 
 #define DOC5503_DEBUG 0
 
-#include <iterator>     // For std::fill_n
-#include <vector>
+//#include <iterator>     // For std::fill_n
+//#include <vector>
 
 
 
@@ -85,7 +90,7 @@ bool nomore = false;
 // Audio Library - END
 
 extern uint8_t WAV_RAM[4][WAV_END - WAV_START+1]; 
-extern uint8_t PRG_RAM[RAM_END - RAM_START+1];  // we will remove once we know it works
+//extern uint8_t PRG_RAM[RAM_END - RAM_START+1];  // we will remove once we know it works
 
 extern unsigned long get_cpu_cycle_count();
 unsigned long doc_cycles;
@@ -101,7 +106,7 @@ uint8_t m_channel_strobe;
 uint32_t CLK = 8000000; // 8Mhz
 uint32_t output_rate;
 
- uint32_t altram;
+// uint32_t altram;
 
 
 uint8_t doc_irq;
@@ -136,6 +141,7 @@ for (i=0; i<32; i++)
     oscillator[i].resolution = 0;
     oscillator[i].accumulator = 0;
     oscillator[i].irqpend = 0;
+    oscillator[i].bankselect = false;
   }
   
     doc_irq = 0;
@@ -159,19 +165,12 @@ for (i=0; i<32; i++)
 block_ch0 = allocate();
 block_ch1 = allocate();
 
-if ( (block_ch0 == 0) ) { // || (block_ch1 == 0) )    { // ALWAYS CHECK FOR SUCCESSFUL ALLOCATE()
+if ( (block_ch0 == 0) || (block_ch1 == 0) )    { // ALWAYS CHECK FOR SUCCESSFUL ALLOCATE()
                     log_debug("DOC5503 - CAN'T ALLOCATE AUDIO MEMORY**********************\n");
                     return;
                    }
-
-
-//   MAME sets the sampling frequency. 
-//  In the Mirage, the sampling frequency is fixed, because OS 3.2 sets oscenabled = 31 (+1)
-//  -----------------------------------------------------------------------------------------------------------------
-//  m_timer = timer_alloc(0, nullptr);
-//  attotime update_rate = output_rate ? attotime::from_hz(output_rate) : attotime::never;
-//  m_timer->adjust(update_rate, 0, update_rate);
-
+                   else QinitDone = true; // now ::update can go
+                   
 return;
 }
 // ***************** END doc_init() ****************
@@ -211,6 +210,7 @@ return;
 void Q::doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
 //void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
   uint16_t wtsize;
+  uint32_t altram;
   
 	DOC5503Osc *pOsc = &oscillator[onum];
 	DOC5503Osc *pPartner = &oscillator[onum^1];
@@ -283,7 +283,7 @@ void Q::update (void) { //sound_stream &stream, stream_sample_t **inputs, stream
 
   int osc, snum, i;
   uint32_t ramptr;
-
+uint32_t altram;
   uint32_t  wtptr;
   uint32_t  acc;
   uint16_t  wtsize;
@@ -297,21 +297,8 @@ void Q::update (void) { //sound_stream &stream, stream_sample_t **inputs, stream
 int16_t *buffer_0;
 int16_t *buffer_1;
 
-// for now here, per Gordon we will move to ::init or ::reset
-//block_ch0 = allocate();
-//block_ch1 = allocate();
+if(QinitDone) {  // we moved the allocate() to ::init, so ::init needs to finish correctly before we can use block_chN
 
-if ( (block_ch0 == 0) || (block_ch1 == 0) )    { // ALWAYS CHECK FOR SUCCESSFUL ALLOCATE()
-                    log_debug("DOC5503 - CAN'T ALLOCATE AUDIO MEMORY**********************\n");
-                    return;
-                    }
- /*
-                     else {
-                          if (!(nomore))
-                              log_debug("DOC5503 - ALLOCATE() OK!\n");
-                          nomore = true;
-                     }
-*/
 
 buffer_0 = block_ch0->data;
 buffer_1 = block_ch1->data;
@@ -343,7 +330,7 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
       if (!(pOsc->control & 1) && ((pOsc->control >> 4) & (output_channels - 1)) == chan)
       {
         
-        wtptr     = pOsc->wavetblpointer & wavemasks[pOsc->wavetblsize], altram; //WHAT DOES altram DO?
+        wtptr     = pOsc->wavetblpointer & wavemasks[pOsc->wavetblsize];
         acc       = pOsc->accumulator;
         wtsize    = pOsc->wtsize - 1;
         ctrl      = pOsc->control;
@@ -411,7 +398,7 @@ transmit(block_ch1, 1);
 //release(block_ch1);
 
 
-
+} // end initDone
 
 }
 
@@ -420,7 +407,7 @@ transmit(block_ch1, 1);
 void debug_doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
 //void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
   uint16_t wtsize;
-
+uint32_t altram;
 //#if DOC5503_DEBUG
 log_debug("**** DOC5503: Entering halt_osc. onum = %d, type = %d, accumulator = %d, res shift = %d\n", onum, type, accumulator, resshift);
 log_debug("**** DOC5503: onum = %d, onum^1 = %d\n", onum, onum^1);
@@ -482,7 +469,8 @@ void debug_update (void) { //sound_stream &stream, stream_sample_t **inputs, str
 
   int osc, snum, i;
   uint32_t ramptr;
-
+  
+  uint32_t altram;
   uint32_t  wtptr;
   uint32_t  acc;
   uint16_t  wtsize;
@@ -493,9 +481,22 @@ void debug_update (void) { //sound_stream &stream, stream_sample_t **inputs, str
   int       resshift;
   uint32_t  sizemask;
 
+  uint32_t  ramptr32;
+  uint32_t  altram32;
+  uint8_t  wtptr8;
+  uint32_t  acc32;
+  uint8_t  wtsize8;
+  uint8_t  ctrl8;
+  uint16_t  freq16;
+  uint8_t  vol8;
+  uint8_t  data8; 
+  uint8_t  resshift8;
+  uint32_t  sizemask32;
+
+int bank;
+
 int16_t buffer_0[128];
 int16_t buffer_1[128];
-
 
 for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
         buffer_0[i] = 0;
@@ -529,7 +530,7 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
         
          log_debug("DOC5503: ACTIVE osc = %d\n",osc);
          
-        wtptr     = pOsc->wavetblpointer & wavemasks[pOsc->wavetblsize];//, altram; WHAT DOES altram DO?
+        wtptr     = pOsc->wavetblpointer & wavemasks[pOsc->wavetblsize];
         acc       = pOsc->accumulator;
         wtsize    = pOsc->wtsize - 1;
         ctrl      = pOsc->control;
@@ -541,26 +542,65 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
        // mixp = &m_mix_buffer[0] + chan;  // is  &m_mix_buffer[0] for Left Channel, or  &m_mix_buffer[0] + 1 for Right Channel
 
 
+        wtptr8     = (pOsc->wavetblpointer) & (wavemasks[pOsc->wavetblsize]);
+        acc32       = pOsc->accumulator;
+        wtsize8    = (pOsc->wtsize) - 1;
+        ctrl8      = pOsc->control;
+        freq16      = pOsc->freq;
+        vol8       = pOsc->vol;
+        data8      = -128;
+        resshift8  = (resshifts[pOsc->resolution]) - (pOsc->wavetblsize);
+        sizemask32  = accmasks[pOsc->wavetblsize];
+/*
+        log_debug("wtptr    = %d (%d)\n", wtptr, wtptr8);
+        log_debug("acc      = %d (%d)\n", acc, acc32);
+        log_debug("wtsize   = %d (%d)\n", wtsize,wtsize8);
+        log_debug("ctrl     = %d (%d)\n", ctrl, ctrl8);
+        log_debug("freq     = %d (%d)\n", freq, freq16);
+        log_debug("vol      = %d (%d)\n", vol, vol8);
+        log_debug("data     = %d (%d)\n", data, data8);
+        log_debug("resshift = %d (%d)\n", resshift, resshift8);
+        log_debug("sizemask = %d (%d)\n", sizemask, sizemask32);
+*/        
+  
         for (snum = 0; snum < AUDIO_BLOCK_SAMPLES; snum++)
         {
           altram = acc >> resshift;
           ramptr = altram & sizemask;
-
           acc += freq;
 
+
+          altram32 = acc32 >> resshift8;
+          ramptr32 = altram32 & sizemask32;
+          acc32 += freq16;
+ /*
+        if (snum == 0) {
+                log_debug("altram = %d (%d)\n", altram, altram32);
+                log_debug("ramptr = %d (%d)\n", ramptr, ramptr32);
+                log_debug("acc    = %d (%d)\n", acc,acc32);
+                }
+*/
           // In MAME it is defined but not used by the MIRAGE Driver uint8_t get_channel_strobe() { return m_channel_strobe; }
           // channel strobe is always valid when reading; this allows potentially banking per voice
           m_channel_strobe = (ctrl>>4) & 0xf;           // it is 1 when (CA3 CA2 CA1 CA0) == 4'b1111;
 
        //   data = (int32_t) WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80;  // normalize waveform
-       data =  WAV_RAM[via.orb & 0x03][ramptr + wtptr] ^ 0x80;
+   //     log_debug("ramptr  + wtptr = %d\n", ramptr  + wtptr);
+        
+        if      (ramptr+wtptr <=  0x7fff) {   log_debug("*********** Bank 0"); bank = 0;  }
+        else if (ramptr+wtptr <=  0xffff) {   log_debug("*********** Bank 1"); bank = 1;  }
+        else if (ramptr+wtptr <= 0x17fff) {   log_debug("*********** Bank 2"); bank = 2;  }
+        else                              {   log_debug("*********** Bank 3"); bank = 3;  }
+//        log_debug("ramptr32 + wtptr8 = %d\n", ramptr32 + wtptr8);
+        //data =  (int) WAV_RAM[bank][ramptr  + wtptr] ^ 0x80;  //  WRONG: It is not via.orb & 0x03
+        data8 =   WAV_RAM[bank] [ramptr32 + wtptr8] ;  // WRONG: It is not via.orb & 0x03
  //#if DOC5503_DEBUG
-          log_debug("snum = %d Data = %x (%d)\n",snum, data, data);
+          log_debug("snum = %d Data = %d (%d [NOT NORMALIZED])\n",snum, data, data8);
  //#endif
 
           if (data == 0) // (WAV_RAM[via.orb & 0x03][ramptr + wtptr] == 0x7f)  // If encountering "stop" data 
           {          
-            log_debug("Found STOP Data snum = %x Data = (%x, dec: %d)\n",snum, WAV_RAM[via.orb & 0x03][ramptr + wtptr], WAV_RAM[via.orb & 0x03][ramptr + wtptr]);
+            log_debug("Found STOP Data snum = %x Data = (%x, dec: %d)\n",snum, WAV_RAM[bank] [ramptr32 + wtptr8], WAV_RAM[bank] [ramptr32 + wtptr8]);
             debug_doc_halt_osc(osc, 1, &acc, resshift);               // we will stop the oscillator
           }
           else
@@ -660,17 +700,10 @@ uint8_t doc_rreg(uint8_t reg) {
         return oscillator[osc].control;
         break;
       case 0xc0:  // / N.U. 1bit / Bank Select 1bit / Wavetable Size 3bits / Resolution 3bits/
-#if DOC5503_DEBUG      
-        log_debug("DOC5503 READ: Remember to implement 4 banks 32Kbytes each. ");
-#endif      
-        retval = 0;
-        if (oscillator[osc].wavetblpointer & 0x10000) // if bit 17 is 1, we are addressing the next 64Kbytes
-        {
-          retval |= 0x40;
-        }
-
-        retval |= (oscillator[osc].wavetblsize<<3);
-        retval |=  oscillator[osc].resolution;
+        retval = 0x80;                                    // AF013021: bit 7 is always 1 
+        if (oscillator[osc].bankselect) retval |= 0x40;   // AF013021: bit 6 depends on Bank Select 
+        retval |= (oscillator[osc].wavetblsize<<3);       // AF013021: bits 5,4,3 are wavetable size
+        retval |=  oscillator[osc].resolution;            // AF013021: bits 2,1,0 are resolution
 #if DOC5503_DEBUG
         log_debug("DOC5503 READ: Bank Select %02x  value = %02x\n", reg, retval);
 #endif        
@@ -814,7 +847,7 @@ if (val ==0x08)
 #if DOC5503_DEBUG 
         log_debug("DOC5503 WRITE: Waveteble Pointer Register %02x with value (%02x << 8) == %04x\n", reg, val, val<<8);
 #endif  
-        oscillator[osc].wavetblpointer = (val<<8);
+        oscillator[osc].wavetblpointer = (val<<8);  // AF 013021 I AM NOT CONVINCED THIS IS CORRECT
         break;
       case 0xa0:  // oscillator control
 //           [     current osc is off     ] && [ the new control value turns ON the oscillator] 
@@ -847,7 +880,7 @@ if (val ==0x08)
 //            }
 //        }
 #endif
-        debug_update();  //<<< remove when you get sound out!!!
+       // debug_update();  //<<< remove when you get sound out!!!
         break;
       case 0xc0:  // bank select / wavetable size / resolution
 #if DOC5503_DEBUG 
@@ -855,11 +888,13 @@ if (val ==0x08)
 #endif          
         if (val & 0x40)    
         {
-          oscillator[osc].wavetblpointer |= 0x10000;
+          oscillator[osc].bankselect = true;
+          oscillator[osc].wavetblpointer |= 0x10000; // In our Mirage implementation we have 4 banks, this implies 2 banks
         }
         else
         {
-          oscillator[osc].wavetblpointer &= 0xffff;
+          oscillator[osc].bankselect = false;
+          oscillator[osc].wavetblpointer &=  0xffff; // In our Mirage implementation we have 4 banks, this implies 2 banks
         }
 
         oscillator[osc].wavetblsize = ((val>>3) & 7);

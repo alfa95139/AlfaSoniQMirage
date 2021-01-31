@@ -12,6 +12,7 @@ class Q : public AudioStream
 public:
   audio_block_t *block_ch0;
   audio_block_t *block_ch1; 
+  bool QinitDone = false;
 
  
   Q(void) : AudioStream(0,NULL) { 
@@ -67,7 +68,7 @@ typedef struct
   uint32_t wavetblpointer; // DOC5503 implementation uses 8bits, but we need 17 bits!!!
   uint8_t  wavetblsize;
   uint8_t  resolution;
-
+  bool     bankselect;
   uint32_t accumulator;
   uint8_t  irqpend;
 } DOC5503Osc;
