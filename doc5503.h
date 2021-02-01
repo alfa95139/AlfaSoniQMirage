@@ -10,45 +10,35 @@
 class Q : public AudioStream
 {
 public:
-  audio_block_t *block_ch0;
-  audio_block_t *block_ch1; 
-  bool QinitDone = false;
-
- 
   Q(void) : AudioStream(0,NULL) { 
                 begin();  
-               
             }  
+
   virtual void update(void);
   void init();
  
   void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift);
-
-private:
-void begin(){   
-  }
-  
-
-
-
  
+  void begin(){   
+  } 
+private:
+
  const int samples =  AUDIO_BLOCK_SAMPLES ; // determines how many samples the audio library processes per update.
  const int output_channels = 2; // stereo
-
-public:
-
- virtual ~Q() {
-
-        };
+  audio_block_t *block_ch0;
+  audio_block_t *block_ch1; 
+  bool QinitDone = false;
+  
+//public:
+// virtual ~Q() {
+//        };
 
 };
 
 void doc_run(CPU6809* cpu);
 uint8_t doc_rreg(uint8_t reg);
 void doc_wreg(uint8_t reg, uint8_t val);
- //void doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift);
- //int16_t *buffer_0;
- //int16_t *buffer_1;
+
 
 
 enum {

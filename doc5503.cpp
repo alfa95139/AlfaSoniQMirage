@@ -90,12 +90,9 @@ bool nomore = false;
 // Audio Library - END
 
 extern uint8_t WAV_RAM[4][WAV_END - WAV_START+1]; 
-//extern uint8_t PRG_RAM[RAM_END - RAM_START+1];  // we will remove once we know it works
 
 extern unsigned long get_cpu_cycle_count();
 unsigned long doc_cycles;
-
-
 
 DOC5503Osc oscillator[32];
 
@@ -109,7 +106,7 @@ uint32_t output_rate;
 // uint32_t altram;
 
 
-uint8_t doc_irq;
+uint8_t doc_irq, doc_irq_pre;
 
 // useful constants
 static constexpr uint16_t wavesizes[8] = { 256, 512, 1024, 2048, 4096, 8192, 16384, 32768 };        // T2, T1, T0
@@ -125,8 +122,8 @@ static constexpr int      resshifts[8] = { 9, 10, 11, 12, 13, 14, 15, 16 };
 void Q::init() {
   int i;
   
-    regE0 = 0xff;
-    regE1 = 0;
+    regE0 = 0x41; // 0100_0001 [IRQ, 1, 04, 03, 02, 01, 00, 1] OSCILLATOR INTERRUPT
+    regE1 = 0xC1; // 1100_0001 [H,   H, E4, E3, E2, E1, E0, H] OSCILLATOR ENABLE
     regE2 = 0x82; //A/D converter: rom.asm comparing between $90 and $70 (144 and 112)
 
 for (i=0; i<32; i++)
@@ -145,14 +142,15 @@ for (i=0; i<32; i++)
   }
   
     doc_irq = 0;
+    doc_irq_pre = 0;
     oscsenabled = 1; // this per the specs
     m_channel_strobe = 0;
     output_rate = CLK / ((32 +2) *8);  // 1 cycle per 32 oscillators + 2 refresh cycles = 34 cycles = 29,412 Hz
                                      // for 16 oscillators -> 8Mhz/ (18*8) = 55,5556 Hz
-    log_debug("*************************************************");
-    log_debug("* DOC5503: Sampling Frequency %ld\n", output_rate);
-    log_debug("* m_stream = stream_alloc(0, = %d , output_rate = %ld\n", output_channels, output_rate); 
-    log_debug("*************************************************");
+    log_debug("********************************************************\n");
+    log_debug("* DOC5503: Sampling Frequency %ld                    *\n", output_rate);
+    log_debug("* m_stream = stream_alloc(0, = %d , output_rate = %ld *\n", output_channels, output_rate); 
+    
 
  
 
@@ -170,10 +168,11 @@ if ( (block_ch0 == 0) || (block_ch1 == 0) )    { // ALWAYS CHECK FOR SUCCESSFUL 
                     return;
                    }
                    else {
-                    log_debug("DOC5503: AUDIO MEMORY: Successfully Allocated\n");
+                    log_debug("* DOC5503: AUDIO MEMORY: Successfully Allocated        *\n");
+                    log_debug("********************************************************\n");
                     QinitDone = true; // now ::update can go
                    }
-                   
+
 return;
 }
 // ***************** END doc_init() ****************
@@ -182,18 +181,23 @@ return;
 // ******************* DOC RUN  ********************
 // *************************************************
 
+
+
 void doc_run(CPU6809* cpu) {
   // this function will append to each audio queue the new associated sample
   // In the Mirage, the DOC runs at 8MHz, while the 6809 runs at 1MHz
   // so for every clock cycle, the DOC calculates for each oscillator the sample to append to the relative queue
 
-if(doc_irq == 1) {
+if (  (doc_irq_pre == 0) && (doc_irq == 1) ) { // posedge irq
 //#if DOC5503_DEBUG
-//    log_debug("DOC5503: IRQ FIRING");  
+    log_debug("DOC5503: IRQ FIRING");  
 //#endif
+    doc_irq_pre = doc_irq;
+    regE0 |= 0x80;  // CHECK THIS
     cpu->irq();
     return;
     }
+doc_irq_pre = doc_irq;
 
 if (get_cpu_cycle_count() < doc_cycles) {
           return; // not ready yet
@@ -222,7 +226,7 @@ void Q::doc_halt_osc(int onum, int type, uint32_t *accumulator, int resshift) {
   const int partnerMode = (pPartner->control>>1) & 3;
 
 #if DOC5503_DEBUG
-log_debug("DOC5503: ::halt_osc (REAL) *****************\n");
+log_debug("DOC5503: *** Q::halt_osc ***\n");
 #endif
   
 	// if 0 found in sample data or mode is not free-run, instruct the oscillator to HALT
@@ -263,22 +267,13 @@ log_debug("DOC5503: ::halt_osc (REAL) *****************\n");
 	{
 		pOsc->irqpend = 1;
 		doc_irq = 1;            //  This will flag the irq in doc_run() **** USE irq.set(0) here with new usim
-#if DOC5503_DEBUG
-		log_debug("DOC5503: ******************* IRQ ****************************\n");
-#endif
+//#if DOC5503_DEBUG
+		log_debug("DOC5503: Halt osc (%d)******************* IRQ ****************************\n", onum);
+//#endif
 	}
  
 }
 // **************************** END doc_alt_osc() *******************************
-
-
-
-
-// for each oscillator
-//          is the oscillator HALT bit set? -> skip to next oscillator
-//              else
-//          compute the next sample
-//          assign the sample to the queue identified by m_channel_strobe
 
 // *****************************************************
 // ******************* AUDIO UPDATE ********************
@@ -310,7 +305,10 @@ uint16_t memaddr_bank;
 
 if(QinitDone) {  // we moved the allocate() to ::init, so ::init needs to finish correctly before we can use block_chN
 
-
+if( (block_ch0 == 0) || (block_ch1 == 0) ) {
+    log_debug("DOC5503: Q::Update - LOST block_ch0 and block_ch1!!!\n");
+    return;
+    }
 buffer_0 = block_ch0->data;
 buffer_1 = block_ch1->data;
 
@@ -318,13 +316,12 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
         *buffer_0++ = 0;
         *buffer_1++ = 0;
         }
-
-
-      
+ 
   for (int chan = 0; chan < output_channels; chan++)      // for each channel, chan = 0, or chan = 1
   {
     for (osc = 0; osc < (oscsenabled); osc++)           // for each oscillator that is enabled
     {
+      
       DOC5503Osc *pOsc = &oscillator[osc];               // for each enabled oscillator, get its handle 
 
 // Explanation of ((pOsc->control >> 4) & (output_channels - 1)) == chan
@@ -375,8 +372,8 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
           // channel strobe is always valid when reading; this allows potentially banking per voice
           m_channel_strobe = (ctrl>>4) & 0xf;           // it is 1 when (CA3 CA2 CA1 CA0) == 4'b1111;
 
-        memaddr_l = ramptr+wtptr;
-        memaddr = memaddr_l & 0xFFFF;
+        memaddr_l = ramptr + wtptr;       // this is anywhere in the 128Kbytes WAV memory space
+        memaddr = memaddr_l & 0xFFFF;     // Let's keep just the first 64K, then we select the bank
         if (bankselect) { // bank 3 or 4
                 if (memaddr<= 0x7FFF) {  bank = 3;    memaddr_bank = memaddr; }
                   else                {  bank = 4;    memaddr_bank = memaddr - 0x8000; };
@@ -384,19 +381,19 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
                 if (memaddr<= 0x7FFF) {  bank = 1;   memaddr_bank = memaddr; }
                   else       {           bank = 2;   memaddr_bank = memaddr - 0x8000; };
         }
-        /*
-        if      (ramptr+wtptr <=  0x7fff) {   log_debug("*********** Bank 0"); bank = 0;  }
-        else if (ramptr+wtptr <=  0xffff) {   log_debug("*********** Bank 1"); bank = 1;  }
-        else if (ramptr+wtptr <= 0x17fff) {   log_debug("*********** Bank 2"); bank = 2;  }
-        else                              {   log_debug("*********** Bank 3"); bank = 3;  }
-        */
+        
+        //if      (ramptr+wtptr <=  0x7fff) {   log_debug("*********** Bank 0"); bank = 0;  }
+        //else if (ramptr+wtptr <=  0xffff) {   log_debug("*********** Bank 1"); bank = 1;  }
+        //else if (ramptr+wtptr <= 0x17fff) {   log_debug("*********** Bank 2"); bank = 2;  }
+        //else                              {   log_debug("*********** Bank 3"); bank = 3;  }
+        
           
           data = WAV_RAM[bank][memaddr_bank] ^ 0x80; // normalize waveform
 
           if (data == 0)  // If encountering "stop" 
           {     
 #if DOC5503_DEBUG       
-            log_debug("DOC5503 ::update: Found STOP Data snum = %x Data = (%x, dec: %d)\n",snum, data, data);
+//            log_debug("DOC5503 ::update: Found STOP Data snum = %x Data = (%x, dec: %d)\n",snum, data, data);
 #endif
             doc_halt_osc(osc, 1, &acc, resshift);               // we will stop the oscillator
           }
@@ -413,7 +410,7 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
             if (altram >= wtsize)   // End of the table has been reached - halt the oscillator
             {
 #if DOC5503_DEBUG  
-              log_debug("DOC5503 ::update: End of table reached (halt_osc next)\n");
+//              log_debug("DOC5503 ::update: End of table reached (halt_osc next)\n");
 #endif
               doc_halt_osc(osc, 0, &acc, resshift);
             }
@@ -433,6 +430,7 @@ for(i=0; i<AUDIO_BLOCK_SAMPLES; i++) {  // ALWAYS INITIALIZE W ZEROS
       }     // for each active oscillator in the respective channel
     }      // for each oscillator 
   }       // for each channel (2)
+
 
 
 transmit(block_ch0, 0);
@@ -775,18 +773,22 @@ uint8_t doc_rreg(uint8_t reg) {
     switch (reg)
     {
       case 0xe0:  // interrupt status
-#if DOC5503_DEBUG
-        log_debug("DOC5503:       INTERRUPT STATUS IS: %x", regE0);
-#endif      
+//#if DOC5503_DEBUG
+        if (regE0 != 0x41) log_debug("DOC5503: (beginning) INTERRUPT STATUS IS: %x", regE0);
+//#endif      
         retval = regE0;
 
         doc_irq = 0; // clear DOC interrupt  // use irq.set(1) in new usim ****AF 012821 ****
+        doc_irq_pre = 0;
+        regE0 &= 0x7f; // clear interrupt bit
 
         // scan all oscillators
         for (i = 0; i < oscsenabled; i++)
         {
           if (oscillator[i].irqpend)
           {
+          log_debug("DOC5503: Oscillator %d has an interrupt\n", i);
+
             // signal this oscillator has an interrupt
             retval = i<<1;
 
@@ -797,23 +799,24 @@ uint8_t doc_rreg(uint8_t reg) {
             break;
           }
         }
-
+          if (regE0 != 0x41) log_debug("DOC5503: INTERMEDIATE INTERRUPT STATUS IS: %x", regE0);
         // if any oscillators still need to be serviced, assert IRQ again immediately
         for (i = 0; i < oscsenabled; i++)
         {
           if (oscillator[i].irqpend)
           {
-#if DOC5503_DEBUG            
-            log_debug("DOC5503 -> GENERATE IRQ!!! ");
-#endif
+//#if DOC5503_DEBUG    
+            log_debug("DOC5503 Oscillator %d still needs to be serviced\n", i);        
+            log_debug("DOC5503 INTERRUPT STATUS -> GENERATE IRQ!!! ");
+//#endif
             doc_irq=1;
             //cpu->irq();   // use irq.set(0) in new usim ****AF 012821 ****
             break;
           }
         }
-#if DOC5503_DEBUG
-        log_debug("DOC5503: READ INTERRUPT STATUS WILL RETURN %02x\n", retval);
-#endif        
+//#if DOC5503_DEBUG
+          if (regE0 != 0x41) log_debug("DOC5503: READ INTERRUPT STATUS WILL RETURN %02x\n", (regE0 | 0x41) );
+//#endif        
         return regE0 | 0x41; // 0100_0001 fix by Tim Lindner, Jan 4th 2021
         break;
       case 0xe1:  // oscillator enable
@@ -915,10 +918,6 @@ if (val ==0x08)
           oscillator[osc].accumulator = 0;
 //#if DOC5503_DEBUG
         log_debug("DOC5503 WRITE: Turning ON oscillator %d\n", osc);
-//#endif
-        }
-        oscillator[osc].control = val;
-#if DOC5503_DEBUG 
         log_debug("DOC5503 WRITE: Oscillator Control Register %02x with value = %02x\n", reg, val);
         log_debug("DOC5503        (CA3, CA2, CA1, CA0) = %x%x%x%x\n", ((val & 0xFF) >> 7) & 0x01, ((val & 0xFF) >> 6) & 0x01, ((val & 0xFF) >> 5) & 0x01,  ((val & 0xFF) >> 4) & 0x01  );
         log_debug("DOC5503        Interrupt Enable is %s\n", ((val & 0x08) == 0x08) ? "Enabled" : "Disabled");
@@ -933,28 +932,21 @@ if (val ==0x08)
           break;
         }
           log_debug("DOC5503        Halt Bit is %s\n", ((val & 0x01) == 0x01) ? "Enabled" : "Disabled");
-//        if ( reg == 0xbf) { // take advantage of this to check if we can access correctly PRGM_RAM from here
-//          for(verifyaddr=0; verifyaddr < 1024; verifyaddr++) {
-//             log_debug("%X , %X, %X, %X, %X, %X, %X, %X, %X , %X, %X, %X, %X, %X, %X, %X\n", PRG_RAM[verifyaddr*16 + 0c], PRG_RAM[verifyaddr*16 + 1] ,PRG_RAM[verifyaddr*16 + 2], PRG_RAM[verifyaddr*16 + 3],PRG_RAM[verifyaddr*16 + 4],PRG_RAM[verifyaddr*16 + 05],PRG_RAM[verifyaddr*16 + 6],PRG_RAM[verifyaddr*16 + 7],PRG_RAM[verifyaddr*16 + 8],PRG_RAM[verifyaddr*16 + 9],PRG_RAM[verifyaddr*16 + 10],PRG_RAM[verifyaddr*16 + 11],PRG_RAM[verifyaddr*16 + 12],PRG_RAM[verifyaddr*16 + 13],PRG_RAM[verifyaddr*16 + 14],PRG_RAM[verifyaddr*16 + 15]);
-//            }
-//        }
-#endif
+//#endif
+        }
+        oscillator[osc].control = val;
  //       debug_update();  //<<< remove when you get sound out!!!
         break;
       case 0xc0:  // bank select / wavetable size / resolution
 #if DOC5503_DEBUG 
         log_debug("DOC5503 WRITE: Bank Select Register [REMEMBER TO IMPLEMENT BANK SELECT] %02x with value = %02x\n", reg, val);
 #endif          
-        if (val & 0x40)    
-        {
-          oscillator[osc].bankselect = true;
+        oscillator[osc].bankselect = (val & 0x40);
+        if (oscillator[osc].bankselect)    
           oscillator[osc].wavetblpointer |= 0x10000; // In our Mirage implementation we have 4 banks, this implies 2 banks
-        }
         else
-        {
-          oscillator[osc].bankselect = false;
           oscillator[osc].wavetblpointer &=  0xffff; // In our Mirage implementation we have 4 banks, this implies 2 banks
-        }
+        
 
         oscillator[osc].wavetblsize = ((val>>3) & 7);
         oscillator[osc].wtsize = wavesizes[oscillator[osc].wavetblsize];

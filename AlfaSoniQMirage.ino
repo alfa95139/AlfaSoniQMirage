@@ -139,25 +139,7 @@ void setup()
   Serial.println("= Additional Contributors:                            =");
   Serial.println("= Erturk Kocalar (8bitforce), Tim Lindner             =");
   Serial.println("=======================================================");
-  /*
-  Serial.print  ("SRAM Size:  "); Serial.print(RAM_END - RAM_START + 1, DEC); Serial.println(" Bytes");
-  Serial.print  ("SRAM_START: 0x"); Serial.println(RAM_START, HEX);
-  Serial.print  ("SRAM_END:   0x"); Serial.println(RAM_END, HEX);
-  Serial.println();
-  Serial.print  ("WAV RAM Size:  "); Serial.print( ((WAV_END - WAV_START + 1) * 4 )/ 1024, DEC); Serial.println(" KBytes");
-  Serial.print  ("BANK 0: WAV RAM START: 0x"); Serial.println(WAV_START, HEX);
-  Serial.print  ("        WAV RAM END:   0x"); Serial.println(WAV_END, HEX);
-  Serial.print  ("BANK 1: WAV RAM START: 0x"); Serial.println(WAV_START, HEX);
-  Serial.print  ("        WAV RAM END:   0x"); Serial.println(WAV_END, HEX);
-  Serial.print  ("BANK 2: WAV RAM START: 0x"); Serial.println(WAV_START, HEX);
-  Serial.print  ("        WAV RAM END:   0x"); Serial.println(WAV_END, HEX);
-  Serial.print  ("BANK 3: WAV RAM START: 0x"); Serial.println(WAV_START, HEX);
-  Serial.print  ("        WAV RAM END:   0x"); Serial.println(WAV_END, HEX);
-  Serial.println();
-  Serial.print  ("ROM Size:  "); Serial.print(ROM_END - ROM_START + 1, DEC); Serial.println(" Bytes");
-  Serial.print  ("ROM_START: 0x"); Serial.println(ROM_START, HEX);
-  Serial.print  ("ROM_END:   0x"); Serial.println(ROM_END, HEX);
-  */
+
   Serial.println();
   Serial.println();
   Serial.flush();
